@@ -156,7 +156,7 @@ export function DragDropUploader() {
 
       {/* Animated Drag-Drop Area - Positioned absolutely */}
       <div
-        className={`absolute right-0 z-10 w-full transition-all duration-300 ease-in-out ${
+        className={`absolute right-0 z-10 w-full sm:w-[32rem] transition-all duration-300 ease-in-out ${
           isVisible ? 'opacity-100 top-12 visible' : 'opacity-0 top-0 invisible'
         }`}
       >
