@@ -3,6 +3,16 @@ name: Deploy to Azure App Service
 on:
   push:
     branches: [main, dev]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'next.config.mjs'
+      - 'tailwind.config.ts'
+      - 'postcss.config.mjs'
+      - 'Dockerfile'
+      - '.github/workflows/azure-deploy.yml'
 
   workflow_dispatch:
     inputs:
