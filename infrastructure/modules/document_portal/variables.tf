@@ -1,19 +1,16 @@
 variable "project" {
   description = "Project name"
   type        = string
-  default     = "document-portal"
 }
 
 variable "environment" {
   description = "Environment name"
   type        = string
-  default     = "dev"
 }
 
 variable "location" {
   description = "Azure region"
   type        = string
-  default     = "UK South"
 }
 
 variable "resource_group_name" {
@@ -28,12 +25,16 @@ variable "app_service_sku" {
   default     = "B1"
 }
 
+variable "https_only" {
+  description = "Force HTTPS for all traffic"
+  type        = bool
+  default     = true
+}
+
 variable "redirect_uris" {
   description = "Redirect URIs for the application"
   type        = list(string)
-  default = [
-    "http://localhost:3000/api/auth/callback/azure-ad"
-  ]
+  default     = []
 }
 
 variable "key_vault" {
@@ -41,9 +42,6 @@ variable "key_vault" {
   type = object({
     sku_name = string
   })
-  default = {
-    sku_name = "standard"
-  }
 }
 
 variable "storage" {
@@ -53,11 +51,6 @@ variable "storage" {
     account_replication_type = string
     min_tls_version          = string
   })
-  default = {
-    account_tier             = "Standard"
-    account_replication_type = "LRS"
-    min_tls_version          = "TLS1_2"
-  }
 }
 
 variable "storage_container" {
@@ -66,10 +59,6 @@ variable "storage_container" {
     name                  = string
     container_access_type = string
   })
-  default = {
-    name                  = "documents"
-    container_access_type = "private"
-  }
 }
 
 variable "azure_ad" {
@@ -77,9 +66,6 @@ variable "azure_ad" {
   type = object({
     password_end_date = string
   })
-  default = {
-    password_end_date = "2025-12-31T00:00:00Z"
-  }
 }
 
 variable "github_username" {
@@ -92,4 +78,10 @@ variable "github_token" {
   description = "GitHub personal access token with package read permissions"
   type        = string
   sensitive   = true
+}
+
+variable "allowed_origins" {
+  description = "CORS allowed origins for storage account"
+  type        = list(string)
+  default     = []
 }
