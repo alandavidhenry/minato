@@ -1,4 +1,4 @@
-// src/app/api/admin/users/[id]/role/route.ts
+// src/app/api/admin/users/[id]/role/routes.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 

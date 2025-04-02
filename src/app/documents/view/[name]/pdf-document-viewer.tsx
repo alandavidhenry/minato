@@ -1,3 +1,4 @@
+// src/app/documents/view/[name]/pdf-document-viewer.tsx
 'use client'
 
 import { Viewer, Worker } from '@react-pdf-viewer/core'

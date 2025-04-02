@@ -1,3 +1,4 @@
+// src/components/drag-drop-uploader.tsx
 'use client'
 
 import { Upload } from 'lucide-react'

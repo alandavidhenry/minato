@@ -1,3 +1,4 @@
+// src/types/next-auth.ts
 import { DefaultSession } from 'next-auth'
 
 import { UserRole } from './rbac'

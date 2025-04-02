@@ -1,3 +1,4 @@
+// src/app/layout.tsx
 import { Inter } from 'next/font/google'
 
 import { NavBar } from '@/components/nav-bar'

@@ -1,7 +1,7 @@
 // src/lib/graph-api.ts
+import { ClientSecretCredential } from '@azure/identity'
 import { Client } from '@microsoft/microsoft-graph-client'
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials'
-import { ClientSecretCredential } from '@azure/identity'
 
 export interface GraphUser {
   id: string
@@ -39,9 +39,7 @@ export function getGraphClient() {
   })
 
   // Initialize the Graph client
-  const graphClient = Client.initWithMiddleware({
-    authProvider: authProvider
-  })
+  const graphClient = Client.initWithMiddleware({ authProvider: authProvider })
 
   return graphClient
 }

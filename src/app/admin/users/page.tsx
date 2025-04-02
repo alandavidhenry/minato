@@ -1,3 +1,4 @@
+// src/app/admin/users/page.tsx
 'use client'
 
 import { Plus, Search } from 'lucide-react'

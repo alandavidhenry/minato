@@ -1,8 +1,10 @@
+// src/app/admin/settings/page.tsx
 'use client'
 
 import { Loader2, Save, Shield } from 'lucide-react'
 import { useState } from 'react'
 
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -11,14 +13,10 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card'
-
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
-
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from '@/components/ui/use-toast'
 
 export default function AdminSettingsPage() {
@@ -38,17 +36,11 @@ export default function AdminSettingsPage() {
   })
 
   function handleGeneralSettingsChange(field: string, value: any) {
-    setGeneralSettings((prev) => ({
-      ...prev,
-      [field]: value
-    }))
+    setGeneralSettings((prev) => ({ ...prev, [field]: value }))
   }
 
   function handleSecuritySettingsChange(field: string, value: any) {
-    setSecuritySettings((prev) => ({
-      ...prev,
-      [field]: value
-    }))
+    setSecuritySettings((prev) => ({ ...prev, [field]: value }))
   }
 
   async function handleSaveSettings(e: React.FormEvent) {
@@ -59,10 +51,7 @@ export default function AdminSettingsPage() {
       // For now, we'll just simulate saving the settings
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      toast({
-        title: 'Success',
-        description: 'Settings saved successfully'
-      })
+      toast({ title: 'Success', description: 'Settings saved successfully' })
     } catch (error) {
       console.error('Error saving settings:', error)
       toast({

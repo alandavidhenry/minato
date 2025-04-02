@@ -1,3 +1,4 @@
+// src/app/documents/page.tsx
 import { DragDropUploader } from '@/components/drag-drop-uploader'
 import { listBlobs } from '@/lib/list-blobs'
 

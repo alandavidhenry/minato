@@ -1,3 +1,4 @@
+// src/lib/version-manager.ts
 import { BlobServiceClient } from '@azure/storage-blob'
 
 interface DocumentVersion {

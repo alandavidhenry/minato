@@ -1,3 +1,4 @@
+// src/app/unauthorized/page.tsx
 'use client'
 
 import { ShieldAlert } from 'lucide-react'

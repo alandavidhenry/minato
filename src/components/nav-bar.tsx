@@ -1,3 +1,4 @@
+// src/components/nav-bar.tsx
 'use client'
 
 import { Menu, Shield } from 'lucide-react'

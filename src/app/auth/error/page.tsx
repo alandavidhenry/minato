@@ -1,3 +1,4 @@
+// src/app/auth/error/page.tsx
 'use client'
 
 import { useSearchParams } from 'next/navigation'
@@ -19,7 +20,7 @@ export default function ErrorPage() {
         </h2>
         <div className='rounded-md bg-red-50 p-4'>
           <p className='text-sm text-red-800'>
-            Error: {error || 'Unknown error occurred'}
+            Error: {error ?? 'Unknown error occurred'}
           </p>
         </div>
       </div>

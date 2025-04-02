@@ -1,3 +1,4 @@
+// src/lib/auth.ts
 import { NextAuthOptions } from 'next-auth'
 import { JWT } from 'next-auth/jwt'
 import AzureADProvider from 'next-auth/providers/azure-ad'

@@ -1,3 +1,4 @@
+// src/components/share-modal.tsx
 'use client'
 
 import { Copy, X } from 'lucide-react'
