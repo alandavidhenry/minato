@@ -85,3 +85,9 @@ variable "allowed_origins" {
   type        = list(string)
   default     = []
 }
+
+variable "default_admin_email" {
+  description = "Email of the default admin user"
+  type        = string
+  default     = ""
+}
