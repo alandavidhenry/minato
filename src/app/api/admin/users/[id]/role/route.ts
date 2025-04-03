@@ -1,9 +1,13 @@
-// src/app/api/admin/users/[id]/role/routes.ts
+// src/app/api/admin/users/[id]/role/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
-import { assignAppRoleToUser, removeAppRoleFromUser } from '@/lib/graph-api'
+import {
+  getGraphClient,
+  assignAppRoleToUser,
+  removeAppRoleFromUser
+} from '@/lib/graph-api'
 import { UserRole } from '@/types/rbac'
 
 // Middleware to check admin permissions
@@ -21,7 +25,7 @@ async function checkAdminPermission() {
 // POST: Assign a role to a user
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   // Check admin permissions
   const isAdmin = await checkAdminPermission()
@@ -33,15 +37,16 @@ export async function POST(
     )
   }
 
+  const id = context.params.id
+
   try {
-    const userId = params.id
     const { role } = await request.json()
 
     if (!role) {
       return NextResponse.json({ error: 'Role is required' }, { status: 400 })
     }
 
-    // Get the appropriate role ID based on the role name
+    // Get the appropriate role ID
     let appRoleId
 
     if (role === 'Administrator') {
@@ -60,11 +65,42 @@ export async function POST(
       throw new Error('appRoleId is required')
     }
 
-    await assignAppRoleToUser(userId, process.env.AZURE_AD_CLIENT_ID, appRoleId)
+    // Check existing role assignments
+    try {
+      const client = getGraphClient()
+      const userAppRoles = await client
+        .api(`/users/${id}/appRoleAssignments`)
+        .get()
 
-    return NextResponse.json({ success: true })
+      // Check if this role is already assigned
+      const existingAssignment = userAppRoles.value.find(
+        (assignment: any) => assignment.appRoleId === appRoleId
+      )
+
+      if (existingAssignment) {
+        // Role already assigned - return success
+        return NextResponse.json({
+          success: true,
+          message: 'Role was already assigned'
+        })
+      }
+
+      // Role not assigned, proceed with assignment
+      await assignAppRoleToUser(id, process.env.AZURE_AD_CLIENT_ID, appRoleId)
+
+      return NextResponse.json({ success: true })
+    } catch (error: any) {
+      console.error(`Error checking or assigning role to user ${id}:`, error)
+      return NextResponse.json(
+        {
+          error: 'Failed to assign role',
+          details: error.message || String(error)
+        },
+        { status: 500 }
+      )
+    }
   } catch (error) {
-    console.error(`Error assigning role to user ${params.id}:`, error)
+    console.error(`Error processing role assignment for user ${id}:`, error)
     return NextResponse.json(
       { error: 'Failed to assign role' },
       { status: 500 }

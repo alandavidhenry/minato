@@ -4,9 +4,6 @@ import { Loader2, UserCog } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { toast } from '@/components/ui/use-toast'
-
 import {
   Dialog,
   DialogContent,
@@ -15,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -22,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { toast } from '@/components/ui/use-toast'
 
 interface ChangeRoleDialogProps {
   readonly userId: string
@@ -85,12 +84,8 @@ export function ChangeRoleDialog({
           // Remove the current role
           await fetch(`/api/admin/users/${userId}/role`, {
             method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              appRoleAssignmentId: roleAssignment.id
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appRoleAssignmentId: roleAssignment.id })
           })
         }
       }
@@ -99,23 +94,36 @@ export function ChangeRoleDialog({
       if (selectedRole !== 'Guest') {
         const response = await fetch(`/api/admin/users/${userId}/role`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            role: selectedRole
-          })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: selectedRole })
         })
 
         if (!response.ok) {
-          throw new Error('Failed to assign role')
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to assign role')
         }
-      }
 
-      toast({
-        title: 'Success',
-        description: `User role changed to ${selectedRole}`
-      })
+        const result = await response.json()
+
+        // Show appropriate toast based on whether role was already assigned
+        if (result.message === 'Role was already assigned') {
+          toast({
+            title: 'Success',
+            description: `User already has the ${selectedRole} role`
+          })
+        } else {
+          toast({
+            title: 'Success',
+            description: `User role changed to ${selectedRole}`
+          })
+        }
+      } else {
+        // If setting to Guest (removing role), just show success message
+        toast({
+          title: 'Success',
+          description: `User role changed to ${selectedRole}`
+        })
+      }
 
       // Call success callback
       onRoleChanged()

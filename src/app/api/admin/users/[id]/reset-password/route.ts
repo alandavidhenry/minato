@@ -1,4 +1,4 @@
-// src/app/api/admin/users/[id]/reset-password/routes.ts
+// src/app/api/admin/users/[id]/reset-password/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 

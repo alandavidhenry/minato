@@ -49,6 +49,7 @@ export async function getUsers(): Promise<GraphUser[]> {
   try {
     const client = getGraphClient()
 
+    // First get the users
     const result = await client
       .api('/users')
       .select(
@@ -56,7 +57,29 @@ export async function getUsers(): Promise<GraphUser[]> {
       )
       .get()
 
-    return result.value
+    // Now, for each user, get their app role assignments
+    const usersWithRoles = await Promise.all(
+      result.value.map(async (user: GraphUser) => {
+        try {
+          // Get user's app role assignments
+          const appRolesResponse = await client
+            .api(`/users/${user.id}/appRoleAssignments`)
+            .get()
+
+          // Add app role assignments to user object
+          user.appRoleAssignments = appRolesResponse.value
+        } catch (error) {
+          console.error(
+            `Error fetching app role assignments for user ${user.id}:`,
+            error
+          )
+          user.appRoleAssignments = []
+        }
+        return user
+      })
+    )
+
+    return usersWithRoles
   } catch (error) {
     console.error('Error fetching users from Microsoft Graph:', error)
     throw error

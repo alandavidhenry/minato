@@ -90,24 +90,34 @@ export default function UsersPage() {
   function handleUserCreated() {
     fetchUsers()
     setShowCreateDialog(false)
-    toast({
-      title: 'Success',
-      description: 'User created successfully'
-    })
+    toast({ title: 'Success', description: 'User created successfully' })
   }
 
   // Handle user update
   function handleUserUpdated() {
     fetchUsers()
-    toast({
-      title: 'Success',
-      description: 'User updated successfully'
-    })
+    toast({ title: 'Success', description: 'User updated successfully' })
   }
 
   // Determine user role
   function getUserRole(user: User): string {
-    if (!user.appRoleAssignments?.length) {
+    // Debug log to see what we're working with
+    console.log(`Checking role for user: ${user.displayName}`, {
+      appRoleAssignments: user.appRoleAssignments,
+      adminRoleId: process.env.NEXT_PUBLIC_AZURE_AD_ADMIN_ROLE_ID,
+      userRoleId: process.env.NEXT_PUBLIC_AZURE_AD_USER_ROLE_ID
+    })
+
+    // Check if user is the default admin by email
+    const isDefaultAdmin =
+      user.mail === process.env.DEFAULT_ADMIN_EMAIL ||
+      user.userPrincipalName.includes(process.env.DEFAULT_ADMIN_EMAIL ?? '')
+
+    if (isDefaultAdmin) {
+      return 'Administrator'
+    }
+
+    if (!user.appRoleAssignments || user.appRoleAssignments.length === 0) {
       return 'Guest'
     }
 
