@@ -35,12 +35,14 @@ jobs:
     environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
     
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -52,6 +54,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Extract version from package.json
+        if: ${{ env.ENVIRONMENT_NAME == 'prod' }}
+        id: package-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Version extracted: $VERSION"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -60,6 +70,7 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.sha }}
             ghcr.io/${{ github.repository }}:${{ env.ENVIRONMENT_NAME == 'prod' && 'latest' || 'dev-latest' }}
+            ${{ env.ENVIRONMENT_NAME == 'prod' && format('ghcr.io/{0}:v{1}', github.repository, env.VERSION) || '' }}
           cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:${{ env.ENVIRONMENT_NAME == 'prod' && 'latest' || 'dev-latest' }}
           cache-to: type=inline
 
@@ -73,3 +84,20 @@ jobs:
         with:
           app-name: ${{ secrets.AZURE_APP_NAME }}
           images: ghcr.io/${{ github.repository }}:${{ github.sha }}
+      
+      - name: Create GitHub Release
+        if: ${{ env.ENVIRONMENT_NAME == 'prod' }}
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ env.VERSION }}
+          release_name: Release v${{ env.VERSION }}
+          draft: false
+          prerelease: false
+          body: |
+            Release of version ${{ env.VERSION }}
+            
+            Deployed to production on $(date +'%Y-%m-%d')
+            
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
