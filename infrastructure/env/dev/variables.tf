@@ -77,3 +77,9 @@ variable "github_token" {
   type        = string
   sensitive   = true
 }
+
+variable "default_admin_email" {
+  description = "Email of the default admin user"
+  type        = string
+  default     = ""
+}

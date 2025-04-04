@@ -1,3 +1,4 @@
+// src/app/page.tsx
 import { FileText } from 'lucide-react'
 import Link from 'next/link'
 

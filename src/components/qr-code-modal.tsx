@@ -1,3 +1,4 @@
+// src/components/qr-code-modal.tsx
 'use client'
 
 import { Download, X } from 'lucide-react'

@@ -1,3 +1,4 @@
+// src/app/s/[code]/page.tsx
 'use client'
 
 import { useRouter } from 'next/navigation'

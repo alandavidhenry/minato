@@ -1,3 +1,4 @@
+// src/app/shared/view/page.tsx
 'use client'
 
 import { Download, X } from 'lucide-react'

@@ -1,3 +1,4 @@
+// src/app/api/documents/download/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 

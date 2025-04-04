@@ -120,6 +120,7 @@ module "app_service" {
     "NEXTAUTH_SECRET"                 = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.nextauth_secret.versionless_id})"
     "WEBSITE_NODE_DEFAULT_VERSION"    = "~20"
     "SCM_DO_BUILD_DURING_DEPLOYMENT"  = "true"
+    "DEFAULT_ADMIN_EMAIL"             = var.default_admin_email
   }
 }
 

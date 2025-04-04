@@ -1,3 +1,4 @@
+// src/app/auth/signin/page.tsx
 'use client'
 
 import { useSearchParams } from 'next/navigation'

@@ -1,3 +1,4 @@
+// src/app/api/shorturl/[code]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 
 import { resolveShortUrl } from '@/lib/url-shortener'

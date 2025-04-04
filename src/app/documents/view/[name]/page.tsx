@@ -1,11 +1,10 @@
+// src/app/documents/view/[name]/page.tsx
 import { notFound } from 'next/navigation'
 
 import { PDFDocumentViewer } from './pdf-document-viewer'
 
 interface PageProps {
-  params: Promise<{
-    name: string
-  }>
+  readonly params: Promise<{ name: string }>
 }
 
 export default async function Page({ params }: PageProps) {

@@ -1,3 +1,4 @@
+// src/components/delete-confirmation-modal.tsx
 'use client'
 
 import { AlertTriangle, Trash2, X } from 'lucide-react'

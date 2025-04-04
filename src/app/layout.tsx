@@ -1,6 +1,8 @@
+// src/app/layout.tsx
 import { Inter } from 'next/font/google'
 
 import { NavBar } from '@/components/nav-bar'
+import { RBACProvider } from '@/components/providers/rbac-provider'
 import { AuthProvider } from '@/components/providers/session-provider'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
@@ -25,13 +27,15 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider>
           <AuthProvider>
-            <div className='min-h-screen bg-background flex flex-col'>
-              <NavBar />
-              <main className='flex-1'>
-                <div className='container mx-auto py-4'>{children}</div>
-              </main>
-            </div>
-            <Toaster />
+            <RBACProvider>
+              <div className='min-h-screen bg-background flex flex-col'>
+                <NavBar />
+                <main className='flex-1'>
+                  <div className='container mx-auto py-4'>{children}</div>
+                </main>
+              </div>
+              <Toaster />
+            </RBACProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
