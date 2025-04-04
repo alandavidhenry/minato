@@ -1,74 +1,67 @@
 // src/lib/auth.ts
 import { NextAuthOptions } from 'next-auth'
-import { JWT } from 'next-auth/jwt'
 import AzureADProvider from 'next-auth/providers/azure-ad'
+import CredentialsProvider from 'next-auth/providers/credentials'
 
 import { UserRole } from '@/types/rbac'
 
-// Function to extract roles from Azure AD token
-function getRolesFromAzureADToken(token: JWT): UserRole[] {
-  // Add debug logging to see what's in the token
-  console.log('Token data for role extraction:', {
-    roles: token.roles,
-    email: token.email
-  })
+import { verifyUserCredentials } from './user-database'
 
-  // Check for roles claim from Azure AD
-  const azureRoles = (token.roles as string[]) || []
-
-  // Map Azure AD roles to our application roles
-  const mappedRoles: UserRole[] = []
-
-  // Safely check if appRoleAssignments exists and is an array
-  const appRoleAssignments = Array.isArray(token.appRoleAssignments)
-    ? token.appRoleAssignments
-    : []
-
-  // If user has the Administrator role in Azure AD, they're an admin
-  if (
-    azureRoles.includes('Administrator') ||
-    token.email === process.env.DEFAULT_ADMIN_EMAIL ||
-    // Check app role assignments if available
-    appRoleAssignments.some(
-      (role) => role.appRoleId === process.env.AZURE_AD_ADMIN_ROLE_ID
-    )
-  ) {
-    mappedRoles.push(UserRole.ADMIN)
-  } else if (
-    azureRoles.length > 0 ||
-    // Check for user role assignment
-    appRoleAssignments.some(
-      (role) => role.appRoleId === process.env.AZURE_AD_USER_ROLE_ID
-    )
-  ) {
-    // If they have any role, they're at least a regular user
-    mappedRoles.push(UserRole.USER)
-  } else {
-    // Default role if no specific roles are assigned
-    mappedRoles.push(UserRole.GUEST)
-  }
-
-  return mappedRoles
-}
-
-// NextAuth configuration with callbacks to handle roles
 export const authOptions: NextAuthOptions = {
   providers: [
+    CredentialsProvider({
+      name: 'Email and Password',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null
+        }
+
+        // Verify credentials against your Azure database
+        const user = await verifyUserCredentials(
+          credentials.email,
+          credentials.password
+        )
+
+        if (user) {
+          return {
+            id: user.id,
+            name: user.displayName,
+            email: user.email,
+            roles: [user.role as UserRole]
+          }
+        }
+
+        return null
+      }
+    }),
+    // Keep Azure AD for admin/employee users
     AzureADProvider({
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
       tenantId: process.env.AZURE_AD_TENANT_ID!,
       authorization: {
-        params: { scope: 'openid profile email User.Read Directory.Read.All' }
+        params: { scope: 'openid profile email User.Read' }
       }
     })
   ],
   callbacks: {
-    async jwt({ token, account, profile }) {
+    async jwt({ token, user, account }) {
       // Initial sign in
-      if (account && profile) {
-        token.roles = getRolesFromAzureADToken(token)
-        token.id = profile.sub ?? (profile as any).oid ?? token.sub ?? ''
+      if (account && user) {
+        // For Credentials provider
+        if (account.provider === 'credentials') {
+          token.roles = user.roles
+          token.id = user.id
+        }
+        // For Azure AD provider (your existing code)
+        else if (account.provider === 'azure-ad') {
+          token.roles = getRolesFromAzureADToken(token)
+          token.id = user.id
+        }
       }
 
       return token
@@ -78,24 +71,45 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id
         session.user.roles = token.roles
       } else {
-        session.user.roles = [UserRole.GUEST]
+        session.user.roles = [UserRole.CUSTOMER]
       }
 
       return session
-    },
-    async redirect({ url, baseUrl }) {
-      if (url.startsWith('/')) {
-        return `${baseUrl}${url}`
-      } else if (url.startsWith(baseUrl)) {
-        return url
-      }
-      return baseUrl
     }
   },
-  pages: { signIn: '/auth/signin', error: '/auth/error' }
+  pages: {
+    signIn: '/auth/signin',
+    error: '/auth/error'
+  },
+  session: {
+    strategy: 'jwt'
+  }
 }
 
-// Get the default admin email from environment or use a fallback
-export function getDefaultAdminEmail(): string {
-  return process.env.DEFAULT_ADMIN_EMAIL ?? 'admin@yourdomain.com'
+// Your existing function to get roles from Azure AD token
+function getRolesFromAzureADToken(token: any): UserRole[] {
+  // Your existing code
+  const azureRoles = (token.roles as string[]) || []
+  const mappedRoles: UserRole[] = []
+
+  // Check for admin role
+  if (
+    azureRoles.includes('Administrator') ||
+    token.email === process.env.DEFAULT_ADMIN_EMAIL
+  ) {
+    mappedRoles.push(UserRole.ADMIN)
+  }
+  // Check for employee role
+  else if (
+    azureRoles.includes('Employee') ||
+    token.email?.endsWith('@yourcompany.com')
+  ) {
+    mappedRoles.push(UserRole.EMPLOYEE)
+  }
+  // Default to customer role
+  else {
+    mappedRoles.push(UserRole.CUSTOMER)
+  }
+
+  return mappedRoles
 }
