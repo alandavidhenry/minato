@@ -1,0 +1,70 @@
+name: Version Bump
+
+on:
+  push:
+    branches:
+      - 'major/**'
+      - 'minor/**'
+      - 'patch/**'
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'next.config.mjs'
+      - 'tailwind.config.ts'
+      - 'postcss.config.mjs'
+      - 'Dockerfile'
+      - '.github/workflows/azure-deploy.yml'
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      
+      - name: Determine version type
+        id: version-type
+        run: |
+          if [[ ${{ github.ref }} == refs/heads/major/* ]]; then
+            echo "TYPE=major" >> $GITHUB_ENV
+          elif [[ ${{ github.ref }} == refs/heads/minor/* ]]; then
+            echo "TYPE=minor" >> $GITHUB_ENV
+          elif [[ ${{ github.ref }} == refs/heads/patch/* ]]; then
+            echo "TYPE=patch" >> $GITHUB_ENV
+          fi
+      
+      - name: Get current version
+        id: current-version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
+      
+      - name: Bump version
+        run: |         
+          # Bump version based on branch type
+          npm version ${{ env.TYPE }} --no-git-tag-version
+          
+          # Get new version
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          
+          echo "Version bumped from ${{ env.CURRENT_VERSION }} to $NEW_VERSION (${{ env.TYPE }})"
+      
+      - name: Commit and push updated package.json
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git add package.json
+          git commit -m "Bump version to ${{ env.NEW_VERSION }} [${{ env.TYPE }}]"
+          git push
