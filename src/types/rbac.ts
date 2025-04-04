@@ -1,8 +1,8 @@
 // User roles in the application
 export enum UserRole {
     ADMIN = 'Administrator',
-    USER = 'User', 
-    GUEST = 'Guest' // For unauthenticated or users without a specific role
+    EMPLOYEE = 'Employee', 
+    CUSTOMER = 'Customer'
   }
   
   // Different permission actions possible in the system
@@ -43,15 +43,17 @@ export enum UserRole {
       Permission.EDIT_SETTINGS,
       Permission.VIEW_SETTINGS
     ],
-    [UserRole.USER]: [
+    [UserRole.EMPLOYEE]: [
       // Regular users can work with documents but not admin features
       Permission.VIEW_DOCUMENTS,
       Permission.UPLOAD_DOCUMENTS,
       Permission.DOWNLOAD_DOCUMENTS,
       Permission.DELETE_DOCUMENTS,
       Permission.SHARE_DOCUMENTS,
+      Permission.VIEW_USERS,
+      Permission.VIEW_SETTINGS
     ],
-    [UserRole.GUEST]: [
+    [UserRole.CUSTOMER]: [
       // Guests can only view documents
       Permission.VIEW_DOCUMENTS
     ]
