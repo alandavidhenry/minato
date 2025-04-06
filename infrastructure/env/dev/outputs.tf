@@ -13,18 +13,6 @@ output "app_service_url" {
   value       = module.document_portal.app_service_url
 }
 
-output "application_id" {
-  description = "The Application (Client) ID for Azure AD"
-  value       = module.document_portal.application_id
-  sensitive   = false
-}
-
-output "client_secret" {
-  description = "The Application Client Secret"
-  value       = module.document_portal.client_secret
-  sensitive   = true
-}
-
 output "storage_connection_string" {
   description = "Storage account connection string"
   value       = module.document_portal.storage_connection_string
@@ -34,11 +22,6 @@ output "storage_connection_string" {
 output "storage_container_name" {
   description = "Storage container name"
   value       = module.document_portal.storage_container_name
-}
-
-output "tenant_id" {
-  description = "Azure AD tenant ID"
-  value       = module.document_portal.tenant_id
 }
 
 output "nextauth_secret" {

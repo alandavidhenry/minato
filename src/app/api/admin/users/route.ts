@@ -3,11 +3,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
-import { getUsers as getAzureADUsers } from '@/lib/graph-api'
-import { getAllUsers, UserData } from '@/lib/user-database'
+import { getAllUsers } from '@/lib/user-database'
 import { UserRole } from '@/types/rbac'
 
-// Middleware to check admin permissionsF
+// Middleware to check admin permissions
 async function checkAdminPermission() {
   const session = await getServerSession(authOptions)
 
@@ -32,56 +31,30 @@ export async function GET(_request: NextRequest) {
   }
 
   try {
-    // Get users from Azure AD
-    const azureUsers = await getAzureADUsers()
+    // Get users directly from your database - no more Azure AD integration
+    const users = await getAllUsers()
 
-    // Get users from our database
-    const localUsers = await getAllUsers()
+    // Format the users for API consumption
+    const formattedUsers = users.map((user) => ({
+      id: user.id,
+      displayName: user.displayName,
+      mail: user.email,
+      userPrincipalName: user.email,
+      accountEnabled: true,
+      createdDateTime: user.createdAt,
+      role: user.role,
+      // Format in a way your UI expects
+      appRoleAssignments: [
+        {
+          id: 'local-role',
+          resourceDisplayName: 'Document Portal',
+          principalDisplayName: user.displayName,
+          appRoleId: user.role
+        }
+      ]
+    }))
 
-    // Format local users to match Azure AD format
-    const formattedLocalUsers = localUsers.map((user: UserData) => {
-      // Extract the app role ID logic to make it more readable
-      let appRoleId: string;
-      if (user.role === 'Administrator') {
-        appRoleId = process.env.AZURE_AD_ADMIN_ROLE_ID ?? 'admin-role';
-      } else if (user.role === 'Employee') {
-        appRoleId = process.env.AZURE_AD_USER_ROLE_ID ?? 'employee-role';
-      } else {
-        appRoleId = 'customer-role';
-      }
-    
-      return {
-        id: user.id,
-        displayName: user.displayName,
-        mail: user.email,
-        userPrincipalName: user.email,
-        accountEnabled: true,
-        createdDateTime: user.createdAt,
-        // Local role storage
-        appRoleAssignments: [
-          {
-            // Simulate app role assignment
-            id: 'local-role',
-            resourceDisplayName: 'Document Portal',
-            principalDisplayName: user.displayName,
-            appRoleId: appRoleId
-          }
-        ]
-      };
-    });
-
-    // Merge the lists, ensuring no duplicates by email
-    const azureEmails = new Set(
-      azureUsers.map((user) => user.mail?.toLowerCase())
-    )
-    const mergedUsers = [
-      ...azureUsers,
-      ...formattedLocalUsers.filter(
-        (user) => !azureEmails.has(user.mail.toLowerCase())
-      )
-    ]
-
-    return NextResponse.json({ users: mergedUsers })
+    return NextResponse.json({ users: formattedUsers })
   } catch (error) {
     console.error('Error fetching users:', error)
     return NextResponse.json(

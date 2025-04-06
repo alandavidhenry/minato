@@ -10,7 +10,6 @@ resource "azurecaf_name" "app_service" {
   suffixes      = [var.environment]
 }
 
-# Create App Service Plan
 resource "azurerm_service_plan" "main" {
   name                = azurecaf_name.app_service_plan.result
   resource_group_name = var.resource_group_name
@@ -21,7 +20,6 @@ resource "azurerm_service_plan" "main" {
   tags = var.tags
 }
 
-# Create App Service
 resource "azurerm_linux_web_app" "main" {
   name                = azurecaf_name.app_service.result
   resource_group_name = var.resource_group_name
