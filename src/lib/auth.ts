@@ -1,6 +1,5 @@
 // src/lib/auth.ts
 import { NextAuthOptions } from 'next-auth'
-import AzureADProvider from 'next-auth/providers/azure-ad'
 import CredentialsProvider from 'next-auth/providers/credentials'
 
 import { UserRole } from '@/types/rbac'
@@ -37,33 +36,15 @@ export const authOptions: NextAuthOptions = {
 
         return null
       }
-    }),
-    // Keep Azure AD for admin/employee users
-    AzureADProvider({
-      clientId: process.env.AZURE_AD_CLIENT_ID!,
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-      tenantId: process.env.AZURE_AD_TENANT_ID!,
-      authorization: {
-        params: { scope: 'openid profile email User.Read' }
-      }
     })
   ],
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       // Initial sign in
-      if (account && user) {
-        // For Credentials provider
-        if (account.provider === 'credentials') {
-          token.roles = user.roles
-          token.id = user.id
-        }
-        // For Azure AD provider (your existing code)
-        else if (account.provider === 'azure-ad') {
-          token.roles = getRolesFromAzureADToken(token)
-          token.id = user.id
-        }
+      if (user) {
+        token.roles = user.roles
+        token.id = user.id
       }
-
       return token
     },
     async session({ session, token }) {
@@ -73,7 +54,6 @@ export const authOptions: NextAuthOptions = {
       } else {
         session.user.roles = [UserRole.CUSTOMER]
       }
-
       return session
     }
   },
@@ -84,32 +64,4 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt'
   }
-}
-
-// Your existing function to get roles from Azure AD token
-function getRolesFromAzureADToken(token: any): UserRole[] {
-  // Your existing code
-  const azureRoles = (token.roles as string[]) || []
-  const mappedRoles: UserRole[] = []
-
-  // Check for admin role
-  if (
-    azureRoles.includes('Administrator') ||
-    token.email === process.env.DEFAULT_ADMIN_EMAIL
-  ) {
-    mappedRoles.push(UserRole.ADMIN)
-  }
-  // Check for employee role
-  else if (
-    azureRoles.includes('Employee') ||
-    token.email?.endsWith('@yourcompany.com')
-  ) {
-    mappedRoles.push(UserRole.EMPLOYEE)
-  }
-  // Default to customer role
-  else {
-    mappedRoles.push(UserRole.CUSTOMER)
-  }
-
-  return mappedRoles
 }

@@ -3,11 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
-import {
-  getGraphClient,
-  assignAppRoleToUser,
-  removeAppRoleFromUser
-} from '@/lib/graph-api'
+import { updateUser } from '@/lib/user-database'
 import { UserRole } from '@/types/rbac'
 
 // Middleware to check admin permissions
@@ -25,7 +21,7 @@ async function checkAdminPermission() {
 // POST: Assign a role to a user
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   // Check admin permissions
   const isAdmin = await checkAdminPermission()
@@ -37,70 +33,33 @@ export async function POST(
     )
   }
 
-  const id = context.params.id
-
   try {
+    const userId = params.id
     const { role } = await request.json()
 
     if (!role) {
       return NextResponse.json({ error: 'Role is required' }, { status: 400 })
     }
 
-    // Get the appropriate role ID
-    let appRoleId
-
-    if (role === 'Administrator') {
-      appRoleId = process.env.AZURE_AD_ADMIN_ROLE_ID
-    } else if (role === 'User') {
-      appRoleId = process.env.AZURE_AD_USER_ROLE_ID
-    } else {
+    // Validate the role
+    const validRoles = ['Administrator', 'Employee', 'Customer']
+    if (!validRoles.includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
 
-    if (!process.env.AZURE_AD_CLIENT_ID) {
-      throw new Error('AZURE_AD_CLIENT_ID environment variable is not set')
-    }
+    // Update the user's role
+    const success = await updateUser(userId, { role })
 
-    if (!appRoleId) {
-      throw new Error('appRoleId is required')
-    }
-
-    // Check existing role assignments
-    try {
-      const client = getGraphClient()
-      const userAppRoles = await client
-        .api(`/users/${id}/appRoleAssignments`)
-        .get()
-
-      // Check if this role is already assigned
-      const existingAssignment = userAppRoles.value.find(
-        (assignment: any) => assignment.appRoleId === appRoleId
-      )
-
-      if (existingAssignment) {
-        // Role already assigned - return success
-        return NextResponse.json({
-          success: true,
-          message: 'Role was already assigned'
-        })
-      }
-
-      // Role not assigned, proceed with assignment
-      await assignAppRoleToUser(id, process.env.AZURE_AD_CLIENT_ID, appRoleId)
-
-      return NextResponse.json({ success: true })
-    } catch (error: any) {
-      console.error(`Error checking or assigning role to user ${id}:`, error)
+    if (!success) {
       return NextResponse.json(
-        {
-          error: 'Failed to assign role',
-          details: error.message || String(error)
-        },
-        { status: 500 }
+        { error: 'Failed to assign role. User not found.' },
+        { status: 404 }
       )
     }
+
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error(`Error processing role assignment for user ${id}:`, error)
+    console.error(`Error assigning role to user ${params.id}:`, error)
     return NextResponse.json(
       { error: 'Failed to assign role' },
       { status: 500 }
@@ -108,7 +67,8 @@ export async function POST(
   }
 }
 
-// DELETE: Remove a role from a user
+// DELETE: This endpoint was for removing Azure AD roles, which we don't need anymore
+// We'll implement a simplified version that just sets the role to "Customer"
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -125,16 +85,16 @@ export async function DELETE(
 
   try {
     const userId = params.id
-    const { appRoleAssignmentId } = await request.json()
 
-    if (!appRoleAssignmentId) {
+    // Set role to "Customer" (default role)
+    const success = await updateUser(userId, { role: 'Customer' })
+
+    if (!success) {
       return NextResponse.json(
-        { error: 'Role assignment ID is required' },
-        { status: 400 }
+        { error: 'Failed to remove role. User not found.' },
+        { status: 404 }
       )
     }
-
-    await removeAppRoleFromUser(userId, appRoleAssignmentId)
 
     return NextResponse.json({ success: true })
   } catch (error) {
