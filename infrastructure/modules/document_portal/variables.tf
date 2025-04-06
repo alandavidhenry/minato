@@ -61,13 +61,6 @@ variable "storage_container" {
   })
 }
 
-variable "azure_ad" {
-  description = "Azure AD application configuration"
-  type = object({
-    password_end_date = string
-  })
-}
-
 variable "github_username" {
   description = "GitHub username for container registry"
   type        = string

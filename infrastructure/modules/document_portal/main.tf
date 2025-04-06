@@ -12,7 +12,6 @@ resource "random_password" "nextauth_secret" {
   }
 }
 
-# Create resource group
 module "resource_group" {
   source = "../resource_group"
 
@@ -23,7 +22,6 @@ module "resource_group" {
   tags                = local.common_tags
 }
 
-# Create Key Vault
 module "key_vault" {
   source = "../key_vault"
 
@@ -39,17 +37,6 @@ module "key_vault" {
   access_policies = []
 }
 
-# Create Azure AD Application and Service Principal
-module "azure_ad" {
-  source = "../azure_ad"
-
-  project           = var.project
-  environment       = var.environment
-  password_end_date = var.azure_ad.password_end_date
-  redirect_uris     = concat(var.redirect_uris, ["https://app-${var.project}-${var.environment}.azurewebsites.net/api/auth/callback/azure-ad"])
-}
-
-# Create Storage for documents
 module "storage" {
   source = "../storage"
 
@@ -71,11 +58,9 @@ module "storage" {
   }
 }
 
-# Add secrets to Key Vault
-resource "azurerm_key_vault_secret" "ad_client_secret" {
-  name         = "azure-ad-client-secret"
-  value        = module.azure_ad.client_secret
-  key_vault_id = module.key_vault.key_vault_id
+resource "azurerm_storage_table" "users" {
+  name                 = "users"
+  storage_account_name = module.storage.storage_account_name
 }
 
 resource "azurerm_key_vault_secret" "nextauth_secret" {
@@ -90,7 +75,6 @@ resource "azurerm_key_vault_secret" "storage_connection_string" {
   key_vault_id = module.key_vault.key_vault_id
 }
 
-# Create App Service
 module "app_service" {
   source = "../app_service"
 
@@ -110,21 +94,18 @@ module "app_service" {
   }
 
   app_settings = {
-    "WEBSITES_PORT"                   = "8080"
-    "AZURE_AD_CLIENT_ID"              = module.azure_ad.application_id
-    "AZURE_AD_TENANT_ID"              = data.azurerm_client_config.current.tenant_id
-    "AZURE_AD_CLIENT_SECRET"          = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.ad_client_secret.versionless_id})"
-    "AZURE_STORAGE_CONNECTION_STRING" = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.storage_connection_string.versionless_id})"
-    "AZURE_STORAGE_CONTAINER_NAME"    = var.storage_container.name
-    "NEXTAUTH_URL"                    = "https://app-${var.project}-${var.environment}.azurewebsites.net"
-    "NEXTAUTH_SECRET"                 = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.nextauth_secret.versionless_id})"
-    "WEBSITE_NODE_DEFAULT_VERSION"    = "~20"
-    "SCM_DO_BUILD_DURING_DEPLOYMENT"  = "true"
-    "DEFAULT_ADMIN_EMAIL"             = var.default_admin_email
+    "WEBSITES_PORT"                        = "8080"
+    "AZURE_STORAGE_CONNECTION_STRING"      = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.storage_connection_string.versionless_id})"
+    "AZURE_STORAGE_CONTAINER_NAME"         = var.storage_container.name
+    "NEXTAUTH_URL"                         = "https://app-${var.project}-${var.environment}.azurewebsites.net"
+    "NEXTAUTH_SECRET"                      = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.nextauth_secret.versionless_id})"
+    "WEBSITE_NODE_DEFAULT_VERSION"         = "~20"
+    "SCM_DO_BUILD_DURING_DEPLOYMENT"       = "true"
+    "WEBSITES_ENABLE_APP_SERVICE_STORAGE"  = "true"
+    "WEBSITES_CONTAINER_START_TIME_LIMIT" = "600"
   }
 }
 
-# Add Key Vault access policy for App Service
 resource "azurerm_key_vault_access_policy" "app_service" {
   key_vault_id = module.key_vault.key_vault_id
   tenant_id    = data.azurerm_client_config.current.tenant_id

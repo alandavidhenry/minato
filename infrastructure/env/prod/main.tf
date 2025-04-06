@@ -14,7 +14,6 @@ module "document_portal" {
   key_vault         = var.key_vault
   storage           = var.storage
   storage_container = var.storage_container
-  azure_ad          = var.azure_ad
   github_username   = var.github_username
   github_token      = var.github_token
 
