@@ -68,7 +68,7 @@ jobs:
             --out ./reports \
             --enableRetired \
             --enableExperimental
-            --nvdApiKey "${{ secrets.NVD_API_KEY }}"
+            --nvdApiKey="${{ secrets.NVD_API_KEY }}"
         continue-on-error: true
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
