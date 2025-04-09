@@ -25,6 +25,10 @@ on:
           - dev
           - prod
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   lint_and_test:
     name: Lint and Test
