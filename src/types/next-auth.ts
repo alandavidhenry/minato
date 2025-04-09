@@ -7,12 +7,12 @@ import { UserRole } from './rbac'
 declare module 'next-auth' {
   interface Session {
     user: {
-        id: string
-        name?: string | null
-        email?: string | null
-        image?: string | null
-        roles: UserRole[]
-      } & DefaultSession['user']
+      id: string
+      name?: string | null
+      email?: string | null
+      image?: string | null
+      roles: UserRole[]
+    } & DefaultSession['user']
   }
 
   interface User {
