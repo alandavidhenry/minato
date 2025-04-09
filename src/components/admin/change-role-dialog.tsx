@@ -26,7 +26,6 @@ interface ChangeRoleDialogProps {
   readonly userId: string
   readonly userName: string
   readonly currentRole: string
-  readonly userAppRoleAssignments: any[]
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
   readonly onRoleChanged: () => void
@@ -36,7 +35,6 @@ export function ChangeRoleDialog({
   userId,
   userName,
   currentRole,
-  userAppRoleAssignments,
   open,
   onOpenChange,
   onRoleChanged
@@ -64,66 +62,22 @@ export function ChangeRoleDialog({
     setIsLoading(true)
 
     try {
-      // If the user already has a role, we need to remove it first
-      if (currentRole !== 'Guest' && userAppRoleAssignments.length > 0) {
-        // Find the current role assignment
-        const roleAssignment = userAppRoleAssignments.find((role) => {
-          if (currentRole === 'Administrator') {
-            return (
-              role.appRoleId === process.env.NEXT_PUBLIC_AZURE_AD_ADMIN_ROLE_ID
-            )
-          } else if (currentRole === 'User') {
-            return (
-              role.appRoleId === process.env.NEXT_PUBLIC_AZURE_AD_USER_ROLE_ID
-            )
-          }
-          return false
-        })
+      // Update the user's role
+      const response = await fetch(`/api/admin/users/${userId}/role`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: selectedRole })
+      })
 
-        if (roleAssignment) {
-          // Remove the current role
-          await fetch(`/api/admin/users/${userId}/role`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ appRoleAssignmentId: roleAssignment.id })
-          })
-        }
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to assign role')
       }
 
-      // If selecting a new role (not Guest), assign it
-      if (selectedRole !== 'Guest') {
-        const response = await fetch(`/api/admin/users/${userId}/role`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ role: selectedRole })
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Failed to assign role')
-        }
-
-        const result = await response.json()
-
-        // Show appropriate toast based on whether role was already assigned
-        if (result.message === 'Role was already assigned') {
-          toast({
-            title: 'Success',
-            description: `User already has the ${selectedRole} role`
-          })
-        } else {
-          toast({
-            title: 'Success',
-            description: `User role changed to ${selectedRole}`
-          })
-        }
-      } else {
-        // If setting to Guest (removing role), just show success message
-        toast({
-          title: 'Success',
-          description: `User role changed to ${selectedRole}`
-        })
-      }
+      toast({
+        title: 'Success',
+        description: `User role changed to ${selectedRole}`
+      })
 
       // Call success callback
       onRoleChanged()
@@ -173,8 +127,8 @@ export function ChangeRoleDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='Administrator'>Administrator</SelectItem>
-                  <SelectItem value='User'>User</SelectItem>
-                  <SelectItem value='Guest'>Guest</SelectItem>
+                  <SelectItem value='Employee'>Employee</SelectItem>
+                  <SelectItem value='Customer'>Customer</SelectItem>
                 </SelectContent>
               </Select>
             </div>
