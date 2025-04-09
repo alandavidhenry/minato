@@ -18,5 +18,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/documents/:path*']
+  matcher: ['/documents/:path*', '/scan/:path*']
 }
