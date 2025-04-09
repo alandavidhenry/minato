@@ -1,5 +1,5 @@
 // src/app/page.tsx
-import { FileText } from 'lucide-react'
+import { FileText, Camera, Star } from 'lucide-react'
 import Link from 'next/link'
 
 import {
@@ -25,6 +25,38 @@ export default function Home() {
             </CardHeader>
           </Card>
         </Link>
+
+        <Link href='/scan'>
+          <Card className='hover:bg-accent transition-colors cursor-pointer'>
+            <CardHeader>
+              <div className='flex items-center gap-2'>
+                <Camera className='h-6 w-6' />
+                <CardTitle>Scan Documents</CardTitle>
+              </div>
+              <CardDescription>Convert images to documents</CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
+        <Card className='opacity-60 cursor-not-allowed'>
+          <CardHeader>
+            <div className='flex items-center gap-2'>
+              <Star className='h-6 w-6' />
+              <CardTitle>Future Feature 1</CardTitle>
+            </div>
+            <CardDescription>Coming soon</CardDescription>
+          </CardHeader>
+        </Card>
+
+        <Card className='opacity-60 cursor-not-allowed'>
+          <CardHeader>
+            <div className='flex items-center gap-2'>
+              <Star className='h-6 w-6' />
+              <CardTitle>Future Feature 2</CardTitle>
+            </div>
+            <CardDescription>Coming soon</CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     </div>
   )
