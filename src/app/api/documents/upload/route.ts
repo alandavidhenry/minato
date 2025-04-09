@@ -3,6 +3,7 @@ import { BlobServiceClient } from '@azure/storage-blob'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
+import { logActivity, ActivityType } from '@/lib/activity-logger'
 import {
   parseFileName,
   createVersionedFileName,
@@ -74,6 +75,21 @@ export async function POST(request: NextRequest) {
         blobContentType: file.type || 'application/octet-stream'
       }
     })
+
+    if (session?.user) {
+      await logActivity({
+        userId: session.user.id,
+        userName: session.user.name ?? session.user.email ?? 'Unknown user',
+        fileName,
+        activityType: isNewVersion
+          ? ActivityType.NEW_VERSION
+          : ActivityType.UPLOAD,
+        ipAddress:
+          request.headers.get('x-forwarded-for') ??
+          request.headers.get('x-real-ip') ??
+          undefined
+      })
+    }
 
     return NextResponse.json({
       message: 'File uploaded successfully',

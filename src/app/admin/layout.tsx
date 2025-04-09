@@ -1,7 +1,7 @@
 // src/app/admin/layout.tsx
 'use client'
 
-import { Users, Settings, Gauge } from 'lucide-react'
+import { Users, Settings, Gauge, Clock } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -29,6 +29,11 @@ export default function AdminLayout({
       name: 'Settings',
       href: '/admin/settings',
       icon: <Settings className='h-5 w-5' />
+    },
+    {
+      name: 'Activity Logs',
+      href: '/admin/activity',
+      icon: <Clock className='h-5 w-5' />
     }
   ]
 

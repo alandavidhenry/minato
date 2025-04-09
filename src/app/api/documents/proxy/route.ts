@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
+import { logActivity, ActivityType } from '@/lib/activity-logger'
+
 export async function GET(request: NextRequest) {
   // Check authentication
   const session = await getServerSession()
@@ -20,6 +22,19 @@ export async function GET(request: NextRequest) {
     const response = await fetch(url)
 
     if (!response.ok) {
+      // Log the view activity
+      if (session?.user) {
+        await logActivity({
+          userId: session.user.id,
+          userName: session.user.name ?? session.user.email ?? 'Unknown user',
+          fileName: new URL(url).pathname.split('/').pop() ?? 'Unknown file',
+          activityType: ActivityType.VIEW,
+          ipAddress:
+            request.headers.get('x-forwarded-for') ??
+            request.headers.get('x-real-ip') ??
+            undefined
+        })
+      }
       return NextResponse.json(
         { error: `Failed to fetch document: ${response.statusText}` },
         { status: response.status }

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
+import { logActivity, ActivityType } from '@/lib/activity-logger'
 import { generateSasToken } from '@/lib/storage'
 
 export async function GET(request: NextRequest) {
@@ -29,6 +30,20 @@ export async function GET(request: NextRequest) {
         contentDisposition: `inline; filename="${name}"` // Changed to inline for viewing
       }
     )
+
+    // Log the download activity
+    if (session?.user) {
+      await logActivity({
+        userId: session.user.id,
+        userName: session.user.name ?? session.user.email ?? 'Unknown user',
+        fileName: name,
+        activityType: ActivityType.DOWNLOAD,
+        ipAddress:
+          request.headers.get('x-forwarded-for') ??
+          request.headers.get('x-real-ip') ??
+          undefined
+      })
+    }
 
     return NextResponse.json(
       { url: sasUrl },

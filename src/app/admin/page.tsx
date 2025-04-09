@@ -1,9 +1,10 @@
 // src/app/admin/page.tsx
 'use client'
 
-import { FileText, Shield, Users } from 'lucide-react'
+import { FileText, Shield, Users, Clock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { RecentActivity } from '@/components/admin/recent-activity'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 // Types to improve readability and type safety
@@ -126,12 +127,13 @@ export default function AdminDashboardPage() {
       <div className='grid gap-4 md:grid-cols-2'>
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <CardTitle className='flex items-center gap-2'>
+              <Clock className='h-5 w-5' />
+              Recent Activity
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className='text-muted-foreground'>
-              Coming soon: Activity tracking for user actions.
-            </p>
+            <RecentActivity />
           </CardContent>
         </Card>
 
