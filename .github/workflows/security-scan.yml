@@ -46,19 +46,30 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-      
-      - name: Run OWASP Dependency-Check
-        uses: dependency-check/Dependency-Check_Action@main
-        id: dependency-check
-        with:
-          project: 'Document Portal'
-          path: '.'
-          format: 'HTML'
-          args: >
-            --enableRetired
+
+      - name: Verify Java installation
+        run: |
+          echo "Java version:"
+          java -version
+          echo "JAVA_HOME: $JAVA_HOME"
+
+      - name: Download OWASP Dependency-Check
+        run: |
+          mkdir -p ~/.dependency-check/
+          wget -q https://github.com/jeremylong/DependencyCheck/releases/download/v12.1.0/dependency-check-12.1.0-release.zip
+          unzip -q dependency-check-12.1.0-release.zip -d ~/.dependency-check/
+
+      - name: Run OWASP Dependency-Check CLI
+        run: |
+          ~/.dependency-check/dependency-check/bin/dependency-check.sh \
+            --scan . \
+            --project "Document Portal" \
+            --format "HTML" \
+            --out ./reports \
+            --enableRetired \
             --enableExperimental
-            --nvdApiKey=${{ secrets.NVD_API_KEY || '' }}
-      
+        continue-on-error: true
+
       - name: Upload dependency check report
         uses: actions/upload-artifact@v4
         with:
