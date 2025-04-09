@@ -1,0 +1,37 @@
+name: Create GitHub Release
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Release version'
+        required: true
+        type: string
+      environment:
+        description: 'Deployment environment'
+        required: true
+        type: string
+
+jobs:
+  create_release:
+    name: Create GitHub Release
+    # Only create releases for production deployments
+    if: inputs.environment == 'prod'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ inputs.version }}
+          release_name: Release v${{ inputs.version }}
+          draft: false
+          prerelease: false
+          body: |
+            Release of version ${{ inputs.version }}
+
+            Deployed to production on $(date +'%Y-%m-%d')
