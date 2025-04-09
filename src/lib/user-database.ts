@@ -48,11 +48,9 @@ export async function initUserTable() {
   const tableClient = getTableClient()
   try {
     await tableClient.createTable()
-    console.log('Users table created or already exists')
   } catch (error: any) {
     // If the table already exists, that's fine
     if (error.statusCode === 409) {
-      console.log('Users table already exists')
       return
     }
     console.error('Error creating users table:', error)
@@ -77,7 +75,6 @@ export async function createUser({
     // Check if user already exists
     try {
       await tableClient.getEntity('users', email)
-      console.log('User already exists:', email)
       return null
     } catch (error: any) {
       // Error 404 means the user doesn't exist, which is what we want
