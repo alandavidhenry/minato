@@ -55,7 +55,7 @@ export function NavBar() {
       <div className='container mx-auto px-4'>
         <div className='flex h-16 items-center justify-between'>
           {/* Logo/Brand */}
-          <div className='flex-shrink-0'>
+          <div className='shrink-0'>
             <Link href='/' className='text-xl font-bold'>
               Document Portal
             </Link>
