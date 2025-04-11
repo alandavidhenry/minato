@@ -1,15 +1,7 @@
-// src/components/folder-item.tsx
+// src/components/folder-actions.tsx
 'use client'
 
-import {
-  CopyIcon,
-  Folder,
-  FolderEdit,
-  FolderMinus,
-  MoreHorizontal,
-  MoveIcon
-} from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { Copy, Edit, MoreHorizontal, MoveIcon, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { MoveDialog } from '@/components/move-dialog'
@@ -32,44 +24,54 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 
-interface FolderItemProps {
-  readonly id: string
-  readonly name: string
-  readonly path: string
-  readonly onRename: () => void
-  readonly onDelete: () => void
-  readonly onMove: () => void
-  readonly onCopy: () => void
+interface FolderActionsProps {
+  readonly folder: {
+    id: string
+    name: string
+    path?: string
+    type: string
+  }
+  readonly onAction: () => void
 }
 
-export function FolderItem({
-  id,
-  name,
-  path,
-  onRename,
-  onDelete,
-  onMove,
-  onCopy
-}: FolderItemProps) {
-  const router = useRouter()
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+export function FolderActions({ folder, onAction }: FolderActionsProps) {
+  const [isOpen, setIsOpen] = useState(false)
   const [isRenameOpen, setIsRenameOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isMoveOpen, setIsMoveOpen] = useState(false)
   const [isCopyOpen, setIsCopyOpen] = useState(false)
-  const [newName, setNewName] = useState(name)
+  const [newName, setNewName] = useState(folder.name)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Navigate to the folder
-  const navigateToFolder = () => {
-    router.push(`/documents?path=${encodeURIComponent(path)}`)
+  const handleRename = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsOpen(false)
+    setIsRenameOpen(true)
   }
 
-  // Handle rename folder
-  const handleRename = async (e: React.FormEvent) => {
+  const handleMove = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsOpen(false)
+    setIsMoveOpen(true)
+  }
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsOpen(false)
+    setIsCopyOpen(true)
+  }
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsOpen(false)
+    setIsDeleteOpen(true)
+  }
+
+  // Handle rename folder submit
+  const handleRenameSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!newName.trim() || newName === name) {
+    if (!newName.trim() || newName === folder.name) {
       setIsRenameOpen(false)
       return
     }
@@ -77,7 +79,7 @@ export function FolderItem({
     setIsLoading(true)
 
     try {
-      const response = await fetch(`/api/folders/${id}`, {
+      const response = await fetch(`/api/folders/${folder.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json'
@@ -100,7 +102,7 @@ export function FolderItem({
 
       // Close dialog and notify parent
       setIsRenameOpen(false)
-      onRename()
+      onAction()
     } catch (error) {
       console.error('Error renaming folder:', error)
       toast({
@@ -115,11 +117,11 @@ export function FolderItem({
   }
 
   // Handle delete folder
-  const handleDelete = async () => {
+  const handleDeleteConfirm = async () => {
     setIsLoading(true)
 
     try {
-      const response = await fetch(`/api/folders/${id}`, {
+      const response = await fetch(`/api/folders/${folder.id}`, {
         method: 'DELETE'
       })
 
@@ -131,12 +133,12 @@ export function FolderItem({
       // Successfully deleted
       toast({
         title: 'Success',
-        description: `Folder "${name}" deleted successfully`
+        description: `Folder "${folder.name}" deleted successfully`
       })
 
       // Close dialog and notify parent
       setIsDeleteOpen(false)
-      onDelete()
+      onAction()
     } catch (error) {
       console.error('Error deleting folder:', error)
       toast({
@@ -151,11 +153,11 @@ export function FolderItem({
   }
 
   // Handle move operation
-  const handleMove = async (targetPath: string) => {
+  const handleMoveConfirm = async (targetPath: string) => {
     setIsLoading(true)
 
     try {
-      const response = await fetch(`/api/folders/${id}/move`, {
+      const response = await fetch(`/api/folders/${folder.id}/move`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -174,12 +176,12 @@ export function FolderItem({
       // Successfully moved
       toast({
         title: 'Success',
-        description: `Folder "${name}" moved successfully`
+        description: `Folder "${folder.name}" moved successfully`
       })
 
       // Close dialog and notify parent
       setIsMoveOpen(false)
-      onMove()
+      onAction()
     } catch (error) {
       console.error('Error moving folder:', error)
       toast({
@@ -194,11 +196,11 @@ export function FolderItem({
   }
 
   // Handle copy operation
-  const handleCopy = async (targetPath: string) => {
+  const handleCopyConfirm = async (targetPath: string) => {
     setIsLoading(true)
 
     try {
-      const response = await fetch(`/api/folders/${id}/move`, {
+      const response = await fetch(`/api/folders/${folder.id}/move`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -217,12 +219,12 @@ export function FolderItem({
       // Successfully copied
       toast({
         title: 'Success',
-        description: `Folder "${name}" copied successfully`
+        description: `Folder "${folder.name}" copied successfully`
       })
 
       // Close dialog and notify parent
       setIsCopyOpen(false)
-      onCopy()
+      onAction()
     } catch (error) {
       console.error('Error copying folder:', error)
       toast({
@@ -237,81 +239,47 @@ export function FolderItem({
   }
 
   return (
-    <div>
-      {/* Folder Item */}
-      <div
-        className='flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer group'
-        onClick={navigateToFolder}
-      >
-        <div className='flex items-center gap-2'>
-          <Folder className='h-5 w-5 text-blue-500' />
-          <span className='font-medium'>{name}</span>
-        </div>
+    <>
+      <div onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button variant='ghost' size='icon'>
+              <MoreHorizontal className='h-4 w-4' />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align='end'>
+            <DropdownMenuItem onClick={handleRename}>
+              <Edit className='h-4 w-4 mr-2' />
+              Rename
+            </DropdownMenuItem>
 
-        {/* Actions Menu */}
-        <div onClick={(e) => e.stopPropagation()}>
-          <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant='ghost'
-                size='icon'
-                className='opacity-0 group-hover:opacity-100'
-              >
-                <MoreHorizontal className='h-4 w-4' />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem
-                onClick={() => {
-                  setIsMenuOpen(false)
-                  setIsRenameOpen(true)
-                }}
-              >
-                <FolderEdit className='h-4 w-4 mr-2' />
-                Rename
-              </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleMove}>
+              <MoveIcon className='h-4 w-4 mr-2' />
+              Move
+            </DropdownMenuItem>
 
-              <DropdownMenuItem
-                onClick={() => {
-                  setIsMenuOpen(false)
-                  setIsMoveOpen(true)
-                }}
-              >
-                <MoveIcon className='h-4 w-4 mr-2' />
-                Move
-              </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleCopy}>
+              <Copy className='h-4 w-4 mr-2' />
+              Copy
+            </DropdownMenuItem>
 
-              <DropdownMenuItem
-                onClick={() => {
-                  setIsMenuOpen(false)
-                  setIsCopyOpen(true)
-                }}
-              >
-                <CopyIcon className='h-4 w-4 mr-2' />
-                Copy
-              </DropdownMenuItem>
+            <DropdownMenuSeparator />
 
-              <DropdownMenuSeparator />
-
-              <DropdownMenuItem
-                onClick={() => {
-                  setIsMenuOpen(false)
-                  setIsDeleteOpen(true)
-                }}
-                className='text-destructive focus:text-destructive'
-              >
-                <FolderMinus className='h-4 w-4 mr-2' />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+            <DropdownMenuItem
+              onClick={handleDelete}
+              className='text-destructive focus:text-destructive'
+            >
+              <Trash2 className='h-4 w-4 mr-2' />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Rename Dialog */}
       <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
         <DialogContent>
-          <form onSubmit={handleRename}>
+          <form onSubmit={handleRenameSubmit}>
             <DialogHeader>
               <DialogTitle>Rename Folder</DialogTitle>
             </DialogHeader>
@@ -340,7 +308,9 @@ export function FolderItem({
               </Button>
               <Button
                 type='submit'
-                disabled={isLoading || !newName.trim() || newName === name}
+                disabled={
+                  isLoading || !newName.trim() || newName === folder.name
+                }
               >
                 {isLoading ? 'Renaming...' : 'Rename'}
               </Button>
@@ -359,7 +329,7 @@ export function FolderItem({
           <div className='py-4'>
             <p>
               Are you sure you want to delete the folder &quot;
-              <strong>{name}</strong>&quot;?
+              <strong>{folder.name}</strong>&quot;?
             </p>
             <p className='text-sm text-muted-foreground mt-2'>
               This will delete all files and subfolders within this folder. This
@@ -377,7 +347,7 @@ export function FolderItem({
             </Button>
             <Button
               variant='destructive'
-              onClick={handleDelete}
+              onClick={handleDeleteConfirm}
               disabled={isLoading}
             >
               {isLoading ? 'Deleting...' : 'Delete'}
@@ -389,13 +359,13 @@ export function FolderItem({
       {/* Move Dialog */}
       {isMoveOpen && (
         <MoveDialog
-          title={`Move Folder: ${name}`}
-          currentPath={path}
+          title={`Move Folder: ${folder.name}`}
+          currentPath={folder.path ?? ''}
           open={isMoveOpen}
           onOpenChange={setIsMoveOpen}
-          onMove={handleMove}
+          onMove={handleMoveConfirm}
           isLoading={isLoading}
-          excludePath={path}
+          excludePath={folder.path}
           type='folder'
         />
       )}
@@ -403,17 +373,17 @@ export function FolderItem({
       {/* Copy Dialog */}
       {isCopyOpen && (
         <MoveDialog
-          title={`Copy Folder: ${name}`}
-          currentPath={path}
+          title={`Copy Folder: ${folder.name}`}
+          currentPath={folder.path ?? ''}
           open={isCopyOpen}
           onOpenChange={setIsCopyOpen}
-          onMove={handleCopy}
+          onMove={handleCopyConfirm}
           isLoading={isLoading}
-          excludePath={path}
+          excludePath={folder.path}
           type='folder'
           actionLabel='Copy'
         />
       )}
-    </div>
+    </>
   )
 }

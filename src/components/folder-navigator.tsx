@@ -1,10 +1,18 @@
 // src/components/folder-navigator.tsx
 'use client'
 
-import { ChevronRight, Folder, Home, Plus, RefreshCw } from 'lucide-react'
+import {
+  ChevronRight,
+  ChevronUp,
+  Folder,
+  Home,
+  Plus,
+  RefreshCw
+} from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 
+import { DragDropUploader } from '@/components/drag-drop-uploader'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -23,7 +31,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
-
 
 interface FolderNavigatorProps {
   readonly onRefresh: () => void
@@ -58,6 +65,17 @@ export function FolderNavigator({ onRefresh }: FolderNavigatorProps) {
     } else {
       router.push('/documents')
     }
+  }
+
+  // Go up one folder level
+  const navigateUp = () => {
+    if (!currentPath) return // Already at root
+
+    const segments = currentPath.split('/')
+    segments.pop() // Remove the last segment
+    const parentPath = segments.join('/')
+
+    navigateToFolder(parentPath)
   }
 
   // Handle create folder submit
@@ -121,42 +139,57 @@ export function FolderNavigator({ onRefresh }: FolderNavigatorProps) {
     <div className='mb-4'>
       <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-2'>
         {/* Breadcrumb navigation */}
-        <Breadcrumb className='mb-2 sm:mb-0'>
-          <BreadcrumbList>
-            {breadcrumbItems.map((item, index) => (
-              <BreadcrumbItem key={index}>
-                {index === 0 ? (
-                  <BreadcrumbLink
-                    href='#'
-                    onClick={(e: any) => {
-                      e.preventDefault()
-                      navigateToFolder('')
-                    }}
-                    className='flex items-center'
-                  >
-                    <Home className='h-4 w-4 mr-1' />
-                    Root
-                  </BreadcrumbLink>
-                ) : (
-                  <BreadcrumbLink
-                    href='#'
-                    onClick={(e: any) => {
-                      e.preventDefault()
-                      navigateToFolder(item.path)
-                    }}
-                  >
-                    {item.name}
-                  </BreadcrumbLink>
-                )}
-                {index < breadcrumbItems.length - 1 && (
-                  <BreadcrumbSeparator>
-                    <ChevronRight className='h-4 w-4' />
-                  </BreadcrumbSeparator>
-                )}
-              </BreadcrumbItem>
-            ))}
-          </BreadcrumbList>
-        </Breadcrumb>
+        <div className='flex items-center space-x-2'>
+          {/* Up folder button */}
+          <Button
+            variant='outline'
+            size='sm'
+            onClick={navigateUp}
+            disabled={!currentPath}
+            className='gap-1'
+            title='Go up one level'
+          >
+            <ChevronUp className='h-4 w-4' />
+            Up
+          </Button>
+
+          <Breadcrumb className='mb-2 sm:mb-0'>
+            <BreadcrumbList>
+              {breadcrumbItems.map((item, index) => (
+                <BreadcrumbItem key={index}>
+                  {index === 0 ? (
+                    <BreadcrumbLink
+                      href='#'
+                      onClick={(e: any) => {
+                        e.preventDefault()
+                        navigateToFolder('')
+                      }}
+                      className='flex items-center'
+                    >
+                      <Home className='h-4 w-4 mr-1' />
+                      Root
+                    </BreadcrumbLink>
+                  ) : (
+                    <BreadcrumbLink
+                      href='#'
+                      onClick={(e: any) => {
+                        e.preventDefault()
+                        navigateToFolder(item.path)
+                      }}
+                    >
+                      {item.name}
+                    </BreadcrumbLink>
+                  )}
+                  {index < breadcrumbItems.length - 1 && (
+                    <BreadcrumbSeparator>
+                      <ChevronRight className='h-4 w-4' />
+                    </BreadcrumbSeparator>
+                  )}
+                </BreadcrumbItem>
+              ))}
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
 
         {/* Actions */}
         <div className='flex items-center gap-2'>
@@ -179,6 +212,12 @@ export function FolderNavigator({ onRefresh }: FolderNavigatorProps) {
             <Folder className='h-4 w-4' />
             New Folder
           </Button>
+
+          {/* Upload button moved to the right */}
+          <DragDropUploader
+            folderPath={currentPath}
+            onUploadComplete={onRefresh}
+          />
         </div>
       </div>
 

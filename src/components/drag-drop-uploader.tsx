@@ -162,12 +162,13 @@ export function DragDropUploader({
   }, [])
 
   return (
-    <div className='relative w-full sm:w-auto'>
+    <div className='relative'>
       {/* Button to toggle the drag-drop uploader */}
       <Button
         onClick={toggleUploader}
         disabled={!session || isUploading}
-        className='w-full sm:w-auto flex items-center gap-2'
+        size='sm'
+        className='gap-1'
       >
         <Upload className='h-4 w-4' />
         {isVisible ? 'Hide' : 'Upload Document'}

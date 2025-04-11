@@ -66,6 +66,9 @@ export function DataTable<TData, TValue>({
     state: {
       rowSelection,
       sorting
+    },
+    meta: {
+      onAction
     }
   })
 

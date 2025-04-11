@@ -6,8 +6,6 @@ import { useState, useEffect } from 'react'
 
 import { columns } from '@/app/documents/columns'
 import { DataTable } from '@/app/documents/data-table'
-import { DragDropUploader } from '@/components/drag-drop-uploader'
-import { FolderItem } from '@/components/folder-item'
 import { FolderNavigator } from '@/components/folder-navigator'
 import { toast } from '@/components/ui/use-toast'
 
@@ -69,48 +67,14 @@ export function DocumentList() {
     }
   }
 
-  // Handle folder actions
-  const handleFolderAction = () => {
-    fetchFolderContents()
-  }
-
   return (
     <div>
-      {/* Folder navigation */}
+      {/* Folder navigation with upload button moved to right */}
       <FolderNavigator onRefresh={fetchFolderContents} />
 
-      {/* Upload component */}
-      <div className='mb-4'>
-        <DragDropUploader
-          folderPath={folderPath}
-          onUploadComplete={fetchFolderContents}
-        />
-      </div>
-
-      {/* Folders section */}
-      {folders.length > 0 && (
-        <div className='mb-6'>
-          <h3 className='text-lg font-semibold mb-2'>Folders</h3>
-          <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2'>
-            {folders.map((folder) => (
-              <FolderItem
-                key={folder.id}
-                id={folder.id}
-                name={folder.name}
-                path={folder.path}
-                onRename={handleFolderAction}
-                onDelete={handleFolderAction}
-                onMove={handleFolderAction}
-                onCopy={handleFolderAction}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Files section */}
+      {/* Combined folders and files section */}
       <div>
-        <h3 className='text-lg font-semibold mb-2'>Files</h3>
+        <h3 className='text-lg font-semibold mb-2'>Contents</h3>
         {isLoading ? (
           <div className='flex justify-center items-center h-32'>
             <div className='h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent'></div>
@@ -118,7 +82,7 @@ export function DocumentList() {
         ) : (
           <DataTable
             columns={columns}
-            data={files}
+            data={[...folders, ...files]}
             folderPath={folderPath}
             onAction={fetchFolderContents}
           />
