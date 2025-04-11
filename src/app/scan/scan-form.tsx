@@ -1,18 +1,20 @@
-// src/app/scan/scan-form.tsx
 'use client'
 
-import { Camera, Upload, Loader2 } from 'lucide-react'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useState, useRef } from 'react'
+import { useSession } from 'next-auth/react'
+import { useState, useRef, useCallback } from 'react'
 
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import { toast } from '@/components/ui/use-toast'
+
+import { CameraView } from './components/CameraView'
+import { FileDropzone } from './components/FileDropzone'
+import { FilePreview } from './components/FilePreview'
+import { UploadControls } from './components/UploadControls'
 
 export function ScanForm() {
   const router = useRouter()
+  const { data: session } = useSession()
+  const [isDragging, setIsDragging] = useState(false)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -27,40 +29,86 @@ export function ScanForm() {
   const hasCamera =
     typeof navigator !== 'undefined' && 'mediaDevices' in navigator
 
-  // Function to trigger file input click
-  const handleUploadClick = () => {
-    fileInputRef.current?.click()
-  }
-
-  // Function to handle file selection
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    // Only accept image files
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: 'Invalid file type',
-        description: 'Please select an image file.',
-        variant: 'destructive'
-      })
-      return
+  // Function to stop the camera
+  const stopCamera = useCallback(() => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+      mediaStreamRef.current = null
     }
 
-    // Create a preview URL
-    const imageUrl = URL.createObjectURL(file)
-    setSelectedImage(imageUrl)
-    setSelectedFile(file)
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
 
-    // Reset the file input for future uploads
-    event.target.value = ''
+    setIsCameraActive(false)
+  }, [])
 
-    // Stop camera if it's active
-    stopCamera()
-  }
+  // Function to trigger file input click
+  const handleUploadClick = useCallback(() => {
+    fileInputRef.current?.click()
+  }, [])
+
+  // Function to handle file selection
+  const handleFileSelection = useCallback(
+    (file: File) => {
+      // Create a preview URL
+      const imageUrl = URL.createObjectURL(file)
+      setSelectedImage(imageUrl)
+      setSelectedFile(file)
+
+      // Stop camera if it's active
+      stopCamera()
+    },
+    [stopCamera]
+  )
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setIsDragging(false)
+
+      if (!session) {
+        toast({
+          title: 'Authentication required',
+          description: 'Please sign in to upload documents',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      const files = Array.from(e.dataTransfer.files)
+      if (files.length === 0) return
+
+      // Only accept image files
+      if (!files[0].type.startsWith('image/')) {
+        toast({
+          title: 'Invalid file type',
+          description: 'Please select an image file.',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      handleFileSelection(files[0])
+    },
+    [session, handleFileSelection]
+  )
 
   // Function to activate the camera
-  const handleCameraClick = async () => {
+  const handleCameraClick = useCallback(async () => {
     if (isCameraActive) {
       stopCamera()
       return
@@ -92,24 +140,10 @@ export function ScanForm() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  // Function to stop the camera
-  const stopCamera = () => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((track) => track.stop())
-      mediaStreamRef.current = null
-    }
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = null
-    }
-
-    setIsCameraActive(false)
-  }
+  }, [isCameraActive, stopCamera])
 
   // Function to capture image from camera
-  const captureImage = () => {
+  const captureImage = useCallback(() => {
     if (!videoRef.current || !isCameraActive) return
 
     try {
@@ -147,10 +181,10 @@ export function ScanForm() {
         variant: 'destructive'
       })
     }
-  }
+  }, [isCameraActive, stopCamera])
 
   // Function to upload image to blob storage
-  const uploadImage = async () => {
+  const uploadImage = useCallback(async () => {
     if (!selectedFile) {
       toast({
         title: 'No image selected',
@@ -231,133 +265,58 @@ export function ScanForm() {
       setIsUploading(false)
       setUploadProgress(0)
     }
-  }
+  }, [selectedFile, router])
+
+  // Function to clear selected image/file
+  const clearSelectedFile = useCallback(() => {
+    if (selectedImage) {
+      URL.revokeObjectURL(selectedImage)
+    }
+    setSelectedImage(null)
+    setSelectedFile(null)
+  }, [selectedImage])
 
   return (
     <div className='space-y-6'>
-      <div className='flex flex-wrap gap-4'>
-        <Button
-          onClick={handleUploadClick}
-          disabled={isLoading || isCameraActive || isUploading}
-          className='gap-2'
-        >
-          <Upload className='h-4 w-4' />
-          Import Image
-          <input
-            ref={fileInputRef}
-            type='file'
-            accept='image/*'
-            className='hidden'
-            onChange={handleFileChange}
-            disabled={isLoading || isCameraActive || isUploading}
-          />
-        </Button>
+      <UploadControls
+        onUploadClick={handleUploadClick}
+        onCameraClick={handleCameraClick}
+        onUploadSubmit={uploadImage}
+        hasCamera={hasCamera}
+        isCameraActive={isCameraActive}
+        isUploading={isUploading}
+        isLoading={isLoading}
+        selectedFile={selectedFile}
+      />
 
-        {hasCamera && (
-          <Button
-            onClick={handleCameraClick}
-            disabled={isLoading || isUploading}
-            variant={isCameraActive ? 'destructive' : 'default'}
-            className='gap-2'
-          >
-            <Camera className='h-4 w-4' />
-            {isCameraActive ? 'Stop Camera' : 'Use Camera'}
-          </Button>
-        )}
+      {/* Camera view */}
+      <CameraView
+        isActive={isCameraActive}
+        onCapture={captureImage}
+        videoRef={videoRef}
+      />
 
-        {isCameraActive && (
-          <Button
-            onClick={captureImage}
-            disabled={isUploading}
-            className='gap-2'
-          >
-            <Camera className='h-4 w-4' />
-            Capture Image
-          </Button>
-        )}
-      </div>
-
-      {/* Camera view with caption track for accessibility */}
-      {isCameraActive && (
-        <Card className='overflow-hidden'>
-          <CardContent className='p-0'>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              className='w-full h-auto'
-              style={{ maxHeight: '500px' }}
-            >
-              <track
-                kind='captions'
-                src='/empty-captions.vtt'
-                label='English'
-                default
-              />
-              Your browser does not support the video element.
-            </video>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Selected image preview using Next.js Image component */}
+      {/* Selected image preview */}
       {selectedImage && !isCameraActive && (
-        <Card className='overflow-hidden'>
-          <CardContent className='p-0'>
-            <div className='relative w-full' style={{ height: '500px' }}>
-              <Image
-                src={selectedImage}
-                alt='Selected document'
-                fill
-                className='object-contain'
-                sizes='(max-width: 768px) 100vw, 800px'
-                priority
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <FilePreview
+          selectedImage={selectedImage}
+          selectedFile={selectedFile}
+          onRemove={clearSelectedFile}
+          isUploading={isUploading}
+          uploadProgress={uploadProgress}
+        />
       )}
 
-      {/* Placeholder when no image is selected */}
+      {/* File dropzone when no image is selected */}
       {!selectedImage && !isCameraActive && (
-        <Card className='border-dashed'>
-          <CardContent className='flex flex-col items-center justify-center p-6'>
-            <p className='text-muted-foreground text-center py-8'>
-              No image selected. Please import an image or use your camera.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Upload progress */}
-      {isUploading && (
-        <div className='space-y-2'>
-          <Progress value={uploadProgress} className='h-2' />
-          <p className='text-sm text-muted-foreground text-center'>
-            {uploadProgress}% uploaded
-          </p>
-        </div>
-      )}
-
-      {/* Upload button */}
-      {selectedImage && (
-        <Button
-          onClick={uploadImage}
-          disabled={isUploading || !selectedFile}
-          className='w-full md:w-auto gap-2'
-        >
-          {isUploading ? (
-            <>
-              <Loader2 className='h-4 w-4 animate-spin' />
-              Uploading...
-            </>
-          ) : (
-            <>
-              <Upload className='h-4 w-4' />
-              Upload Document
-            </>
-          )}
-        </Button>
+        <FileDropzone
+          isDragging={isDragging}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onFileSelect={handleFileSelection}
+          isUploading={isUploading}
+        />
       )}
     </div>
   )

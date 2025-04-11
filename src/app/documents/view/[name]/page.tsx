@@ -1,4 +1,3 @@
-// src/app/documents/view/[name]/page.tsx
 import { notFound } from 'next/navigation'
 
 import { PDFDocumentViewer } from './pdf-document-viewer'
