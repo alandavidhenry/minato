@@ -1,4 +1,3 @@
-// src/app/scan/page.tsx
 import { ScanForm } from './scan-form'
 
 export default function ScanPage() {
