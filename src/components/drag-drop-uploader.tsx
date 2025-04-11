@@ -10,7 +10,15 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { toast } from '@/components/ui/use-toast'
 
-export function DragDropUploader() {
+interface DragDropUploaderProps {
+  readonly folderPath?: string
+  readonly onUploadComplete?: () => void
+}
+
+export function DragDropUploader({
+  folderPath = '',
+  onUploadComplete
+}: DragDropUploaderProps) {
   const router = useRouter()
   const { data: session } = useSession()
   const [isDragging, setIsDragging] = useState(false)
@@ -25,6 +33,11 @@ export function DragDropUploader() {
 
       const formData = new FormData()
       formData.append('file', file)
+
+      // Add folder path if specified
+      if (folderPath) {
+        formData.append('folderPath', folderPath)
+      }
 
       try {
         // Use XMLHttpRequest for progress monitoring
@@ -69,8 +82,13 @@ export function DragDropUploader() {
         // Close the upload area after successful upload
         setIsVisible(false)
 
-        // Refresh the page to show the new document
-        router.refresh()
+        // Call the callback if provided
+        if (onUploadComplete) {
+          onUploadComplete()
+        } else {
+          // Otherwise refresh the page
+          router.refresh()
+        }
       } catch (error) {
         console.error('Upload error:', error)
         toast({
@@ -85,7 +103,7 @@ export function DragDropUploader() {
         setUploadProgress(0)
       }
     },
-    [router]
+    [router, folderPath, onUploadComplete]
   )
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {

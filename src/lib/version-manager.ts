@@ -32,15 +32,21 @@ export function parseFileName(fileName: string): {
   baseName: string
   versionId: string | null
   extension: string
+  folderPath: string // Added to return the folder path
 } {
+  // Extract folder path if any
+  const parts = fileName.split('/')
+  const fileNameOnly = parts.pop() ?? fileName
+  const folderPath = parts.join('/')
+
   const extension =
-    fileName.lastIndexOf('.') > 0
-      ? fileName.substring(fileName.lastIndexOf('.'))
+    fileNameOnly.lastIndexOf('.') > 0
+      ? fileNameOnly.substring(fileNameOnly.lastIndexOf('.'))
       : ''
 
   const nameWithoutExtension = extension
-    ? fileName.substring(0, fileName.lastIndexOf('.'))
-    : fileName
+    ? fileNameOnly.substring(0, fileNameOnly.lastIndexOf('.'))
+    : fileNameOnly
 
   // Check if the filename has a version (format: baseName_v_timestamp)
   const regex = /(.+)_v_(.+)$/
@@ -50,14 +56,16 @@ export function parseFileName(fileName: string): {
     return {
       baseName: versionMatch[1],
       versionId: versionMatch[2],
-      extension
+      extension,
+      folderPath // Return the folder path
     }
   }
 
   return {
     baseName: nameWithoutExtension,
     versionId: null,
-    extension
+    extension,
+    folderPath // Return the folder path
   }
 }
 
@@ -68,21 +76,27 @@ export function createVersionedFileName(
   originalName: string,
   versionId: string
 ): string {
-  const { baseName, extension } = parseFileName(originalName)
-  return `${baseName}_v_${versionId}${extension}`
+  const { baseName, extension, folderPath } = parseFileName(originalName)
+
+  // Reconstruct full path with version
+  const versionedName = `${baseName}_v_${versionId}${extension}`
+  return folderPath ? `${folderPath}/${versionedName}` : versionedName
 }
 
 /**
- * Checks if a document is a version of another document
+ * Checks if a document is a version of another document, considering folders
  */
 export function areRelatedDocuments(
   fileName1: string,
   fileName2: string
 ): boolean {
-  const { baseName: baseName1 } = parseFileName(fileName1)
-  const { baseName: baseName2 } = parseFileName(fileName2)
+  const { baseName: baseName1, folderPath: folderPath1 } =
+    parseFileName(fileName1)
+  const { baseName: baseName2, folderPath: folderPath2 } =
+    parseFileName(fileName2)
 
-  return baseName1 === baseName2
+  // Documents are related if they have the same base name AND are in the same folder
+  return baseName1 === baseName2 && folderPath1 === folderPath2
 }
 
 /**
@@ -90,7 +104,8 @@ export function areRelatedDocuments(
  */
 export async function groupDocumentsByVersion(
   containerName: string,
-  connectionString: string
+  connectionString: string,
+  folderPath: string = '' // New parameter for filtering by folder
 ): Promise<DocumentWithVersions[]> {
   const blobServiceClient =
     BlobServiceClient.fromConnectionString(connectionString)
@@ -98,12 +113,27 @@ export async function groupDocumentsByVersion(
 
   const versionMap = new Map<string, DocumentVersion[]>()
 
+  // Prepare folder prefix for listing
+  const prefix = folderPath ? `${folderPath}/` : ''
+
   // List all blobs
-  for await (const blob of containerClient.listBlobsFlat()) {
+  for await (const blob of containerClient.listBlobsFlat({ prefix })) {
     const fileName = blob.name
-    const { baseName, versionId, extension } = parseFileName(fileName)
+    const {
+      baseName,
+      versionId,
+      extension,
+      folderPath: blobFolderPath
+    } = parseFileName(fileName)
+
+    // Skip if we're filtering by folder and this blob is not in the target folder
+    if (folderPath && blobFolderPath !== folderPath) {
+      continue
+    }
+
     const originalName = `${baseName}${extension}`
-    const documentId = baseName
+    // Include folder path in the documentId to prevent mixing versions from different folders
+    const documentId = `${blobFolderPath}/${baseName}`.replace(/^\//, '')
 
     // Get blob properties for metadata
     const properties = await containerClient
@@ -163,7 +193,8 @@ export async function groupDocumentsByVersion(
 export async function getDocumentVersions(
   baseName: string,
   containerName: string,
-  connectionString: string
+  connectionString: string,
+  folderPath: string = '' // New parameter for filtering by folder
 ): Promise<DocumentVersion[]> {
   const blobServiceClient =
     BlobServiceClient.fromConnectionString(connectionString)
@@ -171,10 +202,19 @@ export async function getDocumentVersions(
 
   const versions: DocumentVersion[] = []
 
+  // Prepare folder prefix for listing
+  const prefix = folderPath ? `${folderPath}/` : ''
+
   // List all blobs
-  for await (const blob of containerClient.listBlobsFlat()) {
+  for await (const blob of containerClient.listBlobsFlat({ prefix })) {
     const fileName = blob.name
-    const { baseName: currentBaseName } = parseFileName(fileName)
+    const { baseName: currentBaseName, folderPath: blobFolderPath } =
+      parseFileName(fileName)
+
+    // Skip if we're filtering by folder and this blob is not in the target folder
+    if (folderPath && blobFolderPath !== folderPath) {
+      continue
+    }
 
     if (currentBaseName === baseName) {
       const { baseName, versionId, extension } = parseFileName(fileName)

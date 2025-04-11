@@ -1,5 +1,5 @@
 // src/app/page.tsx
-import { FileText, Camera, Star } from 'lucide-react'
+import { Camera, FolderTree, Star } from 'lucide-react'
 import Link from 'next/link'
 
 import {
@@ -18,10 +18,12 @@ export default function Home() {
           <Card className='hover:bg-accent transition-colors cursor-pointer'>
             <CardHeader>
               <div className='flex items-center gap-2'>
-                <FileText className='h-6 w-6' />
-                <CardTitle>Documents</CardTitle>
+                <FolderTree className='h-6 w-6 text-blue-500' />
+                <CardTitle>Document Library</CardTitle>
               </div>
-              <CardDescription>Access all your documents</CardDescription>
+              <CardDescription>
+                Access and organize your documents in folders
+              </CardDescription>
             </CardHeader>
           </Card>
         </Link>

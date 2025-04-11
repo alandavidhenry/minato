@@ -34,6 +34,8 @@ export type Document = {
   versionNumber?: number
   totalVersions?: number
   originalName?: string
+  path?: String
+  folderPath?: string
 }
 
 function DocumentNameCell({
@@ -42,7 +44,8 @@ function DocumentNameCell({
   hasVersions,
   versionNumber,
   totalVersions,
-  originalName
+  originalName,
+  path
 }: {
   readonly name: string
   readonly type: string
@@ -50,6 +53,7 @@ function DocumentNameCell({
   readonly versionNumber?: number
   readonly totalVersions?: number
   readonly originalName?: string
+  readonly path?: string
 }) {
   const router = useRouter()
   const { data: session } = useSession()
@@ -63,7 +67,7 @@ function DocumentNameCell({
 
     if (type.toLowerCase().includes('pdf')) {
       // Navigate to PDF viewer for PDF files
-      router.push(`/documents/view/${encodeURIComponent(name)}`)
+      router.push(`/documents/view/${encodeURIComponent(path ?? name)}`)
     } else {
       // Handle other file types with direct download
       handleDownload()
@@ -74,7 +78,7 @@ function DocumentNameCell({
     setIsLoading(true)
     try {
       const response = await fetch(
-        `/api/documents/download?name=${encodeURIComponent(name)}`
+        `/api/documents/download?name=${encodeURIComponent(path ?? name)}`
       )
 
       if (!response.ok) {
@@ -130,7 +134,7 @@ function DocumentNameCell({
   )
 }
 
-function DownloadCell({ name }: { readonly name: string }) {
+function DownloadCell({ name, path }: { readonly name: string, readonly path?: string }) {
   const { data: session } = useSession()
   const [isDownloading, setIsDownloading] = useState(false)
 
@@ -140,7 +144,7 @@ function DownloadCell({ name }: { readonly name: string }) {
     setIsDownloading(true)
     try {
       const response = await fetch(
-        `/api/documents/download?name=${encodeURIComponent(name)}`
+        `/api/documents/download?name=${encodeURIComponent(path ?? name)}`
       )
 
       if (!response.ok) {
@@ -178,7 +182,7 @@ function DownloadCell({ name }: { readonly name: string }) {
   )
 }
 
-function ShareCell({ name }: { readonly name: string }) {
+function ShareCell({ name, path }: { readonly name: string, readonly path?: string }) {
   const { data: session } = useSession()
   const [isSharing, setIsSharing] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
@@ -194,7 +198,7 @@ function ShareCell({ name }: { readonly name: string }) {
     expirationDays: number = 7
   ): Promise<string> => {
     const response = await fetch(
-      `/api/documents/share?name=${encodeURIComponent(name)}&expirationDays=${expirationDays}`
+      `/api/documents/share?name=${encodeURIComponent(path ?? name)}&expirationDays=${expirationDays}`
     )
 
     if (!response.ok) {
@@ -294,11 +298,13 @@ function ShareCell({ name }: { readonly name: string }) {
 
 function VersionCell({
   name,
+  path,
   hasVersions,
   versionNumber,
   totalVersions
 }: {
   readonly name: string
+  readonly path?: string
   readonly hasVersions: boolean
   readonly versionNumber?: number
   readonly totalVersions?: number
@@ -316,7 +322,7 @@ function VersionCell({
 
     // If it's a PDF, navigate to the PDF viewer which has version controls
     if (name.toLowerCase().endsWith('.pdf')) {
-      router.push(`/documents/view/${encodeURIComponent(name)}`)
+      router.push(`/documents/view/${encodeURIComponent(path ?? name)}`)
     } else {
       // For non-PDFs, we need a different approach - could be a modal with version list
       // For now, just show a message
@@ -373,7 +379,7 @@ function VersionCell({
   )
 }
 
-function DeleteCell({ name }: { readonly name: string }) {
+function DeleteCell({ name, path }: { readonly name: string, readonly path?: string }) {
   const { data: session } = useSession()
   const [isDeleting, setIsDeleting] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
@@ -389,7 +395,7 @@ function DeleteCell({ name }: { readonly name: string }) {
     setIsDeleting(true)
     try {
       const response = await fetch(
-        `/api/documents/delete?name=${encodeURIComponent(name)}`,
+        `/api/documents/delete?name=${encodeURIComponent(path ?? name)}`,
         {
           method: 'DELETE'
         }

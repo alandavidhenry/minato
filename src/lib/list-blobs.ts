@@ -11,10 +11,13 @@ export interface BlobItem {
   versionNumber?: number
   totalVersions?: number
   originalName?: string
+  path?: string
+  folderPath?: string
 }
 
 export async function listBlobs(
-  includeVersions: boolean = false
+  includeVersions: boolean = false,
+  folderPath: string = ''
 ): Promise<BlobItem[]> {
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING!
   const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME!
@@ -23,7 +26,8 @@ export async function listBlobs(
     // Group documents by version
     const documentsWithVersions = await groupDocumentsByVersion(
       containerName,
-      connectionString
+      connectionString,
+      folderPath
     )
 
     // Generate the blob list based on whether we want to include all versions
@@ -32,21 +36,25 @@ export async function listBlobs(
       return documentsWithVersions.flatMap((doc) =>
         doc.versions.map((version) => ({
           id: version.fileName,
-          name: version.fileName,
+          name: version.fileName.split('/').pop() ?? version.fileName, // Extract just the file name
           uploadedAt: version.uploadedAt.toLocaleDateString(),
           type: getContentType(version.fileName),
           size: version.size,
           hasVersions: doc.versions.length > 1,
           versionNumber: version.versionNumber,
           totalVersions: doc.versions.length,
-          originalName: version.originalName
+          originalName: version.originalName,
+          path: version.fileName, // Full path including folders
+          folderPath: getFolderPath(version.fileName) // Extract folder path
         }))
       )
     } else {
       // Return only the latest version of each document
       return documentsWithVersions.map((doc) => ({
         id: doc.latestVersion.fileName,
-        name: doc.latestVersion.fileName,
+        name:
+          doc.latestVersion.fileName.split('/').pop() ??
+          doc.latestVersion.fileName, // Extract just the file name
         uploadedAt: doc.latestVersion.uploadedAt.toLocaleDateString(),
         type: getContentType(doc.latestVersion.fileName),
         size: doc.latestVersion.size,
@@ -54,7 +62,9 @@ export async function listBlobs(
         versionNumber:
           doc.versions.length > 0 ? doc.latestVersion.versionNumber : 1,
         totalVersions: doc.versions.length,
-        originalName: doc.originalName
+        originalName: doc.originalName,
+        path: doc.latestVersion.fileName, // Full path including folders
+        folderPath: getFolderPath(doc.latestVersion.fileName) // Extract folder path
       }))
     }
   } catch (error) {
@@ -63,11 +73,21 @@ export async function listBlobs(
   }
 }
 
+// Helper function to extract folder path from a file path
+function getFolderPath(filePath: string): string {
+  const parts = filePath.split('/')
+  if (parts.length <= 1) return ''
+
+  // Remove the last part (the file name) and join the rest
+  return parts.slice(0, -1).join('/')
+}
+
 /**
  * Get document versions for a specific base name
  */
 export async function getDocumentVersions(
-  baseName: string
+  baseName: string,
+  folderPath: string = ''
 ): Promise<BlobItem[]> {
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING!
   const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME!
@@ -80,20 +100,23 @@ export async function getDocumentVersions(
     const versions = await getDocumentVersions(
       baseName,
       containerName,
-      connectionString
+      connectionString,
+      folderPath
     )
 
     // Convert to BlobItem format
     return versions.map((version) => ({
       id: version.fileName,
-      name: version.fileName,
+      name: version.fileName.split('/').pop() ?? version.fileName, // Extract just the file name
       uploadedAt: version.uploadedAt.toLocaleDateString(),
       type: getContentType(version.fileName),
       size: version.size,
       hasVersions: versions.length > 1,
       versionNumber: version.versionNumber,
       totalVersions: versions.length,
-      originalName: version.originalName
+      originalName: version.originalName,
+      path: version.fileName, // Full path including folders
+      folderPath: getFolderPath(version.fileName) // Extract folder path
     }))
   } catch (error) {
     console.error('Error getting document versions:', error)

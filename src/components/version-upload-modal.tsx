@@ -11,12 +11,14 @@ import { toast } from '@/components/ui/use-toast'
 
 interface VersionUploadModalProps {
   readonly originalFileName: string
+  readonly folderPath?: string
   readonly onClose: () => void
   readonly onVersionUploaded: () => void
 }
 
 export function VersionUploadModal({
   originalFileName,
+  folderPath = '',
   onClose,
   onVersionUploaded
 }: VersionUploadModalProps) {
@@ -66,6 +68,11 @@ export function VersionUploadModal({
     formData.append('file', selectedFile)
     formData.append('isNewVersion', 'true')
     formData.append('originalFileName', originalFileName)
+
+    // Add folder path if specified
+    if (folderPath) {
+      formData.append('folderPath', folderPath)
+    }
 
     try {
       // Use XMLHttpRequest for progress monitoring

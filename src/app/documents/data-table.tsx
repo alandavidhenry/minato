@@ -33,11 +33,15 @@ import { useMediaQuery } from '@/hooks/use-media-query'
 interface DataTableProps<TData, TValue> {
   readonly columns: ColumnDef<TData, TValue>[]
   readonly data: TData[]
+  readonly folderPath?: string
+  readonly onAction?: () => void
 }
 
 export function DataTable<TData, TValue>({
   columns,
-  data
+  data,
+  folderPath = '',
+  onAction
 }: DataTableProps<TData, TValue>) {
   const { data: session } = useSession()
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
@@ -89,7 +93,10 @@ export function DataTable<TData, TValue>({
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ names: selectedFilenames })
+        body: JSON.stringify({
+          names: selectedFilenames,
+          folderPath
+        })
       })
 
       if (!response.ok) {
@@ -108,8 +115,10 @@ export function DataTable<TData, TValue>({
       // Reset selection
       setRowSelection({})
 
-      // Refresh the page to update the document list
-      window.location.reload()
+      // Call onAction callback instead of reloading the page
+      if (onAction) {
+        onAction()
+      }
     } catch (error) {
       console.error('Bulk delete error:', error)
       toast({
