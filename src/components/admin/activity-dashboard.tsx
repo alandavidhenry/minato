@@ -23,7 +23,11 @@ interface ActivityDashboardProps {
 }
 
 export function ActivityDashboard({ logs }: ActivityDashboardProps) {
-  const [chartData, setChartData] = useState({
+  const [chartData, setChartData] = useState<{
+    dailyActivity: Array<{ date: string; count: number }>
+    activityByType: Array<{ name: string; value: number }>
+    activityByUser: Array<{ name: string; value: number }>
+  }>({
     dailyActivity: [],
     activityByType: [],
     activityByUser: []

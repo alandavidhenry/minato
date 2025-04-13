@@ -10,7 +10,11 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { toast } from '@/components/ui/use-toast'
 
-export function DragDropUploader() {
+interface DragDropUploaderProps {
+  readonly currentPath?: string
+}
+
+export function DragDropUploader({ currentPath = '' }: DragDropUploaderProps) {
   const router = useRouter()
   const { data: session } = useSession()
   const [isDragging, setIsDragging] = useState(false)
@@ -25,6 +29,11 @@ export function DragDropUploader() {
 
       const formData = new FormData()
       formData.append('file', file)
+
+      // Add folder path if specified
+      if (currentPath) {
+        formData.append('folderPath', currentPath)
+      }
 
       try {
         // Use XMLHttpRequest for progress monitoring
@@ -85,7 +94,7 @@ export function DragDropUploader() {
         setUploadProgress(0)
       }
     },
-    [router]
+    [router, currentPath]
   )
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {

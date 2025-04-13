@@ -1,20 +1,53 @@
+// src/app/documents/page.tsx
+import { notFound } from 'next/navigation'
+
+import { columns } from '@/app/documents/components/columns'
+import { CreateFolderButton } from '@/components/create-folder-button'
+import { DocumentBreadcrumb } from '@/components/document-breadcrumb'
 import { DragDropUploader } from '@/components/drag-drop-uploader'
+import { folderExists } from '@/lib/folder-manager'
 import { listBlobs } from '@/lib/list-blobs'
 
-import { columns } from './components/columns'
-import { DataTable } from './components/DataTable'
+import { DataTable } from './data-table'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DocumentsPage() {
-  // Fetch documents from Azure Storage
-  const documents = await listBlobs()
+type DocumentsPageProps = {
+  readonly params: Record<string, string>
+  readonly searchParams: { [key: string]: string | string[] | undefined }
+}
+
+export default async function DocumentsPage({
+  searchParams
+}: DocumentsPageProps) {
+  // Get current path from query parameters
+  const pathParam = searchParams.path
+  const path = typeof pathParam === 'string' ? pathParam : ''
+
+  // If path is provided, verify it exists
+  if (path) {
+    const exists = await folderExists(path)
+    if (!exists) {
+      notFound()
+    }
+  }
+
+  // Fetch documents from Azure Storage for the current path
+  const documents = await listBlobs(false, path)
 
   return (
     <div className='grid gap-4'>
+      {/* Breadcrumb navigation */}
+      <DocumentBreadcrumb currentPath={path} />
+
       <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-4 md:px-0'>
-        <h1 className='text-2xl sm:text-3xl font-bold'>Documents</h1>
-        <DragDropUploader />
+        <h1 className='text-2xl sm:text-3xl font-bold'>
+          {path ? 'Folder: ' + path.split('/').pop() : 'Documents'}
+        </h1>
+        <div className='flex flex-wrap gap-2'>
+          <CreateFolderButton currentPath={path} />
+          <DragDropUploader currentPath={path} />
+        </div>
       </div>
 
       <DataTable columns={columns} data={documents} />
