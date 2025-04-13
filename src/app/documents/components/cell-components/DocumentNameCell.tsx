@@ -1,6 +1,7 @@
+// src/components/documents/components/cell-components/DocumentNameCell.tsx
 'use client'
 
-import { Clock, FileIcon } from 'lucide-react'
+import { Clock, FileIcon, Folder } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
@@ -21,6 +22,8 @@ interface DocumentNameCellProps {
   readonly versionNumber?: number
   readonly totalVersions?: number
   readonly originalName?: string
+  readonly isFolder?: boolean
+  readonly path?: string
 }
 
 export function DocumentNameCell({
@@ -29,19 +32,32 @@ export function DocumentNameCell({
   hasVersions,
   versionNumber,
   totalVersions,
-  originalName
+  originalName,
+  isFolder = false,
+  path = ''
 }: DocumentNameCellProps) {
   const router = useRouter()
   const { data: session } = useSession()
   const [isLoading, setIsLoading] = useState(false)
 
-  const { baseName, extension } = parseFileName(name)
-  const displayName = originalName ?? `${baseName}${extension}`
+  // If it's a folder, display folder name directly
+  // If it's a file, extract from path/filename
+  const displayName = isFolder
+    ? name
+    : (originalName ??
+      (() => {
+        const { baseName, extension } = parseFileName(name)
+        return `${baseName}${extension}`
+      })())
 
   const handleClick = async () => {
     if (!session || isLoading) return
 
-    if (type.toLowerCase().includes('pdf')) {
+    if (isFolder) {
+      // Navigate to the folder view
+      const encodedPath = encodeURIComponent(path)
+      router.push(`/documents?path=${encodedPath}`)
+    } else if (type.toLowerCase().includes('pdf')) {
       // Navigate to PDF viewer for PDF files
       router.push(`/documents/view/${encodeURIComponent(name)}`)
     } else {
@@ -81,7 +97,11 @@ export function DocumentNameCell({
 
   return (
     <div className='flex items-center gap-2'>
-      <FileIcon className='h-4 w-4' />
+      {isFolder ? (
+        <Folder className='h-4 w-4 text-blue-500' />
+      ) : (
+        <FileIcon className='h-4 w-4' />
+      )}
       <button
         onClick={handleClick}
         className='hover:underline text-blue-600 disabled:text-gray-400'
@@ -90,7 +110,7 @@ export function DocumentNameCell({
         {isLoading ? 'Loading...' : displayName}
       </button>
 
-      {hasVersions && versionNumber && totalVersions && (
+      {hasVersions && versionNumber && totalVersions && !isFolder && (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>

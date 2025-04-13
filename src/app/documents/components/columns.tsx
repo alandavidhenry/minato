@@ -1,11 +1,11 @@
+// src/app/documents/columns.tsx
 'use client'
 
 import { ColumnDef } from '@tanstack/react-table'
 
+import { Document } from '@/app/documents/types/document'
 import { Checkbox } from '@/components/ui/checkbox'
 import { SortArrows } from '@/components/ui/data-table/sort-arrows'
-
-import { Document } from '../types/document'
 
 import { DeleteCell } from './cell-components/DeleteCell'
 import { DocumentNameCell } from './cell-components/DocumentNameCell'
@@ -33,6 +33,7 @@ export const columns: ColumnDef<Document>[] = [
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
         aria-label='Select row'
+        disabled={row.original.isFolder}
       />
     ),
     enableSorting: false,
@@ -58,6 +59,8 @@ export const columns: ColumnDef<Document>[] = [
         versionNumber={row.original.versionNumber}
         totalVersions={row.original.totalVersions}
         originalName={row.original.originalName}
+        isFolder={row.original.isFolder}
+        path={row.original.path}
       />
     ),
     enableSorting: true
@@ -105,26 +108,40 @@ export const columns: ColumnDef<Document>[] = [
   {
     id: 'version',
     header: 'Version',
-    cell: ({ row }) => (
-      <VersionCell
-        name={row.getValue('name')}
-        hasVersions={row.original.hasVersions}
-        versionNumber={row.original.versionNumber}
-        totalVersions={row.original.totalVersions}
-      />
-    ),
+    cell: ({ row }) => {
+      // Don't show version info for folders
+      if (row.original.isFolder) {
+        return null
+      }
+
+      return (
+        <VersionCell
+          name={row.getValue('name')}
+          hasVersions={row.original.hasVersions}
+          versionNumber={row.original.versionNumber}
+          totalVersions={row.original.totalVersions}
+        />
+      )
+    },
     enableSorting: false
   },
   {
     id: 'actions',
     header: 'Actions',
-    cell: ({ row }) => (
-      <div className='flex space-x-1'>
-        <DownloadCell name={row.getValue('name')} />
-        <ShareCell name={row.getValue('name')} />
-        <DeleteCell name={row.getValue('name')} />
-      </div>
-    ),
+    cell: ({ row }) => {
+      // Don't show actions for folders
+      if (row.original.isFolder) {
+        return null
+      }
+
+      return (
+        <div className='flex space-x-1'>
+          <DownloadCell name={row.getValue('name')} />
+          <ShareCell name={row.getValue('name')} />
+          <DeleteCell name={row.getValue('name')} />
+        </div>
+      )
+    },
     enableSorting: false
   }
 ]

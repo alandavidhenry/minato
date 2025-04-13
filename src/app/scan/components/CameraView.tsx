@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 interface CameraViewProps {
   readonly isActive: boolean
   readonly onCapture: () => void
-  readonly videoRef: React.RefObject<HTMLVideoElement>
+  readonly videoRef: React.RefObject<HTMLVideoElement | null>
 }
 
 export function CameraView({ isActive, onCapture, videoRef }: CameraViewProps) {
