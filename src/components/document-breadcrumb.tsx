@@ -7,7 +7,6 @@ import Link from 'next/link'
 import {
   Breadcrumb,
   BreadcrumbItem,
-  BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbSeparator
 } from '@/components/ui/breadcrumb'
@@ -39,14 +38,14 @@ export function DocumentBreadcrumb({ currentPath }: DocumentBreadcrumbProps) {
       <BreadcrumbList>
         {breadcrumbItems.map((item, index) => (
           <BreadcrumbItem key={item.path}>
-            <BreadcrumbLink>
+            <BreadcrumbItem key={item.path}>
               <Link
                 href={
                   item.path
                     ? `/documents?path=${encodeURIComponent(item.path)}`
                     : '/documents'
                 }
-                className='flex items-center'
+                className='flex items-center transition-colors hover:text-foreground'
               >
                 {index === 0 ? (
                   <Home className='h-3 w-3 mr-1' />
@@ -55,7 +54,7 @@ export function DocumentBreadcrumb({ currentPath }: DocumentBreadcrumbProps) {
                 )}
                 {item.name}
               </Link>
-            </BreadcrumbLink>
+            </BreadcrumbItem>
             {index < breadcrumbItems.length - 1 && <BreadcrumbSeparator />}
           </BreadcrumbItem>
         ))}
