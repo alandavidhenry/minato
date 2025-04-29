@@ -1,10 +1,13 @@
 // src/app/documents/page.tsx
 import { notFound } from 'next/navigation'
 
+import { ArrowUp } from 'lucide-react'
 import { columns } from '@/app/documents/components/columns'
 import { CreateFolderButton } from '@/components/create-folder-button'
 import { DocumentBreadcrumb } from '@/components/document-breadcrumb'
 import { DragDropUploader } from '@/components/drag-drop-uploader'
+import { UpLevelButton } from '@/components/up-level-button'
+import { Button } from '@/components/ui/button'
 import { folderExists } from '@/lib/folder-manager'
 import { listBlobs } from '@/lib/list-blobs'
 
@@ -21,7 +24,8 @@ export default async function DocumentsPage({
   searchParams
 }: DocumentsPageProps) {
   // Get current path from query parameters
-  const pathParam = searchParams.path
+  const resolvedSearchParams = await searchParams
+  const pathParam = resolvedSearchParams.path
   const path = typeof pathParam === 'string' ? pathParam : ''
 
   // If path is provided, verify it exists
@@ -41,9 +45,9 @@ export default async function DocumentsPage({
       <DocumentBreadcrumb currentPath={path} />
 
       <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-4 md:px-0'>
-        <h1 className='text-2xl sm:text-3xl font-bold'>
-          {path ? 'Folder: ' + path.split('/').pop() : 'Documents'}
-        </h1>
+        <div className='flex items-center gap-2'>
+          {path && <UpLevelButton currentPath={path} />}
+        </div>
         <div className='flex flex-wrap gap-2'>
           <CreateFolderButton currentPath={path} />
           <DragDropUploader currentPath={path} />
