@@ -1,13 +1,11 @@
 // src/app/documents/page.tsx
 import { notFound } from 'next/navigation'
 
-import { ArrowUp } from 'lucide-react'
 import { columns } from '@/app/documents/components/columns'
 import { CreateFolderButton } from '@/components/create-folder-button'
 import { DocumentBreadcrumb } from '@/components/document-breadcrumb'
 import { DragDropUploader } from '@/components/drag-drop-uploader'
 import { UpLevelButton } from '@/components/up-level-button'
-import { Button } from '@/components/ui/button'
 import { folderExists } from '@/lib/folder-manager'
 import { listBlobs } from '@/lib/list-blobs'
 
@@ -15,15 +13,11 @@ import { DataTable } from './data-table'
 
 export const dynamic = 'force-dynamic'
 
-type DocumentsPageProps = {
-  readonly params: Record<string, string>
-  readonly searchParams: { [key: string]: string | string[] | undefined }
-}
-
 export default async function DocumentsPage({
   searchParams
-}: DocumentsPageProps) {
-  // Get current path from query parameters
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const resolvedSearchParams = await searchParams
   const pathParam = resolvedSearchParams.path
   const path = typeof pathParam === 'string' ? pathParam : ''
