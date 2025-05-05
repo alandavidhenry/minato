@@ -2,7 +2,7 @@
 'use client'
 
 import { AlertTriangle, Trash2, X } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -13,14 +13,22 @@ import {
   CardTitle
 } from '@/components/ui/card'
 
+interface DeleteItem {
+  readonly name: string
+  readonly isFolder: boolean
+  readonly path?: string
+}
+
 interface DeleteConfirmationModalProps {
-  readonly fileNames: string | string[] // Accepts a single filename or array of filenames
+  readonly items?: DeleteItem[]
+  readonly fileNames?: string | string[]
   readonly onConfirm: () => void
   readonly onCancel: () => void
   readonly isDeleting: boolean
 }
 
 export function DeleteConfirmationModal({
+  items,
   fileNames,
   onConfirm,
   onCancel,
@@ -28,8 +36,26 @@ export function DeleteConfirmationModal({
 }: DeleteConfirmationModalProps) {
   const [isVisible, setIsVisible] = useState(true)
 
-  const fileCount = Array.isArray(fileNames) ? fileNames.length : 1
-  const isMultiple = fileCount > 1
+  // Convert legacy fileNames to items format if needed
+  const normalizedItems: DeleteItem[] = useMemo(() => {
+    if (items && items.length > 0) {
+      return items
+    }
+
+    // Convert fileNames to items format
+    if (Array.isArray(fileNames)) {
+      return fileNames.map((name) => ({ name, isFolder: false }))
+    } else if (fileNames) {
+      return [{ name: fileNames, isFolder: false }]
+    }
+
+    return []
+  }, [items, fileNames])
+
+  const itemCount = normalizedItems.length
+  const isMultiple = itemCount > 1
+  const folderCount = normalizedItems.filter((item) => item.isFolder).length
+  const fileCount = itemCount - folderCount
 
   const handleClose = () => {
     setIsVisible(false)
@@ -40,14 +66,26 @@ export function DeleteConfirmationModal({
     onConfirm()
   }
 
-  // Extract the confirmation message logic to avoid nested ternary
   const getConfirmationMessage = () => {
     if (isMultiple) {
-      return `Are you sure you want to delete these ${fileCount} documents?`
+      if (folderCount > 0 && fileCount > 0) {
+        return `Are you sure you want to delete these ${fileCount} documents and ${folderCount} folders?`
+      } else if (folderCount > 0) {
+        return `Are you sure you want to delete these ${folderCount} folders?`
+      } else {
+        return `Are you sure you want to delete these ${fileCount} documents?`
+      }
     }
 
-    const displayFileName = Array.isArray(fileNames) ? fileNames[0] : fileNames
-    return `Are you sure you want to delete "${displayFileName}"?`
+    if (normalizedItems.length === 1) {
+      const item = normalizedItems[0]
+      if (item.isFolder) {
+        return `Are you sure you want to delete folder "${item.name}"?`
+      }
+      return `Are you sure you want to delete "${item.name}"?`
+    }
+
+    return 'Are you sure you want to delete this item?'
   }
 
   return (
@@ -78,8 +116,14 @@ export function DeleteConfirmationModal({
             {isMultiple && (
               <div className='max-h-32 overflow-y-auto border rounded-md p-2 text-sm'>
                 <ul className='list-disc pl-4'>
-                  {(fileNames as string[]).map((fileName) => (
-                    <li key={`file-${fileName}`}>{fileName}</li>
+                  {normalizedItems.map((item, index) => (
+                    <li
+                      key={`item-${index}-${item.isFolder ? item.path : item.name}`}
+                    >
+                      {item.isFolder
+                        ? `📁 ${item.name} (folder)`
+                        : `📄 ${item.name}`}
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -109,7 +153,12 @@ export function DeleteConfirmationModal({
             ) : (
               <>
                 <Trash2 className='h-4 w-4' />
-                Delete {isMultiple ? 'Files' : 'File'}
+                Delete{' '}
+                {isMultiple
+                  ? 'Items'
+                  : normalizedItems[0]?.isFolder
+                    ? 'Folder'
+                    : 'File'}
               </>
             )}
           </Button>

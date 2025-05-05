@@ -68,7 +68,7 @@ export function DataTable<TData, TValue>({
   // Get selected row data
   const selectedRows = table.getSelectedRowModel().rows
   const selectedFilenames = selectedRows.map(
-    (row) => (row.original as any).name
+    (row) => (row.original as { name: string }).name
   )
   const hasSelectedRows = selectedRows.length > 0
 

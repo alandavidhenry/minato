@@ -9,7 +9,12 @@ import {
   getFilteredRowModel,
   RowSelectionState,
   getSortedRowModel,
-  SortingState
+  SortingState,
+  Header,
+  HeaderGroup,
+  Row,
+  Cell,
+  Table as TableInstance
 } from '@tanstack/react-table'
 import { Trash2 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
@@ -35,8 +40,8 @@ interface DataTableProps<TData, TValue> {
 }
 
 interface TableComponentProps<TData> {
-  readonly table: any
-  readonly columns: ColumnDef<TData, any>[]
+  readonly table: TableInstance<TData>
+  readonly columns: ColumnDef<TData, unknown>[]
 }
 
 export function DataTable<TData, TValue>({
@@ -70,9 +75,6 @@ export function DataTable<TData, TValue>({
 
   // Get selected row data
   const selectedRows = table.getSelectedRowModel().rows
-  const selectedFilenames = selectedRows.map(
-    (row) => (row.original as any).name
-  )
   const hasSelectedRows = selectedRows.length > 0
 
   // Handle bulk delete
@@ -87,16 +89,29 @@ export function DataTable<TData, TValue>({
 
     setIsDeleting(true)
     try {
+      // Always use the items format to properly identify folders
+      const selectedItems = selectedRows.map((row) => ({
+        name: (
+          row.original as { name: string; isFolder?: boolean; path?: string }
+        ).name,
+        isFolder:
+          (row.original as { name: string; isFolder?: boolean; path?: string })
+            .isFolder ?? false,
+        path:
+          (row.original as { name: string; isFolder?: boolean; path?: string })
+            .path ?? ''
+      }))
+
       const response = await fetch('/api/documents/delete', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ names: selectedFilenames })
+        body: JSON.stringify({ items: selectedItems })
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData = (await response.json()) as { error?: string }
         throw new Error(errorData.error ?? 'Bulk delete failed')
       }
 
@@ -162,7 +177,31 @@ export function DataTable<TData, TValue>({
       {/* Delete confirmation modal */}
       {showDeleteConfirmation && (
         <DeleteConfirmationModal
-          fileNames={selectedFilenames}
+          items={selectedRows.map((row) => ({
+            name: (
+              row.original as {
+                name: string
+                isFolder?: boolean
+                path?: string
+              }
+            ).name,
+            isFolder:
+              (
+                row.original as {
+                  name: string
+                  isFolder?: boolean
+                  path?: string
+                }
+              ).isFolder ?? false,
+            path:
+              (
+                row.original as {
+                  name: string
+                  isFolder?: boolean
+                  path?: string
+                }
+              ).path ?? ''
+          }))}
           onConfirm={confirmBulkDelete}
           onCancel={() => setShowDeleteConfirmation(false)}
           isDeleting={isDeleting}
@@ -176,9 +215,9 @@ function DesktopTable<TData>({ table, columns }: TableComponentProps<TData>) {
   return (
     <Table>
       <TableHeader>
-        {table.getHeaderGroups().map((headerGroup: any) => (
+        {table.getHeaderGroups().map((headerGroup: HeaderGroup<TData>) => (
           <TableRow key={headerGroup.id}>
-            {headerGroup.headers.map((header: any) => {
+            {headerGroup.headers.map((header: Header<TData, unknown>) => {
               return (
                 <TableHead key={header.id}>
                   {header.isPlaceholder ? null : (
@@ -208,12 +247,12 @@ function DesktopTable<TData>({ table, columns }: TableComponentProps<TData>) {
       </TableHeader>
       <TableBody>
         {table.getRowModel().rows?.length ? (
-          table.getRowModel().rows.map((row: any) => (
+          table.getRowModel().rows.map((row: Row<TData>) => (
             <TableRow
               key={row.id}
               data-state={row.getIsSelected() && 'selected'}
             >
-              {row.getVisibleCells().map((cell: any) => (
+              {row.getVisibleCells().map((cell: Cell<TData, unknown>) => (
                 <TableCell key={cell.id}>
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </TableCell>
@@ -232,20 +271,24 @@ function DesktopTable<TData>({ table, columns }: TableComponentProps<TData>) {
   )
 }
 
-function MobileTable({ table }: { readonly table: any }) {
+function MobileTable<TData>({
+  table
+}: {
+  readonly table: TableInstance<TData>
+}) {
   return (
     <div className='space-y-4 p-4'>
       {table.getRowModel().rows?.length ? (
-        table.getRowModel().rows.map((row: any) => {
+        table.getRowModel().rows.map((row: Row<TData>) => {
           const nameCell = row
             .getVisibleCells()
-            .find((cell: any) => cell.column.id === 'name')
+            .find((cell: Cell<TData, unknown>) => cell.column.id === 'name')
           const versionCell = row
             .getVisibleCells()
-            .find((cell: any) => cell.column.id === 'version')
+            .find((cell: Cell<TData, unknown>) => cell.column.id === 'version')
           const actionsCell = row
             .getVisibleCells()
-            .find((cell: any) => cell.column.id === 'actions')
+            .find((cell: Cell<TData, unknown>) => cell.column.id === 'actions')
 
           return (
             <div
