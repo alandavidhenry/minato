@@ -13,12 +13,12 @@ interface DeleteRequestBody {
 }
 
 interface DeleteResult {
-  name: string;
-  path?: string;
-  isFolder: boolean;
-  success: boolean;
-  deletedCount?: number;
-  message: string;
+  name: string
+  path?: string
+  isFolder: boolean
+  success: boolean
+  deletedCount?: number
+  message: string
 }
 
 // Helper function to check if a name is likely a folder
@@ -119,7 +119,9 @@ export async function DELETE(request: NextRequest) {
     const containerClient = blobServiceClient.getContainerClient(containerName)
 
     // Parse request
-    const requestBody = await request.json().catch(() => ({} as DeleteRequestBody)) as DeleteRequestBody
+    const requestBody = (await request
+      .json()
+      .catch(() => ({}) as DeleteRequestBody)) as DeleteRequestBody
 
     // Handle items deletion (files or folders)
     if (requestBody.items && Array.isArray(requestBody.items)) {

@@ -2,9 +2,9 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 
-import { UserRole } from '@/types/rbac'
-
 import { verifyUserCredentials } from './user-database'
+
+import { UserRole } from '@/types/rbac'
 
 export const authOptions: NextAuthOptions = {
   providers: [

@@ -158,7 +158,9 @@ export function ResetPasswordDialog({
                 id='password'
                 type='text' // Using text to make it visible for admin
                 value={password}
-                onChange={(e: any) => setPassword(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setPassword(e.target.value)
+                }
                 placeholder='New password'
                 disabled={isLoading}
               />

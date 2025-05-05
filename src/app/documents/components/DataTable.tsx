@@ -39,9 +39,9 @@ interface DataTableProps<TData, TValue> {
   readonly data: TData[]
 }
 
-interface TableComponentProps<TData> {
+interface TableComponentProps<TData, TValue = unknown> {
   readonly table: TableInstance<TData>
-  readonly columns: ColumnDef<TData, unknown>[]
+  readonly columns: ColumnDef<TData, TValue>[]
 }
 
 export function DataTable<TData, TValue>({
@@ -168,9 +168,9 @@ export function DataTable<TData, TValue>({
       {/* Table */}
       <div className='rounded-md border'>
         {isDesktop ? (
-          <DesktopTable<TData> table={table} columns={columns} />
+          <DesktopTable<TData, TValue> table={table} columns={columns} />
         ) : (
-          <MobileTable table={table} />
+          <MobileTable<TData> table={table} />
         )}
       </div>
 
@@ -211,7 +211,10 @@ export function DataTable<TData, TValue>({
   )
 }
 
-function DesktopTable<TData>({ table, columns }: TableComponentProps<TData>) {
+function DesktopTable<TData, TValue>({
+  table,
+  columns
+}: TableComponentProps<TData, TValue>) {
   return (
     <Table>
       <TableHeader>

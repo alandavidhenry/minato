@@ -38,23 +38,21 @@ export function DocumentBreadcrumb({ currentPath }: DocumentBreadcrumbProps) {
       <BreadcrumbList>
         {breadcrumbItems.map((item, index) => (
           <BreadcrumbItem key={item.path}>
-            <BreadcrumbItem key={item.path}>
-              <Link
-                href={
-                  item.path
-                    ? `/documents?path=${encodeURIComponent(item.path)}`
-                    : '/documents'
-                }
-                className='flex items-center transition-colors hover:text-foreground'
-              >
-                {index === 0 ? (
-                  <Home className='h-3 w-3 mr-1' />
-                ) : (
-                  <Folder className='h-3 w-3 mr-1' />
-                )}
-                {item.name}
-              </Link>
-            </BreadcrumbItem>
+            <Link
+              href={
+                item.path
+                  ? `/documents?path=${encodeURIComponent(item.path)}`
+                  : '/documents'
+              }
+              className='flex items-center transition-colors hover:text-foreground'
+            >
+              {index === 0 ? (
+                <Home className='h-3 w-3 mr-1' />
+              ) : (
+                <Folder className='h-3 w-3 mr-1' />
+              )}
+              {item.name}
+            </Link>
             {index < breadcrumbItems.length - 1 && <BreadcrumbSeparator />}
           </BreadcrumbItem>
         ))}

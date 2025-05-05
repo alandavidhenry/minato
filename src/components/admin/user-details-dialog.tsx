@@ -22,10 +22,18 @@ interface User {
   mail: string
   userPrincipalName: string
   accountEnabled: boolean
-  appRoleAssignments?: any[]
+  appRoleAssignments?: AppRoleAssignment[]
   createdDateTime?: string
   jobTitle?: string
   department?: string
+}
+
+interface AppRoleAssignment {
+  id: string
+  principalId?: string
+  resourceId?: string
+  appRoleId?: string
+  [key: string]: unknown
 }
 
 interface UserDetailsDialogProps {
@@ -141,7 +149,7 @@ export function UserDetailsDialog({
               <Input
                 id='displayName'
                 value={formData.displayName}
-                onChange={(e: any) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   handleChange('displayName', e.target.value)
                 }
                 disabled={isLoading}
@@ -153,7 +161,9 @@ export function UserDetailsDialog({
               <Input
                 id='jobTitle'
                 value={formData.jobTitle}
-                onChange={(e: any) => handleChange('jobTitle', e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  handleChange('jobTitle', e.target.value)
+                }
                 placeholder='Not specified'
                 disabled={isLoading}
               />
@@ -164,7 +174,7 @@ export function UserDetailsDialog({
               <Input
                 id='department'
                 value={formData.department}
-                onChange={(e: any) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   handleChange('department', e.target.value)
                 }
                 placeholder='Not specified'

@@ -107,7 +107,9 @@ export function DeleteUserDialog({
               <Input
                 id='confirmation'
                 value={confirmation}
-                onChange={(e: any) => setConfirmation(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setConfirmation(e.target.value)
+                }
                 placeholder={userName}
                 disabled={isLoading}
               />

@@ -45,7 +45,7 @@ export function CreateUserDialog({
   })
 
   // Handle form input changes
-  function handleChange(field: string, value: any) {
+  function handleChange(field: string, value: string | boolean) {
     setFormData((prev) => ({
       ...prev,
       [field]: value
@@ -153,7 +153,7 @@ export function CreateUserDialog({
               <Input
                 id='displayName'
                 value={formData.displayName}
-                onChange={(e: any) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   handleChange('displayName', e.target.value)
                 }
                 placeholder='John Doe'
@@ -167,7 +167,9 @@ export function CreateUserDialog({
                 id='email'
                 type='email'
                 value={formData.email}
-                onChange={(e: any) => handleChange('email', e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  handleChange('email', e.target.value)
+                }
                 placeholder='john.doe@example.com'
                 disabled={isLoading}
               />
@@ -193,7 +195,9 @@ export function CreateUserDialog({
                 id='password'
                 type='password'
                 value={formData.password}
-                onChange={(e: any) => handleChange('password', e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  handleChange('password', e.target.value)
+                }
                 placeholder='••••••••'
                 disabled={isLoading}
               />
@@ -203,7 +207,7 @@ export function CreateUserDialog({
               <Label htmlFor='role'>Role</Label>
               <Select
                 value={formData.role}
-                onValueChange={(value: any) => handleChange('role', value)}
+                onValueChange={(value: string) => handleChange('role', value)}
                 disabled={isLoading}
               >
                 <SelectTrigger id='role'>
