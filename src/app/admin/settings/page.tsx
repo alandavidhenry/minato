@@ -19,6 +19,9 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from '@/components/ui/use-toast'
 
+type GeneralSettingValue = string | boolean
+type SecuritySettingValue = number | boolean
+
 export default function AdminSettingsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [generalSettings, setGeneralSettings] = useState({
@@ -35,11 +38,17 @@ export default function AdminSettingsPage() {
     allowMultipleLogins: true
   })
 
-  function handleGeneralSettingsChange(field: string, value: any) {
+  function handleGeneralSettingsChange(
+    field: string,
+    value: GeneralSettingValue
+  ) {
     setGeneralSettings((prev) => ({ ...prev, [field]: value }))
   }
 
-  function handleSecuritySettingsChange(field: string, value: any) {
+  function handleSecuritySettingsChange(
+    field: string,
+    value: SecuritySettingValue
+  ) {
     setSecuritySettings((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -92,7 +101,7 @@ export default function AdminSettingsPage() {
                   <Input
                     id='siteName'
                     value={generalSettings.siteName}
-                    onChange={(e: any) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       handleGeneralSettingsChange('siteName', e.target.value)
                     }
                     disabled={isLoading}
@@ -105,7 +114,7 @@ export default function AdminSettingsPage() {
                     id='supportEmail'
                     type='email'
                     value={generalSettings.supportEmail}
-                    onChange={(e: any) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       handleGeneralSettingsChange(
                         'supportEmail',
                         e.target.value
@@ -119,7 +128,7 @@ export default function AdminSettingsPage() {
                   <Switch
                     id='allowGuestAccess'
                     checked={generalSettings.allowGuestAccess}
-                    onCheckedChange={(checked: any) =>
+                    onCheckedChange={(checked: boolean) =>
                       handleGeneralSettingsChange('allowGuestAccess', checked)
                     }
                     disabled={isLoading}
@@ -174,7 +183,7 @@ export default function AdminSettingsPage() {
                     min={6}
                     max={16}
                     value={securitySettings.passwordMinLength}
-                    onChange={(e: any) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       handleSecuritySettingsChange(
                         'passwordMinLength',
                         parseInt(e.target.value)
@@ -194,7 +203,7 @@ export default function AdminSettingsPage() {
                     min={0}
                     max={365}
                     value={securitySettings.passwordExpireDays}
-                    onChange={(e: any) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       handleSecuritySettingsChange(
                         'passwordExpireDays',
                         parseInt(e.target.value)
@@ -217,7 +226,7 @@ export default function AdminSettingsPage() {
                     min={0}
                     max={24}
                     value={securitySettings.enforcePasswordHistory}
-                    onChange={(e: any) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       handleSecuritySettingsChange(
                         'enforcePasswordHistory',
                         parseInt(e.target.value)
@@ -237,7 +246,7 @@ export default function AdminSettingsPage() {
                     min={5}
                     max={1440}
                     value={securitySettings.sessionTimeout}
-                    onChange={(e: any) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       handleSecuritySettingsChange(
                         'sessionTimeout',
                         parseInt(e.target.value)
@@ -251,7 +260,7 @@ export default function AdminSettingsPage() {
                   <Switch
                     id='allowMultipleLogins'
                     checked={securitySettings.allowMultipleLogins}
-                    onCheckedChange={(checked: any) =>
+                    onCheckedChange={(checked: boolean) =>
                       handleSecuritySettingsChange(
                         'allowMultipleLogins',
                         checked

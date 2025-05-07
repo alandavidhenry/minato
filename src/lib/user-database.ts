@@ -23,6 +23,18 @@ interface UserTableEntity {
   [key: string]: string | undefined
 }
 
+interface StorageError {
+  statusCode?: number
+  [key: string]: unknown
+}
+
+interface UpdateEntity {
+  partitionKey: string
+  rowKey: string
+  displayName?: string
+  role?: string
+}
+
 // Get a TableClient instance to work with the users table
 function getTableClient() {
   // For local development with Azurite, use the development storage
@@ -48,9 +60,10 @@ export async function initUserTable() {
   const tableClient = getTableClient()
   try {
     await tableClient.createTable()
-  } catch (error: any) {
+  } catch (error) {
+    const storageError = error as StorageError
     // If the table already exists, that's fine
-    if (error.statusCode === 409) {
+    if (storageError.statusCode === 409) {
       return
     }
     console.error('Error creating users table:', error)
@@ -76,9 +89,10 @@ export async function createUser({
     try {
       await tableClient.getEntity('users', email)
       return null
-    } catch (error: any) {
+    } catch (error) {
+      const storageError = error as StorageError
       // Error 404 means the user doesn't exist, which is what we want
-      if (error.statusCode !== 404) {
+      if (storageError.statusCode !== 404) {
         throw error
       }
     }
@@ -147,9 +161,10 @@ export async function verifyUserCredentials(
     }
 
     return null
-  } catch (error: any) {
+  } catch (error) {
     // If user doesn't exist, return null
-    if (error.statusCode === 404) {
+    const storageError = error as StorageError
+    if (storageError.statusCode === 404) {
       return null
     }
     console.error('Error verifying user:', error)
@@ -172,9 +187,10 @@ export async function getUserByEmail(email: string): Promise<UserData | null> {
       role: user.role as string,
       createdAt: user.createdAt as string
     }
-  } catch (error: any) {
+  } catch (error) {
     // If user doesn't exist, return null
-    if (error.statusCode === 404) {
+    const storageError = error as StorageError
+    if (storageError.statusCode === 404) {
       return null
     }
     console.error('Error getting user:', error)
@@ -222,7 +238,7 @@ export async function updateUser(
     await tableClient.getEntity('users', email)
 
     // Create the update entity
-    const updateEntity: any = {
+    const updateEntity: UpdateEntity = {
       partitionKey: 'users',
       rowKey: email
     }
@@ -235,9 +251,10 @@ export async function updateUser(
     await tableClient.updateEntity(updateEntity, 'Merge')
 
     return true
-  } catch (error: any) {
+  } catch (error) {
     // If user doesn't exist, return false
-    if (error.statusCode === 404) {
+    const storageError = error as StorageError
+    if (storageError.statusCode === 404) {
       console.error('User not found for update:', email)
       return false
     }
@@ -253,9 +270,10 @@ export async function deleteUser(email: string): Promise<boolean> {
   try {
     await tableClient.deleteEntity('users', email)
     return true
-  } catch (error: any) {
+  } catch (error) {
     // If user doesn't exist, consider it a success
-    if (error.statusCode === 404) {
+    const storageError = error as StorageError
+    if (storageError.statusCode === 404) {
       return true
     }
     console.error('Error deleting user:', error)
@@ -288,9 +306,10 @@ export async function changePassword(
     )
 
     return true
-  } catch (error: any) {
+  } catch (error) {
+    const storageError = error as StorageError
     // If user doesn't exist, return false
-    if (error.statusCode === 404) {
+    if (storageError.statusCode === 404) {
       console.error('User not found for password change:', email)
       return false
     }

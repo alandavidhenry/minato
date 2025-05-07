@@ -5,16 +5,13 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 // Simplify interface definitions to avoid TypeScript errors
-export interface BreadcrumbProps extends React.HTMLAttributes<HTMLDivElement> {}
+export type BreadcrumbProps = React.HTMLAttributes<HTMLDivElement>
 
-export interface BreadcrumbItemProps
-  extends React.HTMLAttributes<HTMLLIElement> {}
+export type BreadcrumbItemProps = React.HTMLAttributes<HTMLLIElement>
 
-export interface BreadcrumbLinkProps
-  extends React.AnchorHTMLAttributes<HTMLAnchorElement> {}
+export type BreadcrumbLinkProps = React.AnchorHTMLAttributes<HTMLAnchorElement>
 
-export interface BreadcrumbSeparatorProps
-  extends React.HTMLAttributes<HTMLSpanElement> {}
+export type BreadcrumbSeparatorProps = React.HTMLAttributes<HTMLSpanElement>
 
 // Simplified Breadcrumb component
 export const Breadcrumb = React.forwardRef<HTMLDivElement, BreadcrumbProps>(

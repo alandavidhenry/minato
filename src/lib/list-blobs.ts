@@ -17,6 +17,20 @@ export interface BlobItem {
   path?: string
 }
 
+interface DocumentVersion {
+  fileName: string
+  uploadedAt: Date
+  size: string
+  versionNumber: number
+  originalName: string
+}
+
+interface VersionedDocument {
+  versions: DocumentVersion[]
+  latestVersion: DocumentVersion
+  originalName: string
+}
+
 export async function listBlobs(
   includeVersions: boolean = false,
   path: string = ''
@@ -138,7 +152,7 @@ export async function getDocumentVersions(
  * Extract direct subfolders from the current path
  */
 function extractFolders(
-  documentsWithVersions: any[],
+  documentsWithVersions: VersionedDocument[],
   currentPath: string = ''
 ): BlobItem[] {
   // Store unique folder paths that are direct children of the current path

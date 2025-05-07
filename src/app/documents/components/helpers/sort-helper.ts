@@ -1,6 +1,10 @@
 /**
  * Convert size string like "1.5 MB" to bytes for proper comparison
  */
+interface TableRow {
+  getValue: (columnId: string) => string
+}
+
 export function getSizeInBytes(sizeStr: string): number {
   const units: Record<string, number> = {
     Bytes: 1,
@@ -21,7 +25,11 @@ export function getSizeInBytes(sizeStr: string): number {
 /**
  * Custom sorting function for size (converts "1.5 MB" to bytes for proper comparison)
  */
-export function sortBySize(rowA: any, rowB: any, columnId: string): number {
+export function sortBySize(
+  rowA: TableRow,
+  rowB: TableRow,
+  columnId: string
+): number {
   const sizeA = getSizeInBytes(rowA.getValue(columnId))
   const sizeB = getSizeInBytes(rowB.getValue(columnId))
 

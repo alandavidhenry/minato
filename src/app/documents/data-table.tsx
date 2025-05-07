@@ -68,7 +68,7 @@ export function DataTable<TData, TValue>({
   // Get selected row data
   const selectedRows = table.getSelectedRowModel().rows
   const selectedFilenames = selectedRows.map(
-    (row) => (row.original as any).name
+    (row) => (row.original as { name: string }).name
   )
   const hasSelectedRows = selectedRows.length > 0
 
@@ -84,17 +84,30 @@ export function DataTable<TData, TValue>({
 
     setIsDeleting(true)
     try {
+      // Convert selected rows to items format
+      const selectedItems = selectedRows.map((row) => ({
+        name: (
+          row.original as { name: string; isFolder?: boolean; path?: string }
+        ).name,
+        isFolder:
+          (row.original as { name: string; isFolder?: boolean; path?: string })
+            .isFolder ?? false,
+        path:
+          (row.original as { name: string; isFolder?: boolean; path?: string })
+            .path ?? ''
+      }))
+
       const response = await fetch('/api/documents/delete', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ names: selectedFilenames })
+        body: JSON.stringify({ items: selectedItems })
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Bulk delete failed')
+        throw new Error(errorData.error ?? 'Bulk delete failed')
       }
 
       await response.json()

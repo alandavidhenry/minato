@@ -5,7 +5,8 @@ export enum ActivityType {
   VIEW = 'view',
   DOWNLOAD = 'download',
   UPLOAD = 'upload',
-  NEW_VERSION = 'new_version'
+  NEW_VERSION = 'new_version',
+  RENAME = 'rename'
 }
 
 export interface ActivityLog {
@@ -16,6 +17,11 @@ export interface ActivityLog {
   activityType: ActivityType
   timestamp: string
   ipAddress?: string
+}
+
+interface ActivityLogError {
+  statusCode?: number
+  [key: string]: unknown
 }
 
 // Get a TableClient instance for the activity logs table
@@ -43,9 +49,10 @@ export async function initActivityLogsTable() {
   const tableClient = getTableClient()
   try {
     await tableClient.createTable()
-  } catch (error: any) {
+  } catch (error) {
+    const activityLogError = error as ActivityLogError
     // If the table already exists, that's fine
-    if (error.statusCode === 409) {
+    if (activityLogError.statusCode === 409) {
       return
     }
     console.error('Error creating activity logs table:', error)

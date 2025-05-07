@@ -5,7 +5,7 @@
   "trailingComma": "none",
   "endOfLine": "lf",
   "bracketSpacing": true,
-  "jsxBracketSameLine": false,
+  "bracketSameLine": false,
   "overrides": [
     {
       "files": "*.html",

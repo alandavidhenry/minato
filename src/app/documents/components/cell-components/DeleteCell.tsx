@@ -10,9 +10,15 @@ import { toast } from '@/components/ui/use-toast'
 
 interface DeleteCellProps {
   readonly name: string
+  readonly isFolder?: boolean
+  readonly path?: string
 }
 
-export function DeleteCell({ name }: DeleteCellProps) {
+export function DeleteCell({
+  name,
+  isFolder = false,
+  path = ''
+}: DeleteCellProps) {
   const { data: session } = useSession()
   const [isDeleting, setIsDeleting] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
@@ -27,12 +33,22 @@ export function DeleteCell({ name }: DeleteCellProps) {
 
     setIsDeleting(true)
     try {
-      const response = await fetch(
-        `/api/documents/delete?name=${encodeURIComponent(name)}`,
-        {
-          method: 'DELETE'
-        }
-      )
+      // Use the items format to properly represent the file or folder
+      const response = await fetch('/api/documents/delete', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          items: [
+            {
+              name: name,
+              isFolder: isFolder,
+              path: path || name
+            }
+          ]
+        })
+      })
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -77,7 +93,13 @@ export function DeleteCell({ name }: DeleteCellProps) {
 
       {showConfirmation && (
         <DeleteConfirmationModal
-          fileNames={name}
+          items={[
+            {
+              name: name,
+              isFolder: isFolder,
+              path: path || name
+            }
+          ]}
           onConfirm={confirmDelete}
           onCancel={() => setShowConfirmation(false)}
           isDeleting={isDeleting}

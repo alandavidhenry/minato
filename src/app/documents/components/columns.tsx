@@ -3,16 +3,17 @@
 
 import { ColumnDef } from '@tanstack/react-table'
 
-import { Document } from '@/app/documents/types/document'
-import { Checkbox } from '@/components/ui/checkbox'
-import { SortArrows } from '@/components/ui/data-table/sort-arrows'
-
 import { DeleteCell } from './cell-components/DeleteCell'
 import { DocumentNameCell } from './cell-components/DocumentNameCell'
 import { DownloadCell } from './cell-components/DownloadCell'
+import { RenameCell } from './cell-components/RenameCell'
 import { ShareCell } from './cell-components/ShareCell'
 import { VersionCell } from './cell-components/VersionCell'
 import { sortBySize } from './helpers/sort-helper'
+
+import { Document } from '@/app/documents/types/document'
+import { Checkbox } from '@/components/ui/checkbox'
+import { SortArrows } from '@/components/ui/data-table/sort-arrows'
 
 export const columns: ColumnDef<Document>[] = [
   // Selection column
@@ -33,7 +34,7 @@ export const columns: ColumnDef<Document>[] = [
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
         aria-label='Select row'
-        disabled={row.original.isFolder}
+        disabled={false}
       />
     ),
     enableSorting: false,
@@ -129,16 +130,26 @@ export const columns: ColumnDef<Document>[] = [
     id: 'actions',
     header: 'Actions',
     cell: ({ row }) => {
-      // Don't show actions for folders
-      if (row.original.isFolder) {
-        return null
-      }
+      const isFolder = row.original.isFolder
 
       return (
         <div className='flex space-x-1'>
-          <DownloadCell name={row.getValue('name')} />
-          <ShareCell name={row.getValue('name')} />
-          <DeleteCell name={row.getValue('name')} />
+          {!isFolder && (
+            <>
+              <DownloadCell name={row.getValue('name')} />
+              <ShareCell name={row.getValue('name')} />
+            </>
+          )}
+          <RenameCell
+            name={row.getValue('name')}
+            isFolder={isFolder}
+            path={row.original.path}
+          />
+          <DeleteCell
+            name={row.getValue('name')}
+            isFolder={isFolder}
+            path={row.original.path}
+          />
         </div>
       )
     },

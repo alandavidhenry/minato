@@ -2,13 +2,13 @@
 
 import { useEffect, useState, useCallback } from 'react'
 
-import { VersionUploadModal } from '@/components/version-upload-modal'
-import { parseFileName } from '@/lib/version-manager'
-
 import { PDFErrorView } from './components/PDFErrorView'
 import { PDFRenderer } from './components/PDFRenderer'
 import { PDFToolbar } from './components/PDFToolbar'
 import { fetchPdf, fetchVersionInfo } from './services/pdf-service'
+
+import { VersionUploadModal } from '@/components/version-upload-modal'
+import { parseFileName } from '@/lib/version-manager'
 
 interface PDFDocumentViewerProps {
   readonly fileName: string
