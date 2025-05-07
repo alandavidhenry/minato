@@ -23,10 +23,15 @@ interface DeleteResult {
 
 // Helper function to check if a name is likely a folder
 function looksLikeFolder(name: string): boolean {
+  // Clean the name - remove any trailing slash or space
+  const cleanName = name.trim().replace(/\/+$/, '')
+
+  // If it's empty after cleaning, it's not a valid name
+  if (!cleanName) return false
+
   return (
-    !name.includes('.') ||
-    name.endsWith('/') ||
-    name.toLowerCase().includes('folder')
+    !cleanName.includes('.') || // No file extension
+    cleanName.toLowerCase().includes('folder') // Contains 'folder' in the name
   )
 }
 
@@ -161,7 +166,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ results })
     }
 
-    // Legacy support for 'names' array - THE KEY CHANGE IS HERE
     if (requestBody.names && Array.isArray(requestBody.names)) {
       console.log(
         'Processing legacy names deletion request:',
@@ -170,33 +174,68 @@ export async function DELETE(request: NextRequest) {
       const results = []
 
       for (const name of requestBody.names) {
-        // Try to detect if this is a folder based on the name
-        const isLikelyFolder = looksLikeFolder(name)
+        // Check if the name contains a path separator
+        if (name.includes('/')) {
+          // For paths with '/', extract the last segment to determine if it's a file or folder
+          const lastSegment = name.split('/').pop() ?? ''
+          const isLikelyFolder = looksLikeFolder(lastSegment)
 
-        if (isLikelyFolder) {
-          console.log(
-            `Name "${name}" looks like a folder, treating as folder deletion`
-          )
-          const result = await deleteFolderContents(containerClient, name)
-          results.push({
-            name: name,
-            isFolder: true,
-            success: result.success,
-            deletedCount: result.count,
-            message: result.success
-              ? `Deleted folder with ${result.count} item(s)`
-              : 'Failed to delete folder or folder was empty'
-          })
+          if (isLikelyFolder) {
+            console.log(
+              `Path "${name}" with last segment "${lastSegment}" looks like a folder, treating as folder deletion`
+            )
+            const result = await deleteFolderContents(containerClient, name)
+            results.push({
+              name,
+              path: name,
+              isFolder: true,
+              success: result.success,
+              deletedCount: result.count,
+              message: result.success
+                ? `Deleted folder with ${result.count} item(s)`
+                : 'Failed to delete folder or folder was empty'
+            })
+          } else {
+            // This is a file inside a folder
+            console.log(
+              `Path "${name}" with last segment "${lastSegment}" looks like a file in a folder`
+            )
+            const success = await deleteSingleFile(containerClient, name)
+            results.push({
+              name,
+              isFolder: false,
+              success,
+              message: success ? 'File deleted' : 'Failed to delete file'
+            })
+          }
         } else {
-          // Treat as a regular file
-          console.log(`Treating "${name}" as a regular file`)
-          const success = await deleteSingleFile(containerClient, name)
-          results.push({
-            name,
-            isFolder: false,
-            success,
-            message: success ? 'File deleted' : 'Failed to delete file'
-          })
+          // For simple names without '/', use the original logic
+          const isLikelyFolder = looksLikeFolder(name)
+          if (isLikelyFolder) {
+            console.log(
+              `Name "${name}" looks like a folder, treating as folder deletion`
+            )
+            const result = await deleteFolderContents(containerClient, name)
+            results.push({
+              name,
+              path: name,
+              isFolder: true,
+              success: result.success,
+              deletedCount: result.count,
+              message: result.success
+                ? `Deleted folder with ${result.count} item(s)`
+                : 'Failed to delete folder or folder was empty'
+            })
+          } else {
+            console.log(`Treating "${name}" as a regular file`)
+            const success = await deleteSingleFile(containerClient, name)
+            results.push({
+              name,
+              isFolder: false,
+              success,
+              message: success ? 'File deleted' : 'Failed to delete file'
+            })
+          }
         }
       }
 
