@@ -331,7 +331,6 @@ function MobileTable<TData>({
               </div>
 
               <div className='flex justify-between items-center'>
-                {/* Version info */}
                 <div>
                   {versionCell &&
                     flexRender(
@@ -339,8 +338,6 @@ function MobileTable<TData>({
                       versionCell.getContext()
                     )}
                 </div>
-
-                {/* Actions */}
                 <div className='flex space-x-1'>
                   {actionsCell &&
                     flexRender(

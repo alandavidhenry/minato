@@ -129,16 +129,21 @@ export const columns: ColumnDef<Document>[] = [
     id: 'actions',
     header: 'Actions',
     cell: ({ row }) => {
-      // Don't show actions for folders
-      if (row.original.isFolder) {
-        return null
-      }
+      const isFolder = row.original.isFolder
 
       return (
         <div className='flex space-x-1'>
-          <DownloadCell name={row.getValue('name')} />
-          <ShareCell name={row.getValue('name')} />
-          <DeleteCell name={row.getValue('name')} />
+          {!isFolder && (
+            <>
+              <DownloadCell name={row.getValue('name')} />
+              <ShareCell name={row.getValue('name')} />
+            </>
+          )}
+          <DeleteCell
+            name={row.getValue('name')}
+            isFolder={isFolder}
+            path={row.original.path}
+          />
         </div>
       )
     },
