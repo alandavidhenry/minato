@@ -5,7 +5,8 @@ export enum ActivityType {
   VIEW = 'view',
   DOWNLOAD = 'download',
   UPLOAD = 'upload',
-  NEW_VERSION = 'new_version'
+  NEW_VERSION = 'new_version',
+  RENAME = 'rename'
 }
 
 export interface ActivityLog {

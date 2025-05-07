@@ -6,6 +6,7 @@ import { ColumnDef } from '@tanstack/react-table'
 import { DeleteCell } from './cell-components/DeleteCell'
 import { DocumentNameCell } from './cell-components/DocumentNameCell'
 import { DownloadCell } from './cell-components/DownloadCell'
+import { RenameCell } from './cell-components/RenameCell'
 import { ShareCell } from './cell-components/ShareCell'
 import { VersionCell } from './cell-components/VersionCell'
 import { sortBySize } from './helpers/sort-helper'
@@ -139,6 +140,11 @@ export const columns: ColumnDef<Document>[] = [
               <ShareCell name={row.getValue('name')} />
             </>
           )}
+          <RenameCell
+            name={row.getValue('name')}
+            isFolder={isFolder}
+            path={row.original.path}
+          />
           <DeleteCell
             name={row.getValue('name')}
             isFolder={isFolder}

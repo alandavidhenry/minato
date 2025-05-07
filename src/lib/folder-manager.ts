@@ -171,3 +171,87 @@ export async function listFolderContents(
 
   return blobs
 }
+
+/**
+ * Rename a file or folder
+ */
+export async function renameItem(
+  oldPath: string,
+  newName: string,
+  isFolder: boolean
+): Promise<string | null> {
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING!
+  const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME!
+
+  try {
+    const blobServiceClient =
+      BlobServiceClient.fromConnectionString(connectionString)
+    const containerClient = blobServiceClient.getContainerClient(containerName)
+
+    if (isFolder) {
+      // For folders, we need to move all contents to the new path
+      // 1. Determine the parent path and create a new path with the new name
+      const pathParts = oldPath.split('/')
+      const parentPath =
+        pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : ''
+
+      const newPath = parentPath ? `${parentPath}/${newName}` : newName
+
+      // Use the existing moveOrCopyFolder function
+      return await moveOrCopyFolder(oldPath, newPath, 'move')
+    } else {
+      // For files, we'll copy the blob to the new path and delete the old one
+
+      // Get file extension if exists
+      const fileName = oldPath.split('/').pop() ?? ''
+      const extension = fileName.includes('.')
+        ? fileName.substring(fileName.lastIndexOf('.'))
+        : ''
+
+      const pathParts = oldPath.split('/')
+      const parentPath =
+        pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : ''
+
+      // Preserve the file extension if it exists
+      const newFileName = extension ? `${newName}${extension}` : newName
+
+      const newPath = parentPath ? `${parentPath}/${newFileName}` : newFileName
+
+      // Get source blob and create destination blob
+      const sourceBlobClient = containerClient.getBlobClient(oldPath)
+      const destBlobClient = containerClient.getBlobClient(newPath)
+
+      // Verify source exists
+      if (!(await sourceBlobClient.exists())) {
+        console.error(`Source blob ${oldPath} does not exist`)
+        return null
+      }
+
+      // Copy the blob's properties and metadata
+      const sourceProperties = await sourceBlobClient.getProperties()
+
+      // Copy the blob
+      const copyPoller = await destBlobClient.beginCopyFromURL(
+        sourceBlobClient.url
+      )
+      const copyResult = await copyPoller.pollUntilDone()
+
+      if (copyResult.copyStatus === 'success') {
+        // Copy metadata and properties
+        if (sourceProperties.metadata) {
+          await destBlobClient.setMetadata(sourceProperties.metadata)
+        }
+
+        // Delete the original blob after successful copy
+        await sourceBlobClient.delete()
+        return newPath
+      } else {
+        console.error('Copy operation failed:', copyResult.copyStatus)
+        return null
+      }
+    }
+  } catch (error) {
+    console.error(`Error during rename operation:`, error)
+    return null
+  }
+}
