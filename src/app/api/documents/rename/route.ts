@@ -1,8 +1,8 @@
+// src/app/api/documents/rename/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import { logActivity, ActivityType } from '@/lib/activity-logger'
-import { renameItem } from '@/lib/folder-manager'
+import { getFileManager } from '@/lib/file-manager'
 
 export async function POST(request: NextRequest) {
   // Check authentication
@@ -12,52 +12,58 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const requestBody = await request.json()
-    const { oldPath, newName, isFolder } = requestBody
+    // Parse request body
+    const body = await request.json()
+    const { path, newName, isFolder } = body
 
-    console.log('Received rename request:', { oldPath, newName, isFolder })
-
-    if (!oldPath || !newName) {
+    if (!path || !newName) {
       return NextResponse.json(
-        { error: 'Missing required parameters' },
+        { error: 'Path and new name are required' },
         { status: 400 }
       )
     }
 
-    // Use the renameItem function
-    const result = await renameItem(oldPath, newName, isFolder)
+    console.log(
+      `Rename request: ${isFolder ? 'folder' : 'file'} "${path}" to "${newName}"`
+    )
 
-    if (!result) {
-      return NextResponse.json(
-        { error: 'Failed to rename item' },
-        { status: 500 }
+    // Get the file manager instance
+    const fileManager = getFileManager()
+
+    // Rename the file or folder
+    let result
+    if (isFolder) {
+      result = await fileManager.renameFolder(
+        path,
+        newName,
+        session.user?.id ?? 'unknown',
+        session.user?.name ?? 'Unknown User'
+      )
+    } else {
+      result = await fileManager.renameFile(
+        path,
+        newName,
+        session.user?.id ?? 'unknown',
+        session.user?.name ?? 'Unknown User'
       )
     }
 
-    // Log the activity
-    if (session?.user) {
-      await logActivity({
-        userId: session.user.id,
-        userName: session.user.name ?? session.user.email ?? 'Unknown user',
-        fileName: result,
-        activityType: ActivityType.RENAME,
-        ipAddress:
-          request.headers.get('x-forwarded-for') ??
-          request.headers.get('x-real-ip') ??
-          undefined
+    if (result.success) {
+      return NextResponse.json({
+        success: true,
+        message: result.message,
+        oldPath: path,
+        newPath: result.data?.newPath
       })
+    } else {
+      console.error(`Rename error: ${result.message}`)
+      return NextResponse.json({ error: result.message }, { status: 400 })
     }
-
-    return NextResponse.json({
-      message: `${isFolder ? 'Folder' : 'File'} renamed successfully`,
-      newPath: result
-    })
   } catch (error) {
-    console.error('Rename error:', error)
+    console.error('Error renaming item:', error)
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : 'Rename operation failed'
+        error: error instanceof Error ? error.message : 'Failed to rename item'
       },
       { status: 500 }
     )

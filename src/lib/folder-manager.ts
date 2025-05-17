@@ -1,178 +1,84 @@
 // src/lib/folder-manager.ts
-import { BlobServiceClient } from '@azure/storage-blob'
+
+import { getFileManager } from './file-manager'
 
 /**
+ * @deprecated Use FileManager from file-manager.ts instead
  * Creates an empty folder in blob storage
- * (Azure Blob Storage doesn't have real folders, so we create a placeholder file)
  */
 export async function createEmptyFolder(folderPath: string): Promise<string> {
-  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING!
-  const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME!
+  console.warn(
+    'createEmptyFolder is deprecated. Use FileManager.createFolder instead.'
+  )
+  const fileManager = getFileManager()
+  const result = await fileManager.createFolder(
+    folderPath,
+    'system',
+    'System Migration'
+  )
 
-  // Add trailing slash if not present and add .folder placeholder
-  const normalizedPath = folderPath.endsWith('/')
-    ? folderPath
-    : `${folderPath}/`
-
-  const placeholderPath = `${normalizedPath}.folder`
-
-  const blobServiceClient =
-    BlobServiceClient.fromConnectionString(connectionString)
-  const containerClient = blobServiceClient.getContainerClient(containerName)
-  const blockBlobClient = containerClient.getBlockBlobClient(placeholderPath)
-
-  // Upload empty content with folder metadata
-  await blockBlobClient.upload('', 0, {
-    blobHTTPHeaders: {
-      blobContentType: 'application/x-directory'
-    },
-    metadata: {
-      isFolder: 'true'
-    }
-  })
-
-  return folderPath
+  return result.success ? folderPath : ''
 }
 
 /**
+ * @deprecated Use FileManager.folderExists from file-manager.ts instead
  * Checks if a folder exists by checking for the placeholder file
  */
 export async function folderExists(folderPath: string): Promise<boolean> {
-  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING!
-  const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME!
-
-  // Add trailing slash if not present and add .folder placeholder
-  const normalizedPath = folderPath.endsWith('/')
-    ? folderPath
-    : `${folderPath}/`
-
-  const placeholderPath = `${normalizedPath}.folder`
-
-  const blobServiceClient =
-    BlobServiceClient.fromConnectionString(connectionString)
-  const containerClient = blobServiceClient.getContainerClient(containerName)
-  const blockBlobClient = containerClient.getBlockBlobClient(placeholderPath)
-
-  const exists = await blockBlobClient.exists()
-
-  return exists
+  const fileManager = getFileManager()
+  return await fileManager.folderExists(folderPath)
 }
 
 /**
+ * @deprecated Use FileManager from file-manager.ts instead
  * Move or copy a folder and its contents
- * (Operation can be 'move' or 'copy')
  */
 export async function moveOrCopyFolder(
   sourceFolderPath: string,
   targetPath: string,
   operation: 'move' | 'copy'
 ): Promise<string | null> {
-  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING!
-  const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME!
+  console.warn(
+    'moveOrCopyFolder is deprecated. Use FileManager methods instead.'
+  )
+  const fileManager = getFileManager()
 
-  // Add trailing slash if not present
-  const sourcePrefix = sourceFolderPath.endsWith('/')
-    ? sourceFolderPath
-    : `${sourceFolderPath}/`
-
-  const targetPrefix = targetPath
-    ? targetPath.endsWith('/')
-      ? targetPath
-      : `${targetPath}/`
-    : ''
-
-  try {
-    const blobServiceClient =
-      BlobServiceClient.fromConnectionString(connectionString)
-    const containerClient = blobServiceClient.getContainerClient(containerName)
-
-    // Get all blobs in the source folder
-    const blobs: string[] = []
-    for await (const blob of containerClient.listBlobsFlat({
-      prefix: sourcePrefix
-    })) {
-      blobs.push(blob.name)
-    }
-
-    if (blobs.length === 0) {
-      return null
-    }
-
-    // Process each blob
-    for (const blobName of blobs) {
-      const sourceBlobClient = containerClient.getBlobClient(blobName)
-
-      // Compute the target blob name by replacing the source prefix with the target prefix
-      const relativePath = blobName.substring(sourcePrefix.length)
-      const targetBlobName = `${targetPrefix}${relativePath}`
-      const targetBlobClient = containerClient.getBlobClient(targetBlobName)
-
-      if (operation === 'copy') {
-        // Copy the blob
-        await targetBlobClient.beginCopyFromURL(sourceBlobClient.url)
-      } else if (operation === 'move') {
-        // Copy the blob to the new location
-        await targetBlobClient.beginCopyFromURL(sourceBlobClient.url)
-        // Delete the original blob after successful copy
-        await sourceBlobClient.delete()
-      }
-    }
-
-    // Create folder placeholder in the target location
-    await createEmptyFolder(targetPath)
-
-    // If it was a move, remove the source folder placeholder
-    if (operation === 'move') {
-      const sourcePlaceholderPath = `${sourcePrefix}.folder`
-      const placeholderBlobClient = containerClient.getBlobClient(
-        sourcePlaceholderPath
-      )
-      if (await placeholderBlobClient.exists()) {
-        await placeholderBlobClient.delete()
-      }
-    }
-
-    return targetPath
-  } catch (error) {
-    console.error(`Error during folder ${operation} operation:`, error)
+  if (operation === 'move') {
+    // Parse the target folder name from the path
+    const targetName = targetPath.split('/').pop() ?? ''
+    const result = await fileManager.renameFolder(
+      sourceFolderPath,
+      targetName,
+      'system',
+      'System Migration'
+    )
+    return result.success ? targetPath : null
+  } else {
+    // Copy operation is more complex and should be implemented in file-manager
+    console.error('Copy folder operation is not supported in the legacy API')
     return null
   }
 }
 
 /**
+ * @deprecated Use FileManager.listContent from file-manager.ts instead
  * Lists all files and subfolders in a folder
  */
 export async function listFolderContents(
   folderPath: string
 ): Promise<string[]> {
-  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING!
-  const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME!
+  console.warn(
+    'listFolderContents is deprecated. Use FileManager.listContent instead.'
+  )
+  const fileManager = getFileManager()
+  const contents = await fileManager.listContent(folderPath)
 
-  // Add trailing slash if not present
-  const prefix = folderPath
-    ? folderPath.endsWith('/')
-      ? folderPath
-      : `${folderPath}/`
-    : ''
-
-  const blobServiceClient =
-    BlobServiceClient.fromConnectionString(connectionString)
-  const containerClient = blobServiceClient.getContainerClient(containerName)
-
-  const blobs: string[] = []
-
-  // List all blobs with the folder prefix
-  for await (const blob of containerClient.listBlobsFlat({ prefix })) {
-    // Skip the folder placeholder itself
-    if (!blob.name.endsWith('/.folder')) {
-      blobs.push(blob.name)
-    }
-  }
-
-  return blobs
+  // Convert to the old format (just paths)
+  return contents.map((item) => item.fullPath)
 }
 
 /**
+ * @deprecated Use FileManager from file-manager.ts instead
  * Rename a file or folder
  */
 export async function renameItem(
@@ -180,78 +86,26 @@ export async function renameItem(
   newName: string,
   isFolder: boolean
 ): Promise<string | null> {
-  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING!
-  const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME!
+  console.warn(
+    'renameItem is deprecated. Use FileManager.renameFile or FileManager.renameFolder instead.'
+  )
+  const fileManager = getFileManager()
 
-  try {
-    const blobServiceClient =
-      BlobServiceClient.fromConnectionString(connectionString)
-    const containerClient = blobServiceClient.getContainerClient(containerName)
-
-    if (isFolder) {
-      // For folders, we need to move all contents to the new path
-      // 1. Determine the parent path and create a new path with the new name
-      const pathParts = oldPath.split('/')
-      const parentPath =
-        pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : ''
-
-      const newPath = parentPath ? `${parentPath}/${newName}` : newName
-
-      // Use the existing moveOrCopyFolder function
-      return await moveOrCopyFolder(oldPath, newPath, 'move')
-    } else {
-      // For files, we'll copy the blob to the new path and delete the old one
-
-      // Get file extension if exists
-      const fileName = oldPath.split('/').pop() ?? ''
-      const extension = fileName.includes('.')
-        ? fileName.substring(fileName.lastIndexOf('.'))
-        : ''
-
-      const pathParts = oldPath.split('/')
-      const parentPath =
-        pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : ''
-
-      // Preserve the file extension if it exists
-      const newFileName = extension ? `${newName}${extension}` : newName
-
-      const newPath = parentPath ? `${parentPath}/${newFileName}` : newFileName
-
-      // Get source blob and create destination blob
-      const sourceBlobClient = containerClient.getBlobClient(oldPath)
-      const destBlobClient = containerClient.getBlobClient(newPath)
-
-      // Verify source exists
-      if (!(await sourceBlobClient.exists())) {
-        console.error(`Source blob ${oldPath} does not exist`)
-        return null
-      }
-
-      // Copy the blob's properties and metadata
-      const sourceProperties = await sourceBlobClient.getProperties()
-
-      // Copy the blob
-      const copyPoller = await destBlobClient.beginCopyFromURL(
-        sourceBlobClient.url
-      )
-      const copyResult = await copyPoller.pollUntilDone()
-
-      if (copyResult.copyStatus === 'success') {
-        // Copy metadata and properties
-        if (sourceProperties.metadata) {
-          await destBlobClient.setMetadata(sourceProperties.metadata)
-        }
-
-        // Delete the original blob after successful copy
-        await sourceBlobClient.delete()
-        return newPath
-      } else {
-        console.error('Copy operation failed:', copyResult.copyStatus)
-        return null
-      }
-    }
-  } catch (error) {
-    console.error(`Error during rename operation:`, error)
-    return null
+  if (isFolder) {
+    const result = await fileManager.renameFolder(
+      oldPath,
+      newName,
+      'system',
+      'System Migration'
+    )
+    return result.success ? (result.data?.newPath ?? null) : null
+  } else {
+    const result = await fileManager.renameFile(
+      oldPath,
+      newName,
+      'system',
+      'System Migration'
+    )
+    return result.success ? (result.data?.newPath ?? null) : null
   }
 }

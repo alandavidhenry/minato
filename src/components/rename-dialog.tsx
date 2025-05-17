@@ -1,5 +1,7 @@
+// src/components/rename-dialog.tsx
 'use client'
 
+import { Pencil } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 
@@ -13,112 +15,117 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
+import { parseFileName } from '@/lib/version-manager'
 
 interface RenameDialogProps {
-  readonly open: boolean
-  readonly onOpenChange: (open: boolean) => void
-  readonly name: string
-  readonly isFolder: boolean
-  readonly path: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  name: string
+  isFolder?: boolean
+  path?: string
 }
 
 export function RenameDialog({
   open,
   onOpenChange,
   name,
-  isFolder,
-  path
+  isFolder = false,
+  path = ''
 }: RenameDialogProps) {
   const { data: session } = useSession()
-  const [isProcessing, setIsProcessing] = useState(false)
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
-  // Extract display name (without path) for input field
-  const displayName = isFolder
-    ? (path.split('/').pop() ?? path)
-    : (name.split('/').pop() ?? name)
-
-  // For files, remove the extension for better UX
-  const baseNameWithoutExtension = isFolder
-    ? displayName
-    : displayName.includes('.')
-      ? displayName.substring(0, displayName.lastIndexOf('.'))
-      : displayName
-
-  const [newName, setNewName] = useState(baseNameWithoutExtension)
+  // Initialize the new name when dialog opens
+  if (open && newName === '') {
+    if (isFolder) {
+      // For folders, use the folder name (last part of the path)
+      const folderName = path.split('/').pop() ?? name
+      setNewName(folderName)
+    } else {
+      // For files, strip the extension
+      const { baseName } = parseFileName(name)
+      setNewName(baseName)
+    }
+  }
 
   const handleRename = async () => {
-    if (!session || isProcessing || !newName.trim()) return
+    if (!session || isRenaming || !newName.trim()) return
 
-    // If this is a file and it had an extension, keep the original extension
-    const nameToSubmit = isFolder ? newName.trim() : newName.trim()
+    setError(null)
+    setIsRenaming(true)
 
-    setIsProcessing(true)
     try {
+      // Important: Use the full path for both files and folders
+      const itemPath = isFolder ? path : name
+
+      console.log(`Renaming item: ${itemPath} to ${newName.trim()}`)
+
       const response = await fetch('/api/documents/rename', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          oldPath: path,
-          newName: nameToSubmit,
+          path: itemPath,
+          newName: newName.trim(),
           isFolder
         })
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error ?? 'Rename operation failed')
+        const data = await response.json()
+        throw new Error(data.error || 'Rename failed')
       }
 
+      const data = await response.json()
+
       toast({
-        title: `${isFolder ? 'Folder' : 'File'} renamed`,
-        description: `Successfully renamed to ${newName}`,
+        title: 'Renamed successfully',
+        description: data.message,
         duration: 3000
       })
 
-      // Refresh the page to update the document list
+      // Close the dialog
+      onOpenChange(false)
+
+      // Refresh the page to update the file list
       window.location.reload()
     } catch (error) {
       console.error('Rename error:', error)
-      toast({
-        title: 'Rename failed',
-        description:
-          error instanceof Error ? error.message : 'Failed to rename',
-        variant: 'destructive',
-        duration: 3000
-      })
+      setError(error instanceof Error ? error.message : 'Failed to rename')
     } finally {
-      setIsProcessing(false)
-      onOpenChange(false)
+      setIsRenaming(false)
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='sm:max-w-md'>
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>Rename {isFolder ? 'Folder' : 'File'}</DialogTitle>
+          <DialogTitle className='flex items-center gap-2'>
+            <Pencil className='h-4 w-4' />
+            Rename {isFolder ? 'Folder' : 'File'}
+          </DialogTitle>
           <DialogDescription>
-            Enter a new name for this {isFolder ? 'folder' : 'file'}.
+            {isFolder
+              ? 'Enter a new name for this folder.'
+              : 'Enter a new name for this file. The extension will be preserved.'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className='py-4'>
-          <div className='space-y-4'>
-            <div className='space-y-2'>
-              <Label htmlFor='name'>New name</Label>
-              <Input
-                id='name'
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder={`Enter new ${isFolder ? 'folder' : 'file'} name`}
-                disabled={isProcessing}
-                autoFocus
-              />
-            </div>
+        <div className='space-y-4 py-4'>
+          <div className='space-y-2'>
+            <Input
+              placeholder='New name'
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              autoFocus
+              disabled={isRenaming}
+            />
+            {error && <p className='text-destructive text-sm'>{error}</p>}
           </div>
         </div>
 
@@ -126,26 +133,25 @@ export function RenameDialog({
           <Button
             variant='outline'
             onClick={() => onOpenChange(false)}
-            disabled={isProcessing}
+            disabled={isRenaming}
           >
             Cancel
           </Button>
           <Button
             onClick={handleRename}
-            disabled={
-              isProcessing ||
-              !newName.trim() ||
-              newName.trim() === baseNameWithoutExtension
-            }
+            disabled={isRenaming || !newName.trim()}
             className='gap-2'
           >
-            {isProcessing ? (
+            {isRenaming ? (
               <>
                 <span className='h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent'></span>
-                {' Renaming...'}
+                Renaming...
               </>
             ) : (
-              'Rename'
+              <>
+                <Pencil className='h-4 w-4' />
+                Rename
+              </>
             )}
           </Button>
         </DialogFooter>

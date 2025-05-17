@@ -3,62 +3,50 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { logActivity, ActivityType } from '@/lib/activity-logger'
-import { generateSasToken } from '@/lib/storage'
+import { getFileManager } from '@/lib/file-manager'
 
 export async function GET(request: NextRequest) {
-  // Check authentication
   const session = await getServerSession()
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const searchParams = request.nextUrl.searchParams
-  const name = searchParams.get('name')
-
-  if (!name) {
-    return NextResponse.json({ error: 'Name is required' }, { status: 400 })
-  }
-
   try {
-    const sasUrl = await generateSasToken(
-      process.env.AZURE_STORAGE_CONTAINER_NAME!,
-      name,
-      {
-        permissions: 'r',
-        startsOn: new Date(Date.now() - 60 * 1000), // Start 1 minute ago
-        expiresOn: new Date(Date.now() + 30 * 60 * 1000), // Expire in 30 minutes
-        contentDisposition: `inline; filename="${name}"` // Changed to inline for viewing
-      }
-    )
-
-    // Log the download activity
-    if (session?.user) {
-      await logActivity({
-        userId: session.user.id,
-        userName: session.user.name ?? session.user.email ?? 'Unknown user',
-        fileName: name,
-        activityType: ActivityType.DOWNLOAD,
-        ipAddress:
-          request.headers.get('x-forwarded-for') ??
-          request.headers.get('x-real-ip') ??
-          undefined
-      })
+    const name = request.nextUrl.searchParams.get('name')
+    if (!name) {
+      return NextResponse.json(
+        { error: 'Document name is required' },
+        { status: 400 }
+      )
     }
 
-    return NextResponse.json(
-      { url: sasUrl },
-      {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-        }
-      }
-    )
+    // Use file manager to generate download URL
+    const fileManager = getFileManager()
+    const url = await fileManager.generateDownloadUrl(name)
+
+    if (!url) {
+      return NextResponse.json(
+        { error: 'Failed to generate download URL. File may not exist.' },
+        { status: 404 }
+      )
+    }
+
+    // Log the activity
+    await logActivity({
+      userId: session.user?.id ?? 'unknown',
+      userName: session.user?.name ?? 'Unknown User',
+      fileName: name,
+      activityType: ActivityType.DOWNLOAD,
+      ipAddress: request.headers.get('x-forwarded-for') ?? undefined
+    })
+
+    return NextResponse.json({ url })
   } catch (error) {
     console.error('Download error:', error)
     return NextResponse.json(
-      { error: 'Failed to generate download URL' },
+      {
+        error: error instanceof Error ? error.message : 'Download failed'
+      },
       { status: 500 }
     )
   }

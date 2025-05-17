@@ -2,8 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import { logActivity, ActivityType } from '@/lib/activity-logger'
-import { createEmptyFolder } from '@/lib/folder-manager'
+import { getFileManager } from '@/lib/file-manager'
 
 export async function POST(request: NextRequest) {
   // Check authentication
@@ -13,40 +12,52 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { path } = await request.json()
+    // Parse request body
+    const body = await request.json()
+    const { name, path } = body
 
-    if (!path) {
+    // Log the request for debugging
+    console.log('Create folder request:', { name, path })
+
+    if (!name || name.trim() === '') {
       return NextResponse.json(
-        { error: 'Folder path is required' },
+        { error: 'Folder name is required' },
         { status: 400 }
       )
     }
 
-    // Create the folder by adding a placeholder file
-    const folderPath = await createEmptyFolder(path)
+    // Get the file manager instance
+    const fileManager = getFileManager()
 
-    // Log the activity
-    if (session?.user) {
-      await logActivity({
-        userId: session.user.id,
-        userName: session.user.name ?? session.user.email ?? 'Unknown user',
-        fileName: folderPath,
-        activityType: ActivityType.UPLOAD,
-        ipAddress:
-          request.headers.get('x-forwarded-for') ??
-          request.headers.get('x-real-ip') ??
-          undefined
+    // Construct full folder path
+    const folderPath = path ? `${path}/${name.trim()}` : name.trim()
+
+    // Create the folder
+    const result = await fileManager.createFolder(
+      folderPath,
+      session.user?.id ?? 'unknown',
+      session.user?.name ?? 'Unknown User'
+    )
+
+    if (result.success) {
+      return NextResponse.json({
+        success: true,
+        message: result.message,
+        folder: {
+          name: name.trim(),
+          path: folderPath
+        }
       })
+    } else {
+      return NextResponse.json({ error: result.message }, { status: 400 })
     }
-
-    return NextResponse.json({
-      message: 'Folder created successfully',
-      folderPath
-    })
   } catch (error) {
-    console.error('Create folder error:', error)
+    console.error('Error creating folder:', error)
     return NextResponse.json(
-      { error: 'Failed to create folder' },
+      {
+        error:
+          error instanceof Error ? error.message : 'Failed to create folder'
+      },
       { status: 500 }
     )
   }

@@ -20,6 +20,9 @@ export function RenameCell({
 }: RenameCellProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
 
+  // For folders, ensure we use the path
+  const displayPath = isFolder ? path : name
+
   return (
     <>
       <Button
@@ -37,7 +40,7 @@ export function RenameCell({
         onOpenChange={setDialogOpen}
         name={name}
         isFolder={isFolder}
-        path={path || name}
+        path={displayPath}
       />
     </>
   )

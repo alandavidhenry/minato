@@ -6,7 +6,8 @@ export enum ActivityType {
   DOWNLOAD = 'download',
   UPLOAD = 'upload',
   NEW_VERSION = 'new_version',
-  RENAME = 'rename'
+  RENAME = 'rename',
+  DELETE = 'delete'
 }
 
 export interface ActivityLog {
