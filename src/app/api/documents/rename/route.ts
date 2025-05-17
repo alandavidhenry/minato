@@ -23,10 +23,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(
-      `Rename request: ${isFolder ? 'folder' : 'file'} "${path}" to "${newName}"`
-    )
-
     // Get the file manager instance
     const fileManager = getFileManager()
 

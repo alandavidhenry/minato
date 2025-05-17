@@ -62,8 +62,6 @@ export function CreateFolderModal({
     setIsCreating(true)
 
     try {
-      console.log(`Creating folder: ${trimmedName} in path: ${currentPath}`)
-
       const response = await fetch('/api/folders/create', {
         method: 'POST',
         headers: {

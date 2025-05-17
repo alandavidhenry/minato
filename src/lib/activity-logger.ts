@@ -7,7 +7,8 @@ export enum ActivityType {
   UPLOAD = 'upload',
   NEW_VERSION = 'new_version',
   RENAME = 'rename',
-  DELETE = 'delete'
+  DELETE = 'delete',
+  MOVE = 'move'
 }
 
 export interface ActivityLog {

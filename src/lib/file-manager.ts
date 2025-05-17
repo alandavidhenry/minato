@@ -703,6 +703,336 @@ export class FileManager {
       return null
     }
   }
+
+  /**
+   * Move a file to another location
+   */
+  public async moveFile(
+    sourcePath: string,
+    targetPath: string,
+    userId: string,
+    userName: string
+  ): Promise<FileOperationResult> {
+    try {
+      // Normalize paths
+      const normalizedSourcePath = this.normalizePath(sourcePath)
+
+      // Extract the filename from the source path
+      const filename = normalizedSourcePath.split('/').pop() ?? ''
+
+      // Determine target path
+      let normalizedTargetPath
+      if (!targetPath) {
+        // Moving to root - just use filename
+        normalizedTargetPath = filename
+      } else {
+        // Check if target path already includes the filename
+        if (targetPath.endsWith('/' + filename) || targetPath === filename) {
+          normalizedTargetPath = this.normalizePath(targetPath)
+        } else {
+          // Add filename to target path
+          normalizedTargetPath = this.normalizePath(`${targetPath}/${filename}`)
+        }
+      }
+
+      // Get source blob and verify it exists
+      const sourceBlobClient =
+        this.containerClient.getBlobClient(normalizedSourcePath)
+      let sourceExists = false
+
+      try {
+        sourceExists = await sourceBlobClient.exists()
+      } catch (error) {
+        console.error(
+          `Error checking if source exists: ${normalizedSourcePath}`,
+          error
+        )
+        return {
+          success: false,
+          message: `Error checking if source file exists: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }
+      }
+
+      if (!sourceExists) {
+        return {
+          success: false,
+          message: `Source file "${normalizedSourcePath}" does not exist.`
+        }
+      }
+
+      // Check if destination already exists
+      const destBlobClient =
+        this.containerClient.getBlobClient(normalizedTargetPath)
+      let destExists = false
+
+      try {
+        destExists = await destBlobClient.exists()
+      } catch (error) {
+        console.error(
+          `Error checking if destination exists: ${normalizedTargetPath}`,
+          error
+        )
+        return {
+          success: false,
+          message: `Error checking if destination file exists: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }
+      }
+
+      if (destExists) {
+        return {
+          success: false,
+          message: `A file with name "${normalizedTargetPath}" already exists.`
+        }
+      }
+
+      // Copy the source blob to the destination
+      let sourceProperties
+      try {
+        sourceProperties = await sourceBlobClient.getProperties()
+      } catch (error) {
+        console.error(
+          `Error getting source properties: ${normalizedSourcePath}`,
+          error
+        )
+        return {
+          success: false,
+          message: `Error getting source file properties: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }
+      }
+
+      let copyResult
+      try {
+        const copyPoller = await destBlobClient.beginCopyFromURL(
+          sourceBlobClient.url
+        )
+        copyResult = await copyPoller.pollUntilDone()
+      } catch (error) {
+        console.error(
+          `Error copying file: ${normalizedSourcePath} -> ${normalizedTargetPath}`,
+          error
+        )
+        return {
+          success: false,
+          message: `Error copying file: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }
+      }
+
+      if (copyResult.copyStatus === 'success') {
+        // Copy metadata and properties
+        if (sourceProperties.metadata) {
+          try {
+            await destBlobClient.setMetadata(sourceProperties.metadata)
+          } catch (error) {
+            console.warn(
+              `Warning: Could not copy metadata for ${normalizedTargetPath}`,
+              error
+            )
+            // Don't fail the operation for metadata issues
+          }
+        }
+
+        // Delete the original blob after successful copy
+        try {
+          await sourceBlobClient.delete()
+        } catch (error) {
+          console.error(
+            `Error deleting source after copy: ${normalizedSourcePath}`,
+            error
+          )
+          return {
+            success: false,
+            message: `File copied to new location, but failed to delete the original: ${error instanceof Error ? error.message : 'Unknown error'}`
+          }
+        }
+
+        // Log the move activity
+        await logActivity({
+          userId,
+          userName,
+          fileName: normalizedTargetPath,
+          activityType: ActivityType.MOVE
+        })
+
+        return {
+          success: true,
+          message: `File moved from "${normalizedSourcePath}" to "${normalizedTargetPath}" successfully.`,
+          data: {
+            sourcePath: normalizedSourcePath,
+            targetPath: normalizedTargetPath
+          }
+        }
+      } else {
+        return {
+          success: false,
+          message: `Move operation failed with status: ${copyResult.copyStatus}`
+        }
+      }
+    } catch (error) {
+      console.error(
+        `Error moving file from ${sourcePath} to ${targetPath}:`,
+        error
+      )
+      return {
+        success: false,
+        message: `Failed to move file: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error : new Error('Unknown error')
+      }
+    }
+  }
+
+  /**
+   * Move a folder and all its contents to another location
+   */
+  public async moveFolder(
+    sourcePath: string,
+    targetPath: string,
+    userId: string,
+    userName: string
+  ): Promise<FileOperationResult> {
+    try {
+      const normalizedSourcePath = this.normalizePath(sourcePath)
+
+      // Extract folder name
+      const folderName = normalizedSourcePath.split('/').pop() ?? ''
+
+      // Handle the target path differently based on context
+      let normalizedTargetPath
+
+      if (targetPath === '') {
+        // Moving to root - keep the folder name
+        normalizedTargetPath = folderName
+      } else if (targetPath.endsWith('/' + folderName)) {
+        // Target already includes the folder name
+        normalizedTargetPath = this.normalizePath(targetPath)
+      } else {
+        // Target is a different folder - append the folder name
+        normalizedTargetPath = this.normalizePath(`${targetPath}/${folderName}`)
+      }
+
+      // Ensure the source folder exists
+      if (!(await this.folderExists(normalizedSourcePath))) {
+        return {
+          success: false,
+          message: `Source folder "${normalizedSourcePath}" does not exist.`
+        }
+      }
+
+      // Check if destination folder already exists
+      if (await this.folderExists(normalizedTargetPath)) {
+        return {
+          success: false,
+          message: `Destination folder "${normalizedTargetPath}" already exists.`
+        }
+      }
+
+      // Get a list of all blobs in the source folder
+      const sourcePrefix = normalizedSourcePath
+        ? `${normalizedSourcePath}/`
+        : ''
+      const targetPrefix = normalizedTargetPath
+        ? `${normalizedTargetPath}/`
+        : ''
+
+      // List all blobs with the folder prefix
+      const blobs: string[] = []
+      try {
+        for await (const blob of this.containerClient.listBlobsFlat({
+          prefix: sourcePrefix
+        })) {
+          blobs.push(blob.name)
+        }
+      } catch (error) {
+        console.error(
+          `Error listing blobs for folder ${normalizedSourcePath}:`,
+          error
+        )
+        return {
+          success: false,
+          message: `Error listing folder contents: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          error: error instanceof Error ? error : new Error('Unknown error')
+        }
+      }
+
+      // Process each blob
+      let movedCount = 0
+      let errorCount = 0
+
+      for (const blobName of blobs) {
+        try {
+          const sourceBlobClient = this.containerClient.getBlobClient(blobName)
+
+          // Compute the target blob name by replacing the source prefix with the target prefix
+          const relativePath = blobName.substring(sourcePrefix.length)
+          const targetBlobName = `${targetPrefix}${relativePath}`
+          const targetBlobClient =
+            this.containerClient.getBlobClient(targetBlobName)
+
+          // Copy the blob
+          const copyPoller = await targetBlobClient.beginCopyFromURL(
+            sourceBlobClient.url
+          )
+          const copyResult = await copyPoller.pollUntilDone()
+
+          if (copyResult.copyStatus === 'success') {
+            // Delete the original blob after successful copy
+            await sourceBlobClient.delete()
+            movedCount++
+          } else {
+            errorCount++
+            console.error(
+              `Failed to copy blob ${blobName} during folder move. Status: ${copyResult.copyStatus}`
+            )
+          }
+        } catch (error) {
+          console.error(
+            `Error processing blob ${blobName} during folder move:`,
+            error
+          )
+          errorCount++
+        }
+      }
+
+      // Create folder marker in the target location
+      await this.createFolder(normalizedTargetPath, userId, userName)
+
+      // Remove the source folder marker
+      const sourceFolderMarker = this.getfolderMarkerPath(normalizedSourcePath)
+      const markerClient =
+        this.containerClient.getBlobClient(sourceFolderMarker)
+      if (await markerClient.exists()) {
+        await markerClient.delete()
+      }
+
+      // Log the move activity
+      await logActivity({
+        userId,
+        userName,
+        fileName: normalizedTargetPath,
+        activityType: ActivityType.MOVE
+      })
+
+      return {
+        success: true,
+        message: `Folder moved from "${normalizedSourcePath}" to "${normalizedTargetPath}" successfully. ${movedCount} items moved, ${errorCount} errors.`,
+        data: {
+          sourcePath: normalizedSourcePath,
+          targetPath: normalizedTargetPath,
+          movedCount,
+          errorCount
+        }
+      }
+    } catch (error) {
+      console.error(
+        `Error moving folder from ${sourcePath} to ${targetPath}:`,
+        error
+      )
+      return {
+        success: false,
+        message: `Failed to move folder: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error : new Error('Unknown error')
+      }
+    }
+  }
 }
 
 // For server-side usage, create a singleton instance

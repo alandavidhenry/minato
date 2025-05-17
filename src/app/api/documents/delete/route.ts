@@ -40,16 +40,12 @@ export async function DELETE(request: NextRequest) {
 
     // Handle items deletion (files or folders)
     if (requestBody.items && Array.isArray(requestBody.items)) {
-      console.log('Processing items deletion request')
       const results: DeleteResult[] = []
 
       for (const item of requestBody.items) {
         const itemPath = item.path ?? item.name
 
         if (item.isFolder) {
-          // For folders, use the file manager
-          console.log(`Processing folder deletion: ${itemPath}`)
-
           const result = await fileManager.deleteFolder(
             itemPath,
             session.user?.id ?? 'unknown',
@@ -66,8 +62,6 @@ export async function DELETE(request: NextRequest) {
           })
         } else {
           // For files, use the file manager
-          console.log(`Processing file deletion: ${item.name}`)
-
           const result = await fileManager.deleteFile(
             item.name,
             session.user?.id ?? 'unknown',
@@ -88,10 +82,6 @@ export async function DELETE(request: NextRequest) {
 
     // Handle legacy names array
     if (requestBody.names && Array.isArray(requestBody.names)) {
-      console.log(
-        'Processing legacy names deletion request:',
-        requestBody.names
-      )
       const results: DeleteResult[] = []
 
       for (const name of requestBody.names) {

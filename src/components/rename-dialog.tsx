@@ -61,8 +61,6 @@ export function RenameDialog({
       // Important: Use the full path for both files and folders
       const itemPath = isFolder ? path : name
 
-      console.log(`Renaming item: ${itemPath} to ${newName.trim()}`)
-
       const response = await fetch('/api/documents/rename', {
         method: 'POST',
         headers: {

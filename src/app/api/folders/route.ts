@@ -13,7 +13,6 @@ export async function GET(request: NextRequest) {
 
   try {
     const path = request.nextUrl.searchParams.get('path') ?? ''
-    console.log(`Listing folder contents for path: "${path}"`)
 
     // Use the file manager to list contents
     const fileManager = getFileManager()
