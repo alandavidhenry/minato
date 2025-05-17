@@ -24,7 +24,7 @@ export default async function DocumentsPage({
 
   // If path is provided, verify it exists
   if (path) {
-    const fileManager = getFileManager();
+    const fileManager = getFileManager()
     const exists = await fileManager.folderExists(path)
     if (!exists) {
       notFound()
