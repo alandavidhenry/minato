@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import { listBlobs } from '@/lib/list-blobs'
+import { getFileManager } from '@/lib/file-system'
 
 export async function GET(request: NextRequest) {
   // Check authentication
@@ -14,10 +14,15 @@ export async function GET(request: NextRequest) {
   try {
     const path = request.nextUrl.searchParams.get('path') ?? ''
 
-    // List blobs in the specified path
-    const contents = await listBlobs(false, path)
+    // Use the file manager to list contents
+    const fileManager = getFileManager()
+    const contents = await fileManager.listContent(path)
 
-    return NextResponse.json({ contents })
+    return NextResponse.json({
+      success: true,
+      path,
+      contents
+    })
   } catch (error) {
     console.error('Error listing folder contents:', error)
     return NextResponse.json(

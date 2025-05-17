@@ -8,7 +8,7 @@ import { CreateFolderButton } from '@/components/create-folder-button'
 import { DocumentBreadcrumb } from '@/components/document-breadcrumb'
 import { DragDropUploader } from '@/components/drag-drop-uploader'
 import { UpLevelButton } from '@/components/up-level-button'
-import { folderExists } from '@/lib/folder-manager'
+import { getFileManager } from '@/lib/file-system'
 import { listBlobs } from '@/lib/list-blobs'
 
 export const dynamic = 'force-dynamic'
@@ -24,7 +24,8 @@ export default async function DocumentsPage({
 
   // If path is provided, verify it exists
   if (path) {
-    const exists = await folderExists(path)
+    const fileManager = getFileManager();
+    const exists = await fileManager.folderExists(path)
     if (!exists) {
       notFound()
     }

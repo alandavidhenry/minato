@@ -1,130 +1,134 @@
 // src/components/create-folder-modal.tsx
 'use client'
 
-import { Folder } from 'lucide-react'
+import { FolderPlus } from 'lucide-react'
+import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 
 interface CreateFolderModalProps {
-  readonly open: boolean
-  readonly onOpenChange: (open: boolean) => void
-  readonly onFolderCreated: () => void
-  readonly currentPath?: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  currentPath?: string
 }
 
 export function CreateFolderModal({
   open,
   onOpenChange,
-  onFolderCreated,
   currentPath = ''
 }: CreateFolderModalProps) {
+  const { data: session } = useSession()
   const [folderName, setFolderName] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Reset form when dialog opens/closes
+  if (!open && (folderName || error)) {
+    setFolderName('')
+    setError(null)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!folderName.trim()) {
-      toast({
-        title: 'Validation Error',
-        description: 'Folder name is required',
-        variant: 'destructive'
-      })
+    if (!session || isCreating) return
+
+    // Validate folder name
+    const trimmedName = folderName.trim()
+    if (!trimmedName) {
+      setError('Please enter a folder name')
       return
     }
 
     // Check for invalid characters
-    if (/[\\/:*?"<>|]/.test(folderName)) {
-      toast({
-        title: 'Validation Error',
-        description: 'Folder name contains invalid characters',
-        variant: 'destructive'
-      })
+    const invalidChars = /[*?:";|<>\\]/
+    if (invalidChars.test(trimmedName)) {
+      setError('Folder name cannot contain: * ? : " ; | < > \\')
       return
     }
 
-    setIsLoading(true)
+    setError(null)
+    setIsCreating(true)
 
     try {
-      // Full path for the new folder
-      const fullPath = currentPath ? `${currentPath}/${folderName}` : folderName
-
       const response = await fetch('/api/folders/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ path: fullPath })
+        body: JSON.stringify({
+          name: trimmedName,
+          path: currentPath
+        })
       })
 
+      // Handle error responses
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error ?? 'Failed to create folder')
+        throw new Error(data.error || 'Failed to create folder')
       }
 
+      // Show success message
       toast({
-        title: 'Success',
-        description: `Folder "${folderName}" created successfully`
+        title: 'Folder created',
+        description: `${trimmedName} has been created successfully.`,
+        duration: 3000
       })
 
-      // Reset and close
-      setFolderName('')
-      onFolderCreated()
+      // Close the dialog
       onOpenChange(false)
+
+      // Refresh the page to show the new folder
+      window.location.reload()
     } catch (error) {
       console.error('Create folder error:', error)
-      toast({
-        title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'Failed to create folder',
-        variant: 'destructive'
-      })
+      setError(
+        error instanceof Error ? error.message : 'Failed to create folder'
+      )
     } finally {
-      setIsLoading(false)
+      setIsCreating(false)
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='sm:max-w-md'>
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle className='flex items-center gap-2'>
-              <Folder className='h-5 w-5' />
-              Create New Folder
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className='grid gap-4 py-4'>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className='flex items-center gap-2'>
+            <FolderPlus className='h-5 w-5' />
+            Create New Folder
+          </DialogTitle>
+          <DialogDescription>
+            Enter a name for your new folder.
             {currentPath && (
-              <div className='text-sm'>
-                <span className='text-muted-foreground'>Current location:</span>{' '}
-                {currentPath}
-              </div>
+              <span className='block mt-1 text-xs'>
+                Location: {currentPath || 'Root'}
+              </span>
             )}
+          </DialogDescription>
+        </DialogHeader>
 
-            <div className='grid gap-2'>
-              <Label htmlFor='folderName'>Folder Name</Label>
-              <Input
-                id='folderName'
-                value={folderName}
-                onChange={(e) => setFolderName(e.target.value)}
-                placeholder='New Folder'
-                disabled={isLoading}
-                autoFocus
-              />
-            </div>
+        <form onSubmit={handleSubmit} className='space-y-4 py-4'>
+          <div className='space-y-2'>
+            <Input
+              placeholder='Folder name'
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              autoFocus
+              disabled={isCreating}
+            />
+            {error && <p className='text-destructive text-sm'>{error}</p>}
           </div>
 
           <DialogFooter>
@@ -132,12 +136,26 @@ export function CreateFolderModal({
               type='button'
               variant='outline'
               onClick={() => onOpenChange(false)}
-              disabled={isLoading}
+              disabled={isCreating}
             >
               Cancel
             </Button>
-            <Button type='submit' disabled={isLoading}>
-              {isLoading ? 'Creating...' : 'Create Folder'}
+            <Button
+              type='submit'
+              disabled={isCreating || !folderName.trim()}
+              className='gap-2'
+            >
+              {isCreating ? (
+                <>
+                  <span className='h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent'></span>
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <FolderPlus className='h-4 w-4' />
+                  Create Folder
+                </>
+              )}
             </Button>
           </DialogFooter>
         </form>

@@ -1,4 +1,4 @@
-// src/app/api/documents/rename/route.ts
+// src/app/api/documents/move/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
@@ -14,11 +14,11 @@ export async function POST(request: NextRequest) {
   try {
     // Parse request body
     const body = await request.json()
-    const { path, newName, isFolder } = body
+    const { sourcePath, targetPath, isFolder } = body
 
-    if (!path || !newName) {
+    if (!sourcePath || targetPath === undefined) {
       return NextResponse.json(
-        { error: 'Path and new name are required' },
+        { error: 'Source and target paths are required' },
         { status: 400 }
       )
     }
@@ -26,19 +26,19 @@ export async function POST(request: NextRequest) {
     // Get the file manager instance
     const fileManager = getFileManager()
 
-    // Rename the file or folder
+    // Move the file or folder
     let result
     if (isFolder) {
-      result = await fileManager.renameFolder(
-        path,
-        newName,
+      result = await fileManager.moveFolder(
+        sourcePath,
+        targetPath,
         session.user?.id ?? 'unknown',
         session.user?.name ?? 'Unknown User'
       )
     } else {
-      result = await fileManager.renameFile(
-        path,
-        newName,
+      result = await fileManager.moveFile(
+        sourcePath,
+        targetPath,
         session.user?.id ?? 'unknown',
         session.user?.name ?? 'Unknown User'
       )
@@ -48,18 +48,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: result.message,
-        oldPath: path,
-        newPath: result.data?.newPath
+        sourcePath,
+        targetPath,
+        data: result.data
       })
     } else {
-      console.error(`Rename error: ${result.message}`)
+      console.error(`Move error: ${result.message}`)
       return NextResponse.json({ error: result.message }, { status: 400 })
     }
   } catch (error) {
-    console.error('Error renaming item:', error)
+    console.error('Error moving item:', error)
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Failed to rename item'
+        error: error instanceof Error ? error.message : 'Failed to move item'
       },
       { status: 500 }
     )

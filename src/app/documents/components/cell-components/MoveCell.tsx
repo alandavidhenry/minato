@@ -1,23 +1,19 @@
-// src/app/documents/components/cell-components/RenameCell.tsx
+// src/app/documents/components/cell-components/MoveCell.tsx
 'use client'
 
-import { Pencil } from 'lucide-react'
+import { Move } from 'lucide-react'
 import { useState } from 'react'
 
-import { RenameDialog } from '@/components/rename-dialog'
+import { MoveModal } from '@/components/move-modal'
 import { Button } from '@/components/ui/button'
 
-interface RenameCellProps {
+interface MoveCellProps {
   readonly name: string
   readonly isFolder?: boolean
   readonly path?: string
 }
 
-export function RenameCell({
-  name,
-  isFolder = false,
-  path = ''
-}: RenameCellProps) {
+export function MoveCell({ name, isFolder = false, path = '' }: MoveCellProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
 
   // For folders, ensure we use the path
@@ -30,12 +26,12 @@ export function RenameCell({
         size='icon'
         onClick={() => setDialogOpen(true)}
         className='hover:text-primary'
-        title='Rename'
+        title='Move'
       >
-        <Pencil className='h-4 w-4' />
+        <Move className='h-4 w-4' />
       </Button>
 
-      <RenameDialog
+      <MoveModal
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         name={name}
