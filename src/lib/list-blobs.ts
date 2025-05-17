@@ -1,6 +1,6 @@
 // src/lib/list-blobs.ts
 
-import { getFileManager } from './file-manager'
+import { getFileManager } from './file-system'
 import { groupDocumentsByVersion } from './version-manager'
 
 export interface BlobItem {
