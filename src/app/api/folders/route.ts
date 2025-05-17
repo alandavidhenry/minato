@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import { getFileManager } from '@/lib/file-manager'
+import { getFileManager } from '@/lib/file-system'
 
 export async function GET(request: NextRequest) {
   // Check authentication

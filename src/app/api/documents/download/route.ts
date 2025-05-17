@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { logActivity, ActivityType } from '@/lib/activity-logger'
-import { getFileManager } from '@/lib/file-manager'
+import { getFileManager } from '@/lib/file-system'
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession()

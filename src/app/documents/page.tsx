@@ -8,7 +8,7 @@ import { CreateFolderButton } from '@/components/create-folder-button'
 import { DocumentBreadcrumb } from '@/components/document-breadcrumb'
 import { DragDropUploader } from '@/components/drag-drop-uploader'
 import { UpLevelButton } from '@/components/up-level-button'
-import { getFileManager } from '@/lib/file-manager'
+import { getFileManager } from '@/lib/file-system'
 import { listBlobs } from '@/lib/list-blobs'
 
 export const dynamic = 'force-dynamic'

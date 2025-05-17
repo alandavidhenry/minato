@@ -172,28 +172,57 @@ export function MoveModal({
       // For the target, we just need the parent folder path
       const targetPath = actualTargetFolder
 
-      const response = await fetch('/api/documents/move', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          sourcePath,
-          targetPath,
-          isFolder
+      let data
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10-second timeout
+
+        const response = await fetch('/api/documents/move', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            sourcePath,
+            targetPath,
+            isFolder
+          }),
+          signal: controller.signal
         })
-      })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error ?? 'Move operation failed')
+        clearTimeout(timeoutId)
+
+        // Try to parse the response body as JSON
+        const text = await response.text()
+        try {
+          data = JSON.parse(text)
+        } catch {
+          data = { error: 'Invalid response format' }
+        }
+
+        if (!response.ok) {
+          setError(
+            data.error ?? `Operation failed with status: ${response.status}`
+          )
+          return
+        }
+      } catch (fetchError) {
+        // Handle network errors or timeouts silently (no console logging)
+        if (fetchError instanceof Error) {
+          if (fetchError.name === 'AbortError') {
+            setError('Request timed out. Please try again.')
+          } else {
+            setError(`Network error: ${fetchError.message}`)
+          }
+        } else {
+          setError('Network error. Please check your connection and try again.')
+        }
+        return
       }
-
-      const result = await response.json()
 
       toast({
         title: 'Item moved',
-        description: result.message,
+        description: data.message,
         duration: 3000
       })
 
@@ -208,7 +237,7 @@ export function MoveModal({
       )
       router.refresh()
     } catch (error) {
-      console.error('Move error:', error)
+      // Silent error handling - just set the error message without console.error
       setError(error instanceof Error ? error.message : 'Failed to move item')
     } finally {
       setIsMoving(false)
