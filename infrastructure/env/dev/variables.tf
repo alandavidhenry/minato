@@ -1,3 +1,8 @@
+variable "subscription_id" {
+  description = "Azure subscription ID"
+  type        = string
+}
+
 variable "project" {
   description = "Project name"
   type        = string
@@ -57,6 +62,16 @@ variable "storage_container" {
     name                  = string
     container_access_type = string
   })
+}
+
+variable "document_intelligence" {
+  description = "Document Intelligence configuration"
+  type = object({
+    sku_name = string
+  })
+  default = {
+    sku_name = "F0"
+  }
 }
 
 variable "azure_ad" {

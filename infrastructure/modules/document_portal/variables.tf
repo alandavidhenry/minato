@@ -19,6 +19,16 @@ variable "resource_group_name" {
   default     = null
 }
 
+variable "document_intelligence" {
+  description = "Document Intelligence configuration"
+  type = object({
+    sku_name = string
+  })
+  default = {
+    sku_name = "F0"
+  }
+}
+
 variable "app_service_sku" {
   description = "App Service plan SKU"
   type        = string

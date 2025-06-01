@@ -45,8 +45,8 @@ next-env.d.ts
 **/.terraform/*
 *.tfstate
 *.tfstate.*
-*.tfvars
-*.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
 override.tf
 override.tf.json
 *_override.tf

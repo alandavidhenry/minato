@@ -16,8 +16,7 @@ resource "azurerm_service_plan" "main" {
   location            = var.location
   os_type             = "Linux"
   sku_name            = var.sku_name
-
-  tags = var.tags
+  tags                = var.tags
 }
 
 resource "azurerm_linux_web_app" "main" {

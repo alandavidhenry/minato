@@ -34,3 +34,14 @@ output "key_vault_name" {
   description = "The name of the Key Vault"
   value       = module.document_portal.key_vault_name
 }
+
+output "document_intelligence_endpoint" {
+  description = "The endpoint of the Document Intelligence service"
+  value       = module.document_portal.document_intelligence_endpoint
+}
+
+output "document_intelligence_key" {
+  description = "The primary key of the Document Intelligence service"
+  value       = module.document_portal.document_intelligence_key
+  sensitive   = true
+}
