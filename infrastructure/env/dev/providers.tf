@@ -2,7 +2,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 4.23"
+      version = "~> 4.31"
     }
     azurecaf = {
       source  = "aztfmod/azurecaf"
@@ -19,6 +19,7 @@ provider "azurerm" {
       recover_soft_deleted_key_vaults = true
     }
   }
+  subscription_id = var.subscription_id
 }
 
 provider "azurecaf" {}
