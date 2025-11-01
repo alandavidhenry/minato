@@ -34,7 +34,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.487.0",
     "next": "15.2.4",
-    "next-auth": "^4.24.11",
+    "next-auth": "^4.24.12",
     "pdfjs-dist": "^3.11.174",
     "qrcode.react": "^4.2.0",
     "react": "^19.1.0",
