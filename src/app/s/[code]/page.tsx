@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 export default function ShortUrlRedirect({
   params
 }: {
-  readonly params: { code: string }
+  readonly params: Promise<{ code: string }>
 }) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
@@ -15,8 +15,9 @@ export default function ShortUrlRedirect({
   useEffect(() => {
     async function resolveAndRedirect() {
       try {
+        const { code } = await params
         // Call the API to resolve the short URL
-        const response = await fetch(`/api/shorturl/${params.code}`)
+        const response = await fetch(`/api/shorturl/${code}`)
 
         if (!response.ok) {
           const data = await response.json()
@@ -34,7 +35,7 @@ export default function ShortUrlRedirect({
     }
 
     resolveAndRedirect()
-  }, [params.code, router])
+  }, [params, router])
 
   // If there's an error, show the error message
   if (error) {

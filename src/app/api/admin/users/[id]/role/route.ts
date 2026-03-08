@@ -21,9 +21,8 @@ async function checkAdminPermission() {
 // POST: Assign a role to a user
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  // Check admin permissions
   const isAdmin = await checkAdminPermission()
 
   if (!isAdmin) {
@@ -34,20 +33,18 @@ export async function POST(
   }
 
   try {
-    const userId = params.id
+    const { id: userId } = await params
     const { role } = await request.json()
 
     if (!role) {
       return NextResponse.json({ error: 'Role is required' }, { status: 400 })
     }
 
-    // Validate the role
     const validRoles = ['Administrator', 'Employee', 'Customer']
     if (!validRoles.includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
 
-    // Update the user's role
     const success = await updateUser(userId, { role })
 
     if (!success) {
@@ -59,7 +56,7 @@ export async function POST(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error(`Error assigning role to user ${params.id}:`, error)
+    console.error('Error assigning role:', error)
     return NextResponse.json(
       { error: 'Failed to assign role' },
       { status: 500 }
@@ -67,13 +64,11 @@ export async function POST(
   }
 }
 
-// DELETE: This endpoint was for removing Azure AD roles, which we don't need anymore
-// We'll implement a simplified version that just sets the role to "Customer"
+// DELETE: Reset role to Customer
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  // Check admin permissions
   const isAdmin = await checkAdminPermission()
 
   if (!isAdmin) {
@@ -84,9 +79,8 @@ export async function DELETE(
   }
 
   try {
-    const userId = params.id
+    const { id: userId } = await params
 
-    // Set role to "Customer" (default role)
     const success = await updateUser(userId, { role: 'Customer' })
 
     if (!success) {
@@ -98,7 +92,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error(`Error removing role from user ${params.id}:`, error)
+    console.error('Error removing role:', error)
     return NextResponse.json(
       { error: 'Failed to remove role' },
       { status: 500 }

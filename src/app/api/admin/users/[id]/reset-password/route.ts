@@ -21,9 +21,8 @@ async function checkAdminPermission() {
 // POST: Reset a user's password
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  // Check admin permissions
   const isAdmin = await checkAdminPermission()
 
   if (!isAdmin) {
@@ -34,8 +33,8 @@ export async function POST(
   }
 
   try {
-    const userId = params.id
-    const { password = true } = await request.json()
+    const { id: userId } = await params
+    const { password } = await request.json()
 
     if (!password) {
       return NextResponse.json(
@@ -44,7 +43,6 @@ export async function POST(
       )
     }
 
-    // Check password complexity
     if (password.length < 8) {
       return NextResponse.json(
         { error: 'Password must be at least 8 characters long' },
@@ -52,7 +50,6 @@ export async function POST(
       )
     }
 
-    // Reset the password
     const success = await changePassword(userId, password)
 
     if (!success) {
@@ -64,7 +61,7 @@ export async function POST(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error(`Error resetting password for user ${params.id}:`, error)
+    console.error('Error resetting password:', error)
     return NextResponse.json(
       { error: 'Failed to reset password' },
       { status: 500 }
