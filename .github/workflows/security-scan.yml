@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       run_advanced_scans:
-        description: 'Whether to run advanced security scans'
+        description: Whether to run advanced security scans
         required: false
         type: boolean
         default: false
@@ -16,13 +16,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: '24'
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -42,10 +42,10 @@ jobs:
 
       # OWASP Dependency-Check instead of using Snyk
       # - name: Set up JDK 17
-      #   uses: actions/setup-java@v4
+      #   uses: actions/setup-java@v5
       #   with:
       #     java-version: '17'
-      #     distribution: 'temurin'
+      #     distribution: temurin
 
       # - name: Verify Java installation
       #   run: |
@@ -74,17 +74,17 @@ jobs:
       #     NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
       # - name: Upload dependency check report
-      #   uses: actions/upload-artifact@v4
+      #   uses: actions/upload-artifact@v7
       #   with:
       #     name: dependency-check-report
       #     path: ${{ github.workspace }}/reports
 
       - name: Run CodeQL Analysis
         if: inputs.run_advanced_scans
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript
 
       - name: Perform CodeQL Analysis
         if: inputs.run_advanced_scans
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4

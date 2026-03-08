@@ -4,17 +4,19 @@ on:
   workflow_call:
     inputs:
       environment:
-        description: 'Deployment environment'
+        description: Deployment environment
         required: true
         type: string
       image_uri:
-        description: 'Docker image URI to deploy'
+        description: Docker image URI to deploy
+        required: true
+        type: string
+      azure_app_name:
+        description: Azure App Service name
         required: true
         type: string
     secrets:
       AZURE_CREDENTIALS:
-        required: true
-      AZURE_APP_NAME:
         required: true
 
 jobs:
@@ -32,5 +34,5 @@ jobs:
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_APP_NAME }}
+          app-name: ${{ inputs.azure_app_name }}
           images: ${{ inputs.image_uri }}
