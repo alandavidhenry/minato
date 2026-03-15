@@ -1,14 +1,12 @@
 import js from '@eslint/js'
 import nextPlugin from '@next/eslint-plugin-next'
-import { defineConfig } from 'eslint/config'
 import importPlugin from 'eslint-plugin-import'
-import pluginJsxA11y from 'eslint-plugin-jsx-a11y'
 import pluginReact from 'eslint-plugin-react'
 import pluginReactHooks from 'eslint-plugin-react-hooks'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
-export default defineConfig([
+export default [
   // Ignore patterns
   {
     ignores: [
@@ -16,18 +14,18 @@ export default defineConfig([
       'dist/**',
       '.next/**',
       'eslint.config.mjs',
-      '.vscode/**'
+      '.vscode/**',
+      'next-env.d.ts'
     ]
   },
 
   // Base JS settings
   {
+    ...js.configs.recommended,
     files: ['**/*.{js,mjs,cjs,ts,jsx,tsx}'],
-    plugins: { js },
-    extends: ['js/recommended']
   },
 
-  // Browser globals
+  // Globals + no-console for all files
   {
     files: ['**/*.{js,mjs,cjs,ts,jsx,tsx}'],
     languageOptions: {
@@ -35,6 +33,9 @@ export default defineConfig([
         ...globals.browser,
         ...globals.node
       }
+    },
+    rules: {
+      'no-console': ['warn', { allow: ['warn', 'error'] }]
     }
   },
 
@@ -47,14 +48,12 @@ export default defineConfig([
     ...pluginReact.configs.flat.recommended,
     plugins: {
       react: pluginReact,
-      'react-hooks': pluginReactHooks,
-      'jsx-a11y': pluginJsxA11y
+      'react-hooks': pluginReactHooks
     },
     rules: {
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
-      'react/prop-types': 'off', // TypeScript handles this
-      'no-console': ['warn', { allow: ['warn', 'error'] }]
+      'react/prop-types': 'off'
     },
     settings: {
       react: {
@@ -63,18 +62,8 @@ export default defineConfig([
     }
   },
 
-  // Next.js
-  {
-    files: ['**/*.{js,mjs,cjs,ts,jsx,tsx}'],
-    plugins: {
-      next: nextPlugin
-    },
-    rules: {
-      'next/no-html-link-for-pages': 'error',
-      'next/no-img-element': 'warn',
-      'next/no-unwanted-polyfillio': 'warn'
-    }
-  },
+  // Next.js (full recommended ruleset)
+  nextPlugin.flatConfig['recommended'],
 
   // Import ordering
   {
@@ -112,13 +101,6 @@ export default defineConfig([
         'error',
         { argsIgnorePattern: '^_' }
       ]
-    },
-    languageOptions: {
-      parserOptions: {
-        project: './tsconfig.json',
-        ecmaVersion: 'latest',
-        sourceType: 'module'
-      }
     }
   }
-])
+]

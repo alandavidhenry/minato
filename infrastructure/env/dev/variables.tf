@@ -84,7 +84,6 @@ variable "azure_ad" {
 variable "github_username" {
   description = "GitHub username for container registry"
   type        = string
-  sensitive   = false
 }
 
 variable "github_token" {

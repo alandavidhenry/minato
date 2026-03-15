@@ -30,7 +30,7 @@ document_intelligence = {
 }
 
 azure_ad = {
-  password_end_date = "2025-12-31T00:00:00Z"
+  password_end_date = "2027-12-31T00:00:00Z"
 }
 
 default_admin_email = "alandavidhenry@outlook.com"

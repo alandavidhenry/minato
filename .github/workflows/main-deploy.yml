@@ -4,22 +4,21 @@ on:
   push:
     branches: [main, dev]
     paths:
-      - 'src/**'
-      - 'public/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'next.config.mjs'
-      - 'tailwind.config.ts'
-      - 'postcss.config.mjs'
-      - 'Dockerfile'
-      - '.github/workflows/**'
+      - src/**
+      - public/**
+      - package.json
+      - package-lock.json
+      - next.config.mjs
+      - postcss.config.mjs
+      - Dockerfile
+      - .github/workflows/**
 
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to deploy to'
+        description: Environment to deploy to
         required: true
-        default: 'dev'
+        default: dev
         type: choice
         options:
           - dev
@@ -50,7 +49,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -88,9 +87,9 @@ jobs:
     with:
       environment: ${{ needs.setup.outputs.environment }}
       image_uri: ${{ needs.build.outputs.image_uri }}
+      app_name: ${{ vars.AZURE_APP_NAME }}
     secrets:
       AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
-      AZURE_APP_NAME: ${{ secrets.AZURE_APP_NAME }}
 
   release:
     name: Create Release

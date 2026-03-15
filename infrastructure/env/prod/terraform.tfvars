@@ -1,4 +1,3 @@
-subscription_id = "c47f4af1-a605-4946-b99e-dacf989e777c"
 project         = "document-portal-next-azure"
 environment     = "prod"
 location        = "UK South"
@@ -29,7 +28,7 @@ document_intelligence = {
 }
 
 azure_ad = {
-  password_end_date = "2025-12-31T00:00:00Z"
+  password_end_date = "2027-12-31T00:00:00Z"
 }
 
 default_admin_email = "alandavidhenry@outlook.com"
