@@ -1,8 +1,8 @@
-// src/middleware.ts
+// src/proxy.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const secret = process.env.NEXTAUTH_SECRET
   const token = await getToken({ req: request, secret })
 

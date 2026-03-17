@@ -1,5 +1,6 @@
 import js from '@eslint/js'
 import nextPlugin from '@next/eslint-plugin-next'
+import eslintConfigPrettier from 'eslint-config-prettier'
 import importPlugin from 'eslint-plugin-import'
 import pluginReact from 'eslint-plugin-react'
 import pluginReactHooks from 'eslint-plugin-react-hooks'
@@ -63,7 +64,7 @@ export default [
   },
 
   // Next.js (full recommended ruleset)
-  nextPlugin.flatConfig['recommended'],
+  nextPlugin.configs['recommended'],
 
   // Import ordering
   {
@@ -102,5 +103,8 @@ export default [
         { argsIgnorePattern: '^_' }
       ]
     }
-  }
+  },
+
+  // Prettier — must be last to disable conflicting formatting rules
+  eslintConfigPrettier
 ]

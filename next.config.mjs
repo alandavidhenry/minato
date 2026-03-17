@@ -6,19 +6,14 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true
   },
-  eslint: {
-    ignoreDuringBuilds: true
-  },
   images: {
     unoptimized: true
   },
-  webpack: (config) => {
-    // Add canvas mock for pdf.js
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      canvas: false
-    };
-    return config;
+  turbopack: {
+    resolveAlias: {
+      // Prevent canvas from being bundled (pdf.js compatibility)
+      canvas: './src/lib/empty-module.js'
+    }
   }
 };
 
