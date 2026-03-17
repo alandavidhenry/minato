@@ -11,10 +11,6 @@ on:
         description: Docker image URI to deploy
         required: true
         type: string
-      app_name:
-        description: Azure App Service name
-        required: true
-        type: string
     secrets:
       AZURE_CREDENTIALS:
         required: true
@@ -34,5 +30,5 @@ jobs:
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ inputs.app_name }}
+          app-name: ${{ vars.AZURE_APP_NAME }}
           images: ${{ inputs.image_uri }}
