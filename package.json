@@ -10,8 +10,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "checks": "npm run lint && npm run format && npx tsc --noEmit",
-    "prepare": "husky",
-    "test": "jest"
+    "prepare": "husky"
   },
   "dependencies": {
     "@azure/data-tables": "^13.3.2",
@@ -52,7 +51,6 @@
     "@next/eslint-plugin-next": "16.1.7",
     "@tailwindcss/postcss": "^4.2.1",
     "@types/bcryptjs": "^2.4.6",
-    "@types/jest": "^30",
     "@types/node": "^25",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
@@ -65,11 +63,9 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^17.4.0",
     "husky": "^9.1.7",
-    "jest": "^30",
     "postcss": "^8.5.8",
     "prettier": "^3.8.1",
     "tailwindcss": "^4.2.1",
-    "ts-jest": "^29.4.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.1"
   },
