@@ -5,9 +5,9 @@ import { resolveShortUrl } from '@/lib/url-shortener'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { code: string } }
+  { params }: { params: Promise<{ code: string }> }
 ) {
-  const code = params.code
+  const { code } = await params
 
   if (!code) {
     return NextResponse.json({ error: 'Code is required' }, { status: 400 })

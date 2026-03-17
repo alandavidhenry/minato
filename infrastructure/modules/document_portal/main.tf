@@ -12,7 +12,6 @@ resource "random_password" "nextauth_secret" {
   }
 }
 
-# Create resource group
 module "resource_group" {
   source = "../resource_group"
 
@@ -23,7 +22,6 @@ module "resource_group" {
   tags                = local.common_tags
 }
 
-# Create Key Vault
 module "key_vault" {
   source = "../key_vault"
 
@@ -39,17 +37,6 @@ module "key_vault" {
   access_policies = []
 }
 
-# Create Azure AD Application and Service Principal
-module "azure_ad" {
-  source = "../azure_ad"
-
-  project           = var.project
-  environment       = var.environment
-  password_end_date = var.azure_ad.password_end_date
-  redirect_uris     = concat(var.redirect_uris, ["https://app-${var.project}-${var.environment}.azurewebsites.net/api/auth/callback/azure-ad"])
-}
-
-# Create Storage for documents
 module "storage" {
   source = "../storage"
 
@@ -71,13 +58,6 @@ module "storage" {
   }
 }
 
-# Add secrets to Key Vault
-resource "azurerm_key_vault_secret" "ad_client_secret" {
-  name         = "azure-ad-client-secret"
-  value        = module.azure_ad.client_secret
-  key_vault_id = module.key_vault.key_vault_id
-}
-
 resource "azurerm_key_vault_secret" "nextauth_secret" {
   name         = "nextauth-secret"
   value        = random_password.nextauth_secret.result
@@ -90,7 +70,18 @@ resource "azurerm_key_vault_secret" "storage_connection_string" {
   key_vault_id = module.key_vault.key_vault_id
 }
 
-# Create App Service
+module "document_intelligence" {
+  source = "../document_intelligence"
+
+  project             = var.project
+  environment         = var.environment
+  location            = var.location
+  resource_group_name = module.resource_group.resource_group_name
+  key_vault_id        = module.key_vault.key_vault_id
+  sku_name            = var.document_intelligence.sku_name
+  tags                = local.common_tags
+}
+
 module "app_service" {
   source = "../app_service"
 
@@ -103,28 +94,27 @@ module "app_service" {
   tags                = local.common_tags
 
   docker_image = {
-    name              = "ghcr.io/${var.github_username}/${var.project}:latest"
+    name              = "ghcr.io/${var.github_username}/${var.project}:${var.environment == "prod" ? "latest" : "dev-latest"}"
     registry_url      = "https://ghcr.io"
     registry_username = var.github_username
     registry_password = var.github_token
   }
 
   app_settings = {
-    "WEBSITES_PORT"                   = "8080"
-    "AZURE_AD_CLIENT_ID"              = module.azure_ad.application_id
-    "AZURE_AD_TENANT_ID"              = data.azurerm_client_config.current.tenant_id
-    "AZURE_AD_CLIENT_SECRET"          = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.ad_client_secret.versionless_id})"
-    "AZURE_STORAGE_CONNECTION_STRING" = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.storage_connection_string.versionless_id})"
-    "AZURE_STORAGE_CONTAINER_NAME"    = var.storage_container.name
-    "NEXTAUTH_URL"                    = "https://app-${var.project}-${var.environment}.azurewebsites.net"
-    "NEXTAUTH_SECRET"                 = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.nextauth_secret.versionless_id})"
-    "WEBSITE_NODE_DEFAULT_VERSION"    = "~20"
-    "SCM_DO_BUILD_DURING_DEPLOYMENT"  = "true"
-    "DEFAULT_ADMIN_EMAIL"             = var.default_admin_email
+    "WEBSITES_PORT"                       = "8080"
+    "AZURE_STORAGE_CONNECTION_STRING"     = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.storage_connection_string.versionless_id})"
+    "AZURE_STORAGE_CONTAINER_NAME"        = var.storage_container.name
+    "NEXTAUTH_URL"                        = "https://app-${var.project}-${var.environment}.azurewebsites.net"
+    "NEXTAUTH_SECRET"                     = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.nextauth_secret.versionless_id})"
+    "WEBSITE_NODE_DEFAULT_VERSION"        = "~22"
+    "SCM_DO_BUILD_DURING_DEPLOYMENT"      = "true"
+    "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "true"
+    "WEBSITES_CONTAINER_START_TIME_LIMIT" = "600"
+    "DOCUMENT_INTELLIGENCE_ENDPOINT"      = "@Microsoft.KeyVault(SecretUri=${module.document_intelligence.document_intelligence_endpoint_secret_versionless_id})"
+    "DOCUMENT_INTELLIGENCE_KEY"           = "@Microsoft.KeyVault(SecretUri=${module.document_intelligence.document_intelligence_key_secret_versionless_id})"
   }
 }
 
-# Add Key Vault access policy for App Service
 resource "azurerm_key_vault_access_policy" "app_service" {
   key_vault_id = module.key_vault.key_vault_id
   tenant_id    = data.azurerm_client_config.current.tenant_id

@@ -12,6 +12,8 @@ resource "azurerm_storage_account" "main" {
   account_replication_type = var.account_replication_type
   min_tls_version          = var.min_tls_version
 
+  table_encryption_key_type = "Service"
+
   blob_properties {
     dynamic "cors_rule" {
       for_each = length(var.allowed_origins) > 0 ? [1] : []
@@ -34,4 +36,9 @@ resource "azurerm_storage_container" "main" {
   name                  = each.key
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = each.value.access_type
+}
+
+resource "azurerm_storage_table" "users" {
+  name                 = "users"
+  storage_account_name = azurerm_storage_account.main.name
 }

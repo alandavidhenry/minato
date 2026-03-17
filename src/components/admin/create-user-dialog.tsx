@@ -1,10 +1,10 @@
+// src/components/admin/create-user-dialog.tsx
 'use client'
 
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -38,12 +38,19 @@ export function CreateUserDialog({
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
     displayName: '',
-    userPrincipalName: '',
+    email: '',
     password: '',
-    role: 'User',
-    accountEnabled: true,
-    forceChangePasswordNextSignIn: true
+    role: 'Customer', // Default to Customer role
+    accountEnabled: true
   })
+
+  // Handle form input changes
+  function handleChange(field: string, value: string | boolean) {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value
+    }))
+  }
 
   // Helper to generate a random password
   function generateRandomPassword() {
@@ -69,14 +76,6 @@ export function CreateUserDialog({
       .join('')
   }
 
-  // Handle form input changes
-  function handleChange(field: string, value: string | boolean) {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value
-    }))
-  }
-
   // Create the user
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -84,37 +83,28 @@ export function CreateUserDialog({
 
     try {
       // Basic validation
-      if (
-        !formData.displayName ||
-        !formData.userPrincipalName ||
-        !formData.password
-      ) {
+      if (!formData.displayName || !formData.email || !formData.password) {
         toast({
           title: 'Validation Error',
           description: 'Please fill in all required fields',
           variant: 'destructive'
         })
-        return
-      }
-
-      // Validate email format for UPN
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(formData.userPrincipalName)) {
-        toast({
-          title: 'Validation Error',
-          description: 'Please enter a valid email address for the username',
-          variant: 'destructive'
-        })
+        setIsLoading(false)
         return
       }
 
       // Create user through API
-      const response = await fetch('/api/admin/users/create', {
+      const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          displayName: formData.displayName,
+          email: formData.email,
+          password: formData.password,
+          role: formData.role
+        })
       })
 
       if (!response.ok) {
@@ -128,11 +118,10 @@ export function CreateUserDialog({
       // Reset form
       setFormData({
         displayName: '',
-        userPrincipalName: '',
+        email: '',
         password: '',
-        role: 'User',
-        accountEnabled: true,
-        forceChangePasswordNextSignIn: true
+        role: 'Customer',
+        accountEnabled: true
       })
     } catch (error) {
       console.error('Error creating user:', error)
@@ -154,7 +143,7 @@ export function CreateUserDialog({
           <DialogHeader>
             <DialogTitle>Create New User</DialogTitle>
             <DialogDescription>
-              Add a new user to your Azure Active Directory.
+              Add a new user to the document portal.
             </DialogDescription>
           </DialogHeader>
 
@@ -164,7 +153,7 @@ export function CreateUserDialog({
               <Input
                 id='displayName'
                 value={formData.displayName}
-                onChange={(e: any) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   handleChange('displayName', e.target.value)
                 }
                 placeholder='John Doe'
@@ -173,13 +162,13 @@ export function CreateUserDialog({
             </div>
 
             <div className='grid gap-2'>
-              <Label htmlFor='userPrincipalName'>Email / Username</Label>
+              <Label htmlFor='email'>Email</Label>
               <Input
-                id='userPrincipalName'
+                id='email'
                 type='email'
-                value={formData.userPrincipalName}
-                onChange={(e: any) =>
-                  handleChange('userPrincipalName', e.target.value)
+                value={formData.email}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  handleChange('email', e.target.value)
                 }
                 placeholder='john.doe@example.com'
                 disabled={isLoading}
@@ -206,7 +195,9 @@ export function CreateUserDialog({
                 id='password'
                 type='password'
                 value={formData.password}
-                onChange={(e: any) => handleChange('password', e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  handleChange('password', e.target.value)
+                }
                 placeholder='••••••••'
                 disabled={isLoading}
               />
@@ -216,7 +207,7 @@ export function CreateUserDialog({
               <Label htmlFor='role'>Role</Label>
               <Select
                 value={formData.role}
-                onValueChange={(value: any) => handleChange('role', value)}
+                onValueChange={(value: string) => handleChange('role', value)}
                 disabled={isLoading}
               >
                 <SelectTrigger id='role'>
@@ -224,39 +215,10 @@ export function CreateUserDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='Administrator'>Administrator</SelectItem>
-                  <SelectItem value='User'>User</SelectItem>
-                  <SelectItem value='Guest'>Guest</SelectItem>
+                  <SelectItem value='Employee'>Employee</SelectItem>
+                  <SelectItem value='Customer'>Customer</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className='flex items-center space-x-2'>
-              <Checkbox
-                id='accountEnabled'
-                checked={formData.accountEnabled}
-                onCheckedChange={(checked) =>
-                  handleChange('accountEnabled', checked === true)
-                }
-                disabled={isLoading}
-              />
-              <Label htmlFor='accountEnabled'>Account enabled</Label>
-            </div>
-
-            <div className='flex items-center space-x-2'>
-              <Checkbox
-                id='forceChangePasswordNextSignIn'
-                checked={formData.forceChangePasswordNextSignIn}
-                onCheckedChange={(checked) =>
-                  handleChange(
-                    'forceChangePasswordNextSignIn',
-                    checked === true
-                  )
-                }
-                disabled={isLoading}
-              />
-              <Label htmlFor='forceChangePasswordNextSignIn'>
-                Force password change at next sign-in
-              </Label>
             </div>
           </div>
 

@@ -1,16 +1,20 @@
 'use client'
 
-import { useState } from 'react'
 import {
   MoreHorizontal,
   Edit,
   Trash2,
   UserCog,
-  User,
   XCircle,
   CheckCircle,
   KeyRound
 } from 'lucide-react'
+import { useState } from 'react'
+
+import { ChangeRoleDialog } from './change-role-dialog'
+import { DeleteUserDialog } from './delete-user-dialog'
+import { ResetPasswordDialog } from './reset-password-dialog'
+import { UserDetailsDialog } from './user-details-dialog'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -22,21 +26,16 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { toast } from '@/components/ui/use-toast'
 
-import { UserDetailsDialog } from './user-details-dialog'
-import { ResetPasswordDialog } from './reset-password-dialog'
-import { DeleteUserDialog } from './delete-user-dialog'
-import { ChangeRoleDialog } from './change-role-dialog'
-
 interface User {
   id: string
   displayName: string
   mail: string
   userPrincipalName: string
   accountEnabled: boolean
-  appRoleAssignments?: any[]
   createdDateTime?: string
   jobTitle?: string
   department?: string
+  role: string
 }
 
 interface UserActionsDropdownProps {
@@ -189,7 +188,6 @@ export function UserActionsDropdown({
           open={showChangeRoleDialog}
           onOpenChange={setShowChangeRoleDialog}
           onRoleChanged={onUserUpdated}
-          userAppRoleAssignments={user.appRoleAssignments || []}
         />
       )}
     </>

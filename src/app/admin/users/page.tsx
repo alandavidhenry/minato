@@ -25,10 +25,10 @@ interface User {
   mail: string
   userPrincipalName: string
   accountEnabled: boolean
-  appRoleAssignments?: any[]
   createdDateTime?: string
   jobTitle?: string
   department?: string
+  role: string
 }
 
 // Define the valid badge variant types
@@ -99,61 +99,21 @@ export default function UsersPage() {
     toast({ title: 'Success', description: 'User updated successfully' })
   }
 
-  // Determine user role
-  function getUserRole(user: User): string {
-    // Debug log to see what we're working with
-    console.log(`Checking role for user: ${user.displayName}`, {
-      appRoleAssignments: user.appRoleAssignments,
-      adminRoleId: process.env.NEXT_PUBLIC_AZURE_AD_ADMIN_ROLE_ID,
-      userRoleId: process.env.NEXT_PUBLIC_AZURE_AD_USER_ROLE_ID
-    })
-
-    // Check if user is the default admin by email
-    const isDefaultAdmin =
-      user.mail === process.env.DEFAULT_ADMIN_EMAIL ||
-      user.userPrincipalName.includes(process.env.DEFAULT_ADMIN_EMAIL ?? '')
-
-    if (isDefaultAdmin) {
-      return 'Administrator'
-    }
-
-    if (!user.appRoleAssignments || user.appRoleAssignments.length === 0) {
-      return 'Guest'
-    }
-
-    // Check for admin role
-    const isAdmin = user.appRoleAssignments.some(
-      (role) =>
-        role.appRoleId === process.env.NEXT_PUBLIC_AZURE_AD_ADMIN_ROLE_ID
-    )
-
-    // Check for user role
-    const isUser = user.appRoleAssignments.some(
-      (role) => role.appRoleId === process.env.NEXT_PUBLIC_AZURE_AD_USER_ROLE_ID
-    )
-
-    if (isAdmin) return 'Administrator'
-    if (isUser) return 'User'
-    return 'Guest'
-  }
-
   // Extract badge variant logic into a function with proper return type
   function getRoleBadgeVariant(role: string): BadgeVariant {
     if (role === 'Administrator') return 'destructive'
-    if (role === 'User') return 'default'
+    if (role === 'Employee') return 'default'
     return 'secondary'
   }
 
   // Render a single user row
   function renderUserRow(user: User) {
-    const userRole = getUserRole(user)
-
     return (
       <TableRow key={user.id}>
         <TableCell className='font-medium'>{user.displayName}</TableCell>
         <TableCell>{user.mail || user.userPrincipalName}</TableCell>
         <TableCell>
-          <Badge variant={getRoleBadgeVariant(userRole)}>{userRole}</Badge>
+          <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
         </TableCell>
         <TableCell>
           <Badge
@@ -167,7 +127,7 @@ export default function UsersPage() {
           <UserActionsDropdown
             user={user}
             onUserUpdated={handleUserUpdated}
-            userRole={userRole}
+            userRole={user.role}
           />
         </TableCell>
       </TableRow>

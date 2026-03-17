@@ -51,7 +51,7 @@ export function RBACProvider({
       name: session.user.name,
       email: session.user.email,
       image: session.user.image,
-      roles: session.user.roles || [UserRole.GUEST]
+      roles: session.user.roles || [UserRole.CUSTOMER]
     }
   }, [session?.user])
 

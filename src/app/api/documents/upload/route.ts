@@ -3,6 +3,7 @@ import { BlobServiceClient } from '@azure/storage-blob'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
+import { logActivity, ActivityType } from '@/lib/activity-logger'
 import {
   parseFileName,
   createVersionedFileName,
@@ -21,6 +22,7 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File
     const isNewVersion = formData.get('isNewVersion') === 'true'
     const originalFileName = formData.get('originalFileName') as string | null
+    const folderPath = formData.get('folderPath') as string | null
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -52,6 +54,9 @@ export async function POST(request: NextRequest) {
 
     let fileName = file.name
 
+    // Determine the full path including folder if specified
+    const basePath = folderPath ? `${folderPath}/` : ''
+
     if (isNewVersion && originalFileName) {
       // This is a new version of an existing file
       const { baseName, extension } = parseFileName(originalFileName)
@@ -59,26 +64,50 @@ export async function POST(request: NextRequest) {
       fileName = createVersionedFileName(`${baseName}${extension}`, versionId)
     } else {
       // Check if file already exists and make it a version if it does
-      const blobClient = containerClient.getBlockBlobClient(fileName)
+      const fullPath = `${basePath}${fileName}`
+      const blobClient = containerClient.getBlockBlobClient(fullPath)
       const exists = await blobClient.exists()
 
       if (exists) {
         const versionId = generateVersionId()
-        fileName = createVersionedFileName(fileName, versionId)
+        const fileNameOnly = fileName
+        const versionedFileName = createVersionedFileName(
+          fileNameOnly,
+          versionId
+        )
+        fileName = versionedFileName
       }
     }
 
-    const uploadBlobClient = containerClient.getBlockBlobClient(fileName)
+    // Construct the full path including any folder
+    const fullPath = `${basePath}${fileName}`
+
+    const uploadBlobClient = containerClient.getBlockBlobClient(fullPath)
     await uploadBlobClient.uploadData(buffer, {
       blobHTTPHeaders: {
         blobContentType: file.type || 'application/octet-stream'
       }
     })
 
+    if (session?.user) {
+      await logActivity({
+        userId: session.user.id,
+        userName: session.user.name ?? session.user.email ?? 'Unknown user',
+        fileName: fullPath,
+        activityType: isNewVersion
+          ? ActivityType.NEW_VERSION
+          : ActivityType.UPLOAD,
+        ipAddress:
+          request.headers.get('x-forwarded-for') ??
+          request.headers.get('x-real-ip') ??
+          undefined
+      })
+    }
+
     return NextResponse.json({
       message: 'File uploaded successfully',
-      fileName: fileName,
-      isVersion: isNewVersion || fileName !== file.name
+      fileName: fullPath,
+      isVersion: isNewVersion || fullPath !== `${basePath}${file.name}`
     })
   } catch (error) {
     console.error('Upload error:', error)

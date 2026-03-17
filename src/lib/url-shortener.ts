@@ -134,7 +134,7 @@ export async function resolveShortUrl(
  */
 async function streamToString(stream: NodeJS.ReadableStream): Promise<string> {
   return new Promise((resolve, reject) => {
-    const chunks: any[] = []
+    const chunks: Buffer[] = []
     stream.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
     stream.on('error', reject)
     stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')))

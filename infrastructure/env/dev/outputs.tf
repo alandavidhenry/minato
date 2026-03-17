@@ -13,18 +13,6 @@ output "app_service_url" {
   value       = module.document_portal.app_service_url
 }
 
-output "application_id" {
-  description = "The Application (Client) ID for Azure AD"
-  value       = module.document_portal.application_id
-  sensitive   = false
-}
-
-output "client_secret" {
-  description = "The Application Client Secret"
-  value       = module.document_portal.client_secret
-  sensitive   = true
-}
-
 output "storage_connection_string" {
   description = "Storage account connection string"
   value       = module.document_portal.storage_connection_string
@@ -36,11 +24,6 @@ output "storage_container_name" {
   value       = module.document_portal.storage_container_name
 }
 
-output "tenant_id" {
-  description = "Azure AD tenant ID"
-  value       = module.document_portal.tenant_id
-}
-
 output "nextauth_secret" {
   description = "NextAuth secret"
   value       = module.document_portal.nextauth_secret
@@ -50,4 +33,15 @@ output "nextauth_secret" {
 output "key_vault_name" {
   description = "The name of the Key Vault"
   value       = module.document_portal.key_vault_name
+}
+
+output "document_intelligence_endpoint" {
+  description = "The endpoint of the Document Intelligence service"
+  value       = module.document_portal.document_intelligence_endpoint
+}
+
+output "document_intelligence_key" {
+  description = "The primary key of the Document Intelligence service"
+  value       = module.document_portal.document_intelligence_key
+  sensitive   = true
 }

@@ -1,0 +1,100 @@
+name: Main Deployment Workflow
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - src/**
+      - public/**
+      - package.json
+      - package-lock.json
+      - next.config.mjs
+      - postcss.config.mjs
+      - Dockerfile
+      - .github/workflows/**
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy to
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  lint_and_test:
+    name: Lint and Test
+    uses: ./.github/workflows/lint-format.yml
+
+  security_scan:
+    name: Security Scan
+    uses: ./.github/workflows/security-scan.yml
+    with:
+      run_advanced_scans: ${{ github.ref == 'refs/heads/main' }}
+
+  setup:
+    name: Setup Deployment
+    needs: [lint_and_test, security_scan]
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      version: ${{ steps.extract-version.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Determine environment
+        id: set-env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            ENVIRONMENT="prod"
+          else
+            ENVIRONMENT="dev"
+          fi
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+
+      - name: Extract version from package.json
+        id: extract-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version extracted: $VERSION"
+
+  build:
+    name: Build Docker Image
+    needs: setup
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      environment: ${{ needs.setup.outputs.environment }}
+      version: ${{ needs.setup.outputs.version }}
+
+  deploy:
+    name: Deploy to Azure
+    needs: [setup, build]
+    uses: ./.github/workflows/azure-deploy.yml
+    with:
+      environment: ${{ needs.setup.outputs.environment }}
+      image_uri: ${{ needs.build.outputs.image_uri }}
+      app_name: ${{ vars.AZURE_APP_NAME }}
+    secrets:
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+
+  release:
+    name: Create Release
+    needs: [setup, deploy]
+    uses: ./.github/workflows/create-release.yml
+    with:
+      environment: ${{ needs.setup.outputs.environment }}
+      version: ${{ needs.setup.outputs.version }}

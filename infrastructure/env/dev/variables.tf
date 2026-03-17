@@ -1,3 +1,8 @@
+variable "subscription_id" {
+  description = "Azure subscription ID"
+  type        = string
+}
+
 variable "project" {
   description = "Project name"
   type        = string
@@ -59,6 +64,16 @@ variable "storage_container" {
   })
 }
 
+variable "document_intelligence" {
+  description = "Document Intelligence configuration"
+  type = object({
+    sku_name = string
+  })
+  default = {
+    sku_name = "F0"
+  }
+}
+
 variable "azure_ad" {
   description = "Azure AD application configuration"
   type = object({
@@ -69,7 +84,6 @@ variable "azure_ad" {
 variable "github_username" {
   description = "GitHub username for container registry"
   type        = string
-  sensitive   = false
 }
 
 variable "github_token" {

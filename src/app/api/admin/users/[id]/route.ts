@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
-import { getUser, updateUser, deleteUser } from '@/lib/graph-api'
+import { getUserByEmail, updateUser, deleteUser } from '@/lib/user-database'
 import { UserRole } from '@/types/rbac'
 
 // Middleware to check admin permissions
@@ -21,9 +21,8 @@ async function checkAdminPermission() {
 // GET: Get a specific user
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  // Check admin permissions
   const isAdmin = await checkAdminPermission()
 
   if (!isAdmin) {
@@ -34,14 +33,27 @@ export async function GET(
   }
 
   try {
-    const userId = params.id
+    const { id: userId } = await params
 
-    // Get the user from Microsoft Graph API
-    const user = await getUser(userId)
+    const user = await getUserByEmail(userId)
 
-    return NextResponse.json({ user })
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    const formattedUser = {
+      id: user.id,
+      displayName: user.displayName,
+      mail: user.email,
+      userPrincipalName: user.email,
+      accountEnabled: true,
+      createdDateTime: user.createdAt,
+      role: user.role
+    }
+
+    return NextResponse.json({ user: formattedUser })
   } catch (error) {
-    console.error(`Error fetching user ${params.id}:`, error)
+    console.error('Error fetching user:', error)
     return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 })
   }
 }
@@ -49,9 +61,8 @@ export async function GET(
 // PATCH: Update a user
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  // Check admin permissions
   const isAdmin = await checkAdminPermission()
 
   if (!isAdmin) {
@@ -62,15 +73,22 @@ export async function PATCH(
   }
 
   try {
-    const userId = params.id
+    const { id: userId } = await params
     const updates = await request.json()
 
-    // Update the user in Microsoft Graph
-    await updateUser(userId, updates)
+    const userUpdates: Partial<{ displayName: string; role: string }> = {}
+    if (updates.displayName) userUpdates.displayName = updates.displayName
+    if (updates.role) userUpdates.role = updates.role
+
+    const success = await updateUser(userId, userUpdates)
+
+    if (!success) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error(`Error updating user ${params.id}:`, error)
+    console.error('Error updating user:', error)
     return NextResponse.json(
       { error: 'Failed to update user' },
       { status: 500 }
@@ -81,9 +99,8 @@ export async function PATCH(
 // DELETE: Delete a user
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  // Check admin permissions
   const isAdmin = await checkAdminPermission()
 
   if (!isAdmin) {
@@ -94,14 +111,17 @@ export async function DELETE(
   }
 
   try {
-    const userId = params.id
+    const { id: userId } = await params
 
-    // Delete the user from Microsoft Graph
-    await deleteUser(userId)
+    const success = await deleteUser(userId)
+
+    if (!success) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error(`Error deleting user ${params.id}:`, error)
+    console.error('Error deleting user:', error)
     return NextResponse.json(
       { error: 'Failed to delete user' },
       { status: 500 }

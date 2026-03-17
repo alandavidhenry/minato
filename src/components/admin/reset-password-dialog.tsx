@@ -3,6 +3,8 @@
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -11,11 +13,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-
-import { Button } from '@/components/ui/button'
-
 import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 
@@ -160,7 +158,9 @@ export function ResetPasswordDialog({
                 id='password'
                 type='text' // Using text to make it visible for admin
                 value={password}
-                onChange={(e: any) => setPassword(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setPassword(e.target.value)
+                }
                 placeholder='New password'
                 disabled={isLoading}
               />

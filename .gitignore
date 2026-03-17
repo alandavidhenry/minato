@@ -45,8 +45,8 @@ next-env.d.ts
 **/.terraform/*
 *.tfstate
 *.tfstate.*
-*.tfvars
-*.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
 override.tf
 override.tf.json
 *_override.tf
@@ -55,6 +55,6 @@ override.tf.json
 terraform.rc
 crash.log
 crash.*.log
-.terraform.lock.hcl
 
 github_pat.txt
+.VSCodeCounter

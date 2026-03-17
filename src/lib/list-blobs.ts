@@ -1,4 +1,6 @@
 // src/lib/list-blobs.ts
+
+import { getFileManager } from './file-system'
 import { groupDocumentsByVersion } from './version-manager'
 
 export interface BlobItem {
@@ -11,42 +13,79 @@ export interface BlobItem {
   versionNumber?: number
   totalVersions?: number
   originalName?: string
+  isFolder?: boolean
+  path?: string
 }
 
 export async function listBlobs(
-  includeVersions: boolean = false
+  includeVersions: boolean = false,
+  path: string = ''
 ): Promise<BlobItem[]> {
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING!
   const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME!
 
   try {
-    // Group documents by version
-    const documentsWithVersions = await groupDocumentsByVersion(
-      containerName,
-      connectionString
-    )
+    // Use our file manager to list contents
+    const fileManager = getFileManager()
+    const contents = await fileManager.listContent(path)
 
-    // Generate the blob list based on whether we want to include all versions
+    // Process contents to match our original BlobItem interface
+    const items: BlobItem[] = contents.map((item) => ({
+      id: item.isFolder ? `folder:${item.fullPath}` : item.fullPath,
+      name: item.name,
+      path: item.fullPath,
+      uploadedAt: item.uploadedAt ?? '-',
+      type: item.isFolder ? 'folder' : (item.type ?? getContentType(item.name)),
+      size: item.size ?? '-',
+      hasVersions: false,
+      isFolder: item.isFolder
+    }))
+
+    // If we need to include versions, we need to add version information
     if (includeVersions) {
-      // Return all versions of all documents
-      return documentsWithVersions.flatMap((doc) =>
+      // Group documents by version
+      const documentsWithVersions = await groupDocumentsByVersion(
+        containerName,
+        connectionString,
+        path
+      )
+
+      // Convert to BlobItems and merge with our folder list
+      const folders = items.filter((item) => item.isFolder)
+
+      const documents = documentsWithVersions.flatMap((doc) =>
         doc.versions.map((version) => ({
           id: version.fileName,
           name: version.fileName,
+          path: getFolderPath(version.fileName),
           uploadedAt: version.uploadedAt.toLocaleDateString(),
           type: getContentType(version.fileName),
           size: version.size,
           hasVersions: doc.versions.length > 1,
           versionNumber: version.versionNumber,
           totalVersions: doc.versions.length,
-          originalName: version.originalName
+          originalName: version.originalName,
+          isFolder: false
         }))
       )
+
+      return [...folders, ...documents]
     } else {
-      // Return only the latest version of each document
-      return documentsWithVersions.map((doc) => ({
+      // If we're not including all versions, just return the latest version of each
+      const folders = items.filter((item) => item.isFolder)
+
+      // Group documents by version and get latest version info
+      const documentsWithVersions = await groupDocumentsByVersion(
+        containerName,
+        connectionString,
+        path
+      )
+
+      // Convert to BlobItems with version information
+      const filesWithVersionInfo = documentsWithVersions.map((doc) => ({
         id: doc.latestVersion.fileName,
         name: doc.latestVersion.fileName,
+        path: getFolderPath(doc.latestVersion.fileName),
         uploadedAt: doc.latestVersion.uploadedAt.toLocaleDateString(),
         type: getContentType(doc.latestVersion.fileName),
         size: doc.latestVersion.size,
@@ -54,8 +93,12 @@ export async function listBlobs(
         versionNumber:
           doc.versions.length > 0 ? doc.latestVersion.versionNumber : 1,
         totalVersions: doc.versions.length,
-        originalName: doc.originalName
+        originalName: doc.originalName,
+        isFolder: false
       }))
+
+      // Merge our folder list with files that have version info
+      return [...folders, ...filesWithVersionInfo]
     }
   } catch (error) {
     console.error('Error listing blobs:', error)
@@ -93,12 +136,25 @@ export async function getDocumentVersions(
       hasVersions: versions.length > 1,
       versionNumber: version.versionNumber,
       totalVersions: versions.length,
-      originalName: version.originalName
+      originalName: version.originalName,
+      path: getFolderPath(version.fileName)
     }))
   } catch (error) {
     console.error('Error getting document versions:', error)
     throw error
   }
+}
+
+/**
+ * Get the folder path from a file name
+ * Example: "documents/2023/report.pdf" -> "documents/2023"
+ */
+function getFolderPath(fileName: string): string {
+  const lastSlashIndex = fileName.lastIndexOf('/')
+  if (lastSlashIndex > 0) {
+    return fileName.substring(0, lastSlashIndex)
+  }
+  return ''
 }
 
 /**
