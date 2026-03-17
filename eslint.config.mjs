@@ -63,7 +63,7 @@ export default [
   },
 
   // Next.js (full recommended ruleset)
-  nextPlugin.flatConfig['recommended'],
+  nextPlugin.configs['recommended'],
 
   // Import ordering
   {

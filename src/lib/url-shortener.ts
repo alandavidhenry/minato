@@ -80,7 +80,8 @@ export async function createShortUrl(
   } catch (error) {
     console.error('Error creating short URL:', error)
     throw new Error(
-      `Failed to create short URL: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to create short URL: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error }
     )
   }
 }
