@@ -9,6 +9,11 @@ on:
         type: boolean
         default: false
 
+permissions:
+  security-events: write
+  actions: read
+  contents: read
+
 jobs:
   security-scan:
     name: Security Scan
