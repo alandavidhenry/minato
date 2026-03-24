@@ -216,7 +216,8 @@ export async function moveFile(
       } catch (error) {
         // Non-fatal: log and continue
         console.warn(
-          `Warning: Could not copy metadata for ${normalizedTargetPath}`,
+          'Warning: Could not copy metadata for %s',
+          normalizedTargetPath,
           error
         )
       }
