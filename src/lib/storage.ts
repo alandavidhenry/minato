@@ -1,4 +1,3 @@
-// src/lib/storage.ts
 import {
   BlobSASPermissions,
   BlobServiceClient,
@@ -23,13 +22,11 @@ export async function generateSasToken(
   const containerClient = blobServiceClient.getContainerClient(containerName)
   const blobClient = containerClient.getBlobClient(blobName)
 
-  const sasUrl = await blobClient.generateSasUrl({
+  return blobClient.generateSasUrl({
     permissions: BlobSASPermissions.parse(options.permissions),
-    startsOn: options.startsOn || new Date(),
-    expiresOn: options.expiresOn || new Date(Date.now() + 30 * 60 * 1000),
+    startsOn: options.startsOn ?? new Date(),
+    expiresOn: options.expiresOn ?? new Date(Date.now() + 30 * 60 * 1000),
     protocol: SASProtocol.Https,
     contentDisposition: options.contentDisposition
   })
-
-  return sasUrl
 }

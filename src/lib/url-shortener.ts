@@ -1,4 +1,5 @@
-// src/lib/url-shortener.ts
+import { randomBytes } from 'crypto'
+
 import { BlobServiceClient } from '@azure/storage-blob'
 
 interface ShortenedUrl {
@@ -8,36 +9,40 @@ interface ShortenedUrl {
   createdAt: Date
 }
 
-// Short code length
 const CODE_LENGTH = 7
-
-// The container where we'll store shortened URL mappings
 const URL_CONTAINER = 'url-shortener'
 
-/**
- * Generates a random alphanumeric string of specified length
- */
 export function generateShortCode(length: number = CODE_LENGTH): string {
   const characters =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-  let result = ''
   const charactersLength = characters.length
+  const result: string[] = []
 
-  for (let i = 0; i < length; i++) {
-    result += characters.charAt(Math.floor(Math.random() * charactersLength))
+  // Use rejection sampling to avoid modulo bias when mapping random bytes
+  // into the character set indices.
+  const maxUnbiased = Math.floor(256 / charactersLength) * charactersLength
+
+  while (result.length < length) {
+    const bytes = randomBytes(length - result.length)
+    for (const byte of bytes) {
+      if (byte >= maxUnbiased) {
+        continue
+      }
+      const index = byte % charactersLength
+      result.push(characters[index])
+      if (result.length === length) {
+        break
+      }
+    }
   }
 
-  return result
+  return result.join('')
 }
 
-/**
- * Creates a short URL and stores mapping in Azure Blob Storage
- */
 export async function createShortUrl(
   originalUrl: string,
   expirationDays: number = 7
 ): Promise<string> {
-  // Generate a short code
   const shortCode = generateShortCode()
 
   try {
@@ -50,18 +55,12 @@ export async function createShortUrl(
 
     const blobServiceClient =
       BlobServiceClient.fromConnectionString(connectionString)
-
-    // Ensure container exists
     const containerClient = blobServiceClient.getContainerClient(URL_CONTAINER)
-    const containerExists = await containerClient.exists()
 
-    if (!containerExists) {
-      // Create container with "blob" access level
-      // Valid options are "container" or "blob" - not "private"
+    if (!(await containerClient.exists())) {
       await containerClient.create({ access: 'blob' })
     }
 
-    // Create URL mapping object
     const shortenedUrl: ShortenedUrl = {
       shortCode,
       originalUrl,
@@ -69,12 +68,9 @@ export async function createShortUrl(
       createdAt: new Date()
     }
 
-    // Store in blob storage
+    const content = JSON.stringify(shortenedUrl)
     const blobClient = containerClient.getBlockBlobClient(shortCode)
-    await blobClient.upload(
-      JSON.stringify(shortenedUrl),
-      JSON.stringify(shortenedUrl).length
-    )
+    await blobClient.upload(content, content.length)
 
     return shortCode
   } catch (error) {
@@ -86,9 +82,6 @@ export async function createShortUrl(
   }
 }
 
-/**
- * Resolves a short code to the original URL
- */
 export async function resolveShortUrl(
   shortCode: string
 ): Promise<string | null> {
@@ -103,12 +96,9 @@ export async function resolveShortUrl(
     const blobServiceClient =
       BlobServiceClient.fromConnectionString(connectionString)
     const containerClient = blobServiceClient.getContainerClient(URL_CONTAINER)
-
-    // Get the mapping from blob storage
     const blobClient = containerClient.getBlobClient(shortCode)
-    const exists = await blobClient.exists()
 
-    if (!exists) {
+    if (!(await blobClient.exists())) {
       return null
     }
 
@@ -116,9 +106,7 @@ export async function resolveShortUrl(
     const content = await streamToString(downloadResponse.readableStreamBody!)
     const urlMapping = JSON.parse(content) as ShortenedUrl
 
-    // Check if URL has expired
     if (new Date(urlMapping.expiresAt) < new Date()) {
-      // Optional: Clean up expired URLs
       await blobClient.delete()
       return null
     }
@@ -130,9 +118,6 @@ export async function resolveShortUrl(
   }
 }
 
-/**
- * Helper to convert stream to string
- */
 async function streamToString(stream: NodeJS.ReadableStream): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []

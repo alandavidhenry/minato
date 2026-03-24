@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react'
 
+import { ActivityType } from '@/lib/activity-logger'
+
 import { ActivityTypeChart } from './charts/ActivityTypeChart'
 import { DailyActivityChart } from './charts/DailyActivityChart'
 import { TopUsersChart } from './charts/TopUsersChart'
 import { processActivityData } from './utils/activity-data-processor'
-
-import { ActivityType } from '@/lib/activity-logger'
 
 interface ActivityLog {
   id: string
