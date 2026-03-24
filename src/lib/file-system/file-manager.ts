@@ -23,7 +23,7 @@ import {
 import { FileItem, FileOperationResult } from './types'
 
 export class FileManager {
-  private containerClient: ContainerClient
+  private readonly containerClient: ContainerClient
 
   constructor(connectionString: string, containerName: string) {
     const blobServiceClient =

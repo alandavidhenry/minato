@@ -2,7 +2,12 @@ export const FOLDER_SEPARATOR = '/'
 export const FOLDER_MARKER = '.folder'
 
 export function normalizePath(path: string): string {
-  return path.trim().replace(/^\/+/, '').replace(/\/+$/, '')
+  const trimmed = path.trim()
+  let start = 0
+  let end = trimmed.length
+  while (start < end && trimmed[start] === '/') start++
+  while (end > start && trimmed[end - 1] === '/') end--
+  return trimmed.slice(start, end)
 }
 
 export function getFolderMarkerPath(folderPath: string): string {
@@ -19,7 +24,7 @@ export function isValidName(name: string): boolean {
 
 export function isDirectChild(path: string, currentPath: string): boolean {
   if (!currentPath) {
-    return path.indexOf(FOLDER_SEPARATOR) === -1
+    return !path.includes(FOLDER_SEPARATOR)
   }
 
   const currentParts = currentPath.split(FOLDER_SEPARATOR)

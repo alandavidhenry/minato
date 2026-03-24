@@ -1,5 +1,7 @@
 import { ActivityType } from '../activity-logger'
 
+export { ActivityType }
+
 export interface FileItem {
   name: string
   path: string
@@ -37,5 +39,3 @@ export interface ActivityLogParams {
   fileName: string
   activityType: ActivityType
 }
-
-export { ActivityType }
