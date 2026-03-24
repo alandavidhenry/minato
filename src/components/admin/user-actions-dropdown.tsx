@@ -26,7 +26,6 @@ import { DeleteUserDialog } from './delete-user-dialog'
 import { ResetPasswordDialog } from './reset-password-dialog'
 import { UserDetailsDialog } from './user-details-dialog'
 
-
 interface User {
   id: string
   displayName: string

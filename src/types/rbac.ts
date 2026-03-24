@@ -24,7 +24,9 @@ export enum Permission {
   VIEW_SETTINGS = 'view:settings'
 }
 
-export const ROLE_PERMISSIONS: Readonly<Record<UserRole, readonly Permission[]>> = {
+export const ROLE_PERMISSIONS: Readonly<
+  Record<UserRole, readonly Permission[]>
+> = {
   [UserRole.ADMIN]: [
     Permission.VIEW_DOCUMENTS,
     Permission.UPLOAD_DOCUMENTS,

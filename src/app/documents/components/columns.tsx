@@ -16,7 +16,6 @@ import { ShareCell } from './cell-components/ShareCell'
 import { VersionCell } from './cell-components/VersionCell'
 import { sortBySize } from './helpers/sort-helper'
 
-
 export const columns: ColumnDef<Document>[] = [
   // Selection column
   {

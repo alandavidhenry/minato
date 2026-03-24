@@ -1,7 +1,6 @@
 // src/app/documents/page.tsx
 import { notFound } from 'next/navigation'
 
-
 import { columns } from '@/app/documents/components/columns'
 import { CreateFolderButton } from '@/components/create-folder-button'
 import { DocumentBreadcrumb } from '@/components/document-breadcrumb'

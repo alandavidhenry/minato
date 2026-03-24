@@ -1,7 +1,6 @@
 // src/app/layout.tsx
 import { Inter } from 'next/font/google'
 
-
 import { NavBar } from '@/components/nav-bar'
 import { RBACProvider } from '@/components/providers/rbac-provider'
 import { AuthProvider } from '@/components/providers/session-provider'

@@ -10,7 +10,6 @@ import { PDFRenderer } from './components/PDFRenderer'
 import { PDFToolbar } from './components/PDFToolbar'
 import { fetchPdf, fetchVersionInfo } from './services/pdf-service'
 
-
 interface PDFDocumentViewerProps {
   readonly fileName: string
 }

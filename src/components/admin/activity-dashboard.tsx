@@ -9,7 +9,6 @@ import { DailyActivityChart } from './charts/DailyActivityChart'
 import { TopUsersChart } from './charts/TopUsersChart'
 import { processActivityData } from './utils/activity-data-processor'
 
-
 interface ActivityLog {
   id: string
   userId: string

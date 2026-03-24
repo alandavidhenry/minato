@@ -11,7 +11,6 @@ import { FileDropzone } from './components/FileDropzone'
 import { FilePreview } from './components/FilePreview'
 import { UploadControls } from './components/UploadControls'
 
-
 export function ScanForm() {
   const router = useRouter()
   const { data: session } = useSession()
