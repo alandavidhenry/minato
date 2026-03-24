@@ -15,9 +15,28 @@ const URL_CONTAINER = 'url-shortener'
 export function generateShortCode(length: number = CODE_LENGTH): string {
   const characters =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-  return Array.from(randomBytes(length))
-    .map((byte) => characters[byte % characters.length])
-    .join('')
+  const charactersLength = characters.length
+  const result: string[] = []
+
+  // Use rejection sampling to avoid modulo bias when mapping random bytes
+  // into the character set indices.
+  const maxUnbiased = Math.floor(256 / charactersLength) * charactersLength
+
+  while (result.length < length) {
+    const bytes = randomBytes(length - result.length)
+    for (const byte of bytes) {
+      if (byte >= maxUnbiased) {
+        continue
+      }
+      const index = byte % charactersLength
+      result.push(characters[index])
+      if (result.length === length) {
+        break
+      }
+    }
+  }
+
+  return result.join('')
 }
 
 export async function createShortUrl(
