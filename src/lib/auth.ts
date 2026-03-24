@@ -1,10 +1,9 @@
-// src/lib/auth.ts
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 
-import { verifyUserCredentials } from './user-database'
-
 import { UserRole } from '@/types/rbac'
+
+import { verifyUserCredentials } from './user-database'
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -19,7 +18,6 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        // Verify credentials against your Azure database
         const user = await verifyUserCredentials(
           credentials.email,
           credentials.password
@@ -48,12 +46,8 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id
-        session.user.roles = token.roles
-      } else {
-        session.user.roles = [UserRole.CUSTOMER]
-      }
+      session.user.id = token.id
+      session.user.roles = token.roles
       return session
     }
   },

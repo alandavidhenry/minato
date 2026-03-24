@@ -3,6 +3,10 @@
 
 import { ColumnDef } from '@tanstack/react-table'
 
+import { Document } from '@/app/documents/types/document'
+import { Checkbox } from '@/components/ui/checkbox'
+import { SortArrows } from '@/components/ui/data-table/sort-arrows'
+
 import { DeleteCell } from './cell-components/DeleteCell'
 import { DocumentNameCell } from './cell-components/DocumentNameCell'
 import { DownloadCell } from './cell-components/DownloadCell'
@@ -12,9 +16,6 @@ import { ShareCell } from './cell-components/ShareCell'
 import { VersionCell } from './cell-components/VersionCell'
 import { sortBySize } from './helpers/sort-helper'
 
-import { Document } from '@/app/documents/types/document'
-import { Checkbox } from '@/components/ui/checkbox'
-import { SortArrows } from '@/components/ui/data-table/sort-arrows'
 
 export const columns: ColumnDef<Document>[] = [
   // Selection column

@@ -4,12 +4,13 @@ import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useState, useRef, useCallback } from 'react'
 
+import { toast } from '@/components/ui/use-toast'
+
 import { CameraView } from './components/CameraView'
 import { FileDropzone } from './components/FileDropzone'
 import { FilePreview } from './components/FilePreview'
 import { UploadControls } from './components/UploadControls'
 
-import { toast } from '@/components/ui/use-toast'
 
 export function ScanForm() {
   const router = useRouter()

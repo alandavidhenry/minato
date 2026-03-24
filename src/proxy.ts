@@ -1,12 +1,9 @@
-// src/proxy.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
 export async function proxy(request: NextRequest) {
-  const secret = process.env.NEXTAUTH_SECRET
-  const token = await getToken({ req: request, secret })
+  const token = await getToken({ req: request })
 
-  // If the user is not logged in, redirect to the sign-in page
   if (!token) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/signin'

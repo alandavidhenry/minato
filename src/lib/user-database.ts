@@ -1,8 +1,6 @@
-// src/lib/user-database.ts
 import { TableClient } from '@azure/data-tables'
 import bcrypt from 'bcryptjs'
 
-// User interface
 export interface UserData {
   id: string
   email: string
@@ -35,9 +33,7 @@ interface UpdateEntity {
   role?: string
 }
 
-// Get a TableClient instance to work with the users table
 function getTableClient() {
-  // For local development with Azurite, use the development storage
   if (
     process.env.NODE_ENV === 'development' &&
     process.env.USE_AZURITE === 'true'
@@ -48,21 +44,18 @@ function getTableClient() {
     )
   }
 
-  // For production, use your Azure Storage account
   return TableClient.fromConnectionString(
     process.env.AZURE_STORAGE_CONNECTION_STRING!,
     'users'
   )
 }
 
-// Initialize the table if it doesn't exist
 export async function initUserTable() {
   const tableClient = getTableClient()
   try {
     await tableClient.createTable()
   } catch (error) {
     const storageError = error as StorageError
-    // If the table already exists, that's fine
     if (storageError.statusCode === 409) {
       return
     }
@@ -70,7 +63,6 @@ export async function initUserTable() {
   }
 }
 
-// Create a new user
 export async function createUser({
   email,
   password,
@@ -85,24 +77,21 @@ export async function createUser({
   const tableClient = getTableClient()
 
   try {
-    // Check if user already exists
     try {
       await tableClient.getEntity('users', email)
       return null
     } catch (error) {
       const storageError = error as StorageError
-      // Error 404 means the user doesn't exist, which is what we want
+      // 404 means user doesn't exist — expected, continue with creation
       if (storageError.statusCode !== 404) {
         throw error
       }
     }
 
-    // Hash the password
     const passwordHash = await bcrypt.hash(password, 10)
-
-    // Create user entity
     const now = new Date().toISOString()
-    const user = {
+
+    await tableClient.createEntity({
       partitionKey: 'users',
       rowKey: email,
       email,
@@ -110,26 +99,15 @@ export async function createUser({
       passwordHash,
       role,
       createdAt: now
-    }
+    })
 
-    // Save to Azure Table Storage
-    await tableClient.createEntity(user)
-
-    return {
-      id: email,
-      email,
-      displayName,
-      passwordHash,
-      role,
-      createdAt: now
-    }
+    return { id: email, email, displayName, passwordHash, role, createdAt: now }
   } catch (error) {
     console.error('Error creating user:', error)
     return null
   }
 }
 
-// Verify user credentials
 export async function verifyUserCredentials(
   email: string,
   password: string
@@ -137,13 +115,11 @@ export async function verifyUserCredentials(
   const tableClient = getTableClient()
 
   try {
-    // Get user by email with type assertion
     const userEntity = (await tableClient.getEntity(
       'users',
       email
     )) as unknown as UserTableEntity
 
-    // Now TypeScript knows passwordHash is a string
     const passwordMatch = await bcrypt.compare(
       password,
       userEntity.passwordHash
@@ -162,7 +138,6 @@ export async function verifyUserCredentials(
 
     return null
   } catch (error) {
-    // If user doesn't exist, return null
     const storageError = error as StorageError
     if (storageError.statusCode === 404) {
       return null
@@ -172,7 +147,6 @@ export async function verifyUserCredentials(
   }
 }
 
-// Get user by email
 export async function getUserByEmail(email: string): Promise<UserData | null> {
   const tableClient = getTableClient()
 
@@ -188,7 +162,6 @@ export async function getUserByEmail(email: string): Promise<UserData | null> {
       createdAt: user.createdAt as string
     }
   } catch (error) {
-    // If user doesn't exist, return null
     const storageError = error as StorageError
     if (storageError.statusCode === 404) {
       return null
@@ -198,7 +171,6 @@ export async function getUserByEmail(email: string): Promise<UserData | null> {
   }
 }
 
-// Get all users
 export async function getAllUsers(): Promise<UserData[]> {
   const tableClient = getTableClient()
   const users: UserData[] = []
@@ -226,7 +198,6 @@ export async function getAllUsers(): Promise<UserData[]> {
   }
 }
 
-// Update user
 export async function updateUser(
   email: string,
   updates: Partial<Omit<UserData, 'id' | 'email' | 'passwordHash'>>
@@ -234,25 +205,21 @@ export async function updateUser(
   const tableClient = getTableClient()
 
   try {
-    // Check if the user exists
     await tableClient.getEntity('users', email)
 
-    // Create the update entity
     const updateEntity: UpdateEntity = {
       partitionKey: 'users',
       rowKey: email
     }
 
-    // Add only the fields that need to be updated
-    if (updates.displayName) updateEntity.displayName = updates.displayName
-    if (updates.role) updateEntity.role = updates.role
+    if (updates.displayName !== undefined)
+      updateEntity.displayName = updates.displayName
+    if (updates.role !== undefined) updateEntity.role = updates.role
 
-    // Update the entity
     await tableClient.updateEntity(updateEntity, 'Merge')
 
     return true
   } catch (error) {
-    // If user doesn't exist, return false
     const storageError = error as StorageError
     if (storageError.statusCode === 404) {
       console.error('User not found for update:', email)
@@ -263,7 +230,6 @@ export async function updateUser(
   }
 }
 
-// Delete user
 export async function deleteUser(email: string): Promise<boolean> {
   const tableClient = getTableClient()
 
@@ -271,7 +237,6 @@ export async function deleteUser(email: string): Promise<boolean> {
     await tableClient.deleteEntity('users', email)
     return true
   } catch (error) {
-    // If user doesn't exist, consider it a success
     const storageError = error as StorageError
     if (storageError.statusCode === 404) {
       return true
@@ -281,7 +246,6 @@ export async function deleteUser(email: string): Promise<boolean> {
   }
 }
 
-// Change user password
 export async function changePassword(
   email: string,
   newPassword: string
@@ -289,26 +253,18 @@ export async function changePassword(
   const tableClient = getTableClient()
 
   try {
-    // Check if the user exists
     await tableClient.getEntity('users', email)
 
-    // Hash the new password
     const passwordHash = await bcrypt.hash(newPassword, 10)
 
-    // Update the password
     await tableClient.updateEntity(
-      {
-        partitionKey: 'users',
-        rowKey: email,
-        passwordHash
-      },
+      { partitionKey: 'users', rowKey: email, passwordHash },
       'Merge'
     )
 
     return true
   } catch (error) {
     const storageError = error as StorageError
-    // If user doesn't exist, return false
     if (storageError.statusCode === 404) {
       console.error('User not found for password change:', email)
       return false

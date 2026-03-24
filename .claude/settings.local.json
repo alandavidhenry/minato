@@ -6,7 +6,9 @@
       "Bash(npm install:*)",
       "Bash(npm show:*)",
       "Bash(node:*)",
-      "Bash(npm i:*)"
+      "Bash(npm i:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

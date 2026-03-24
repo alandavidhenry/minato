@@ -1,5 +1,3 @@
-// src/lib/file-system/index.ts
-
 // Re-export types
 export * from './types'
 
@@ -11,5 +9,5 @@ export * from './format-utils'
 export * from './file-operations'
 export * from './folder-operations'
 
-// Export the FileManager class and singleton
+// Export the FileManager class and factory function
 export * from './file-manager'

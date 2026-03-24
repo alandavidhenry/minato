@@ -1,13 +1,14 @@
 // src/app/layout.tsx
 import { Inter } from 'next/font/google'
 
-import type { Metadata } from 'next'
 
 import { NavBar } from '@/components/nav-bar'
 import { RBACProvider } from '@/components/providers/rbac-provider'
 import { AuthProvider } from '@/components/providers/session-provider'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
+
+import type { Metadata } from 'next'
 
 import './globals.css'
 

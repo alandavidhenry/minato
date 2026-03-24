@@ -11,11 +11,6 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 
-import { ChangeRoleDialog } from './change-role-dialog'
-import { DeleteUserDialog } from './delete-user-dialog'
-import { ResetPasswordDialog } from './reset-password-dialog'
-import { UserDetailsDialog } from './user-details-dialog'
-
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -25,6 +20,12 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { toast } from '@/components/ui/use-toast'
+
+import { ChangeRoleDialog } from './change-role-dialog'
+import { DeleteUserDialog } from './delete-user-dialog'
+import { ResetPasswordDialog } from './reset-password-dialog'
+import { UserDetailsDialog } from './user-details-dialog'
+
 
 interface User {
   id: string

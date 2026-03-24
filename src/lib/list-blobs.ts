@@ -1,7 +1,8 @@
-// src/lib/list-blobs.ts
-
 import { getFileManager } from './file-system'
-import { groupDocumentsByVersion } from './version-manager'
+import {
+  groupDocumentsByVersion,
+  getDocumentVersions as getVersionsFromStorage
+} from './version-manager'
 
 export interface BlobItem {
   id: string
@@ -25,11 +26,9 @@ export async function listBlobs(
   const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME!
 
   try {
-    // Use our file manager to list contents
     const fileManager = getFileManager()
     const contents = await fileManager.listContent(path)
 
-    // Process contents to match our original BlobItem interface
     const items: BlobItem[] = contents.map((item) => ({
       id: item.isFolder ? `folder:${item.fullPath}` : item.fullPath,
       name: item.name,
@@ -41,18 +40,14 @@ export async function listBlobs(
       isFolder: item.isFolder
     }))
 
-    // If we need to include versions, we need to add version information
+    const folders = items.filter((item) => item.isFolder)
+    const documentsWithVersions = await groupDocumentsByVersion(
+      containerName,
+      connectionString,
+      path
+    )
+
     if (includeVersions) {
-      // Group documents by version
-      const documentsWithVersions = await groupDocumentsByVersion(
-        containerName,
-        connectionString,
-        path
-      )
-
-      // Convert to BlobItems and merge with our folder list
-      const folders = items.filter((item) => item.isFolder)
-
       const documents = documentsWithVersions.flatMap((doc) =>
         doc.versions.map((version) => ({
           id: version.fileName,
@@ -70,45 +65,30 @@ export async function listBlobs(
       )
 
       return [...folders, ...documents]
-    } else {
-      // If we're not including all versions, just return the latest version of each
-      const folders = items.filter((item) => item.isFolder)
-
-      // Group documents by version and get latest version info
-      const documentsWithVersions = await groupDocumentsByVersion(
-        containerName,
-        connectionString,
-        path
-      )
-
-      // Convert to BlobItems with version information
-      const filesWithVersionInfo = documentsWithVersions.map((doc) => ({
-        id: doc.latestVersion.fileName,
-        name: doc.latestVersion.fileName,
-        path: getFolderPath(doc.latestVersion.fileName),
-        uploadedAt: doc.latestVersion.uploadedAt.toLocaleDateString(),
-        type: getContentType(doc.latestVersion.fileName),
-        size: doc.latestVersion.size,
-        hasVersions: doc.versions.length > 1,
-        versionNumber:
-          doc.versions.length > 0 ? doc.latestVersion.versionNumber : 1,
-        totalVersions: doc.versions.length,
-        originalName: doc.originalName,
-        isFolder: false
-      }))
-
-      // Merge our folder list with files that have version info
-      return [...folders, ...filesWithVersionInfo]
     }
+
+    const filesWithVersionInfo = documentsWithVersions.map((doc) => ({
+      id: doc.latestVersion.fileName,
+      name: doc.latestVersion.fileName,
+      path: getFolderPath(doc.latestVersion.fileName),
+      uploadedAt: doc.latestVersion.uploadedAt.toLocaleDateString(),
+      type: getContentType(doc.latestVersion.fileName),
+      size: doc.latestVersion.size,
+      hasVersions: doc.versions.length > 1,
+      versionNumber:
+        doc.versions.length > 0 ? doc.latestVersion.versionNumber : 1,
+      totalVersions: doc.versions.length,
+      originalName: doc.originalName,
+      isFolder: false
+    }))
+
+    return [...folders, ...filesWithVersionInfo]
   } catch (error) {
     console.error('Error listing blobs:', error)
     throw error
   }
 }
 
-/**
- * Get document versions for a specific base name
- */
 export async function getDocumentVersions(
   baseName: string
 ): Promise<BlobItem[]> {
@@ -116,17 +96,12 @@ export async function getDocumentVersions(
   const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME!
 
   try {
-    // Import dynamically to avoid circular dependencies
-    const { getDocumentVersions } = await import('./version-manager')
-
-    // Get all versions of this document
-    const versions = await getDocumentVersions(
+    const versions = await getVersionsFromStorage(
       baseName,
       containerName,
       connectionString
     )
 
-    // Convert to BlobItem format
     return versions.map((version) => ({
       id: version.fileName,
       name: version.fileName,
@@ -145,21 +120,11 @@ export async function getDocumentVersions(
   }
 }
 
-/**
- * Get the folder path from a file name
- * Example: "documents/2023/report.pdf" -> "documents/2023"
- */
 function getFolderPath(fileName: string): string {
   const lastSlashIndex = fileName.lastIndexOf('/')
-  if (lastSlashIndex > 0) {
-    return fileName.substring(0, lastSlashIndex)
-  }
-  return ''
+  return lastSlashIndex > 0 ? fileName.substring(0, lastSlashIndex) : ''
 }
 
-/**
- * Determine content type based on file extension
- */
 function getContentType(fileName: string): string {
   const extension = fileName.split('.').pop()?.toLowerCase() ?? ''
 

@@ -1,7 +1,7 @@
 import js from '@eslint/js'
 import nextPlugin from '@next/eslint-plugin-next'
 import eslintConfigPrettier from 'eslint-config-prettier'
-import importPlugin from 'eslint-plugin-import'
+import importPlugin from 'eslint-plugin-import-x'
 import pluginReact from 'eslint-plugin-react'
 import pluginReactHooks from 'eslint-plugin-react-hooks'
 import globals from 'globals'
@@ -86,6 +86,13 @@ export default [
             'object',
             'type'
           ],
+          pathGroups: [
+            {
+              pattern: '@/**',
+              group: 'internal'
+            }
+          ],
+          pathGroupsExcludedImportTypes: ['builtin', 'object'],
           'newlines-between': 'always',
           alphabetize: { order: 'asc', caseInsensitive: true }
         }

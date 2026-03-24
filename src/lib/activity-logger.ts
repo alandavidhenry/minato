@@ -1,4 +1,5 @@
-// src/lib/activity-logger.ts
+import { randomBytes } from 'crypto'
+
 import { TableClient } from '@azure/data-tables'
 
 export enum ActivityType {
@@ -26,9 +27,7 @@ interface ActivityLogError {
   [key: string]: unknown
 }
 
-// Get a TableClient instance for the activity logs table
 function getTableClient() {
-  // For local development with Azurite
   if (
     process.env.NODE_ENV === 'development' &&
     process.env.USE_AZURITE === 'true'
@@ -39,21 +38,18 @@ function getTableClient() {
     )
   }
 
-  // For production, use your Azure Storage account
   return TableClient.fromConnectionString(
     process.env.AZURE_STORAGE_CONNECTION_STRING!,
     'activityLogs'
   )
 }
 
-// Initialize the table if it doesn't exist
 export async function initActivityLogsTable() {
   const tableClient = getTableClient()
   try {
     await tableClient.createTable()
   } catch (error) {
     const activityLogError = error as ActivityLogError
-    // If the table already exists, that's fine
     if (activityLogError.statusCode === 409) {
       return
     }
@@ -61,56 +57,43 @@ export async function initActivityLogsTable() {
   }
 }
 
-// Log a user activity
 export async function logActivity(
   activity: Omit<ActivityLog, 'id' | 'timestamp'>
 ) {
   const tableClient = getTableClient()
 
   try {
-    // Create a unique ID for the activity log
-    const id = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    const id = `${Date.now()}_${randomBytes(4).toString('hex')}`
     const timestamp = new Date().toISOString()
+    const userId = activity.userId || 'unknown-user'
 
-    // Check if userId is provided
     if (!activity.userId) {
       console.error('Missing userId in activity log')
-      activity.userId = 'unknown-user'
     }
 
-    // Create the activity log entity
-    const logEntity = {
-      partitionKey: activity.userId,
+    await tableClient.createEntity({
+      partitionKey: userId,
       rowKey: id,
-      userId: activity.userId,
+      userId,
       userName: activity.userName,
       fileName: activity.fileName,
       activityType: activity.activityType,
       timestamp,
       ipAddress: activity.ipAddress ?? ''
-    }
+    })
 
-    // Save to Azure Table Storage
-    await tableClient.createEntity(logEntity)
-
-    return {
-      id,
-      ...activity,
-      timestamp
-    }
+    return { id, ...activity, userId, timestamp }
   } catch (error) {
     console.error('Error logging activity:', error)
     return null
   }
 }
 
-// Get activity logs for all users or a specific user
 export async function getActivityLogs(userId?: string): Promise<ActivityLog[]> {
   const tableClient = getTableClient()
   const logs: ActivityLog[] = []
 
   try {
-    // If userId is provided, filter by that user
     const queryOptions = userId
       ? { queryOptions: { filter: `PartitionKey eq '${userId}'` } }
       : undefined
@@ -140,12 +123,9 @@ export async function getActivityLogs(userId?: string): Promise<ActivityLog[]> {
   }
 }
 
-// Get recent activity logs (limited number, sorted by timestamp)
 export async function getRecentActivityLogs(
   limit: number = 5
 ): Promise<ActivityLog[]> {
   const allLogs = await getActivityLogs()
-
-  // Return only the most recent logs, limited by the specified number
   return allLogs.slice(0, limit)
 }

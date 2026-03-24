@@ -50,6 +50,7 @@ src/lib/
 - Path alias `@/*` maps to `src/*`
 - Tailwind CSS v4 for styling; Radix UI for accessible primitives
 - `next.config.mjs` sets `output: 'standalone'` for Docker deployment
+- `src/proxy.ts` is the Next.js 16 proxy (formerly middleware) — guards `/documents` and `/scan` routes with auth; named `proxy` not `middleware`
 - All activity is logged to Azure Table Storage for auditing
 
 ## Environment Variables

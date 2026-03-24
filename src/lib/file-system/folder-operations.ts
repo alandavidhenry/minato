@@ -1,4 +1,3 @@
-// src/lib/file-system/folder-operations.ts
 import { ContainerClient } from '@azure/storage-blob'
 
 import { logActivity } from '../activity-logger'
@@ -11,9 +10,26 @@ import {
 } from './path-utils'
 import { ActivityType, FileOperationResult } from './types'
 
-/**
- * Check if a folder exists
- */
+async function createFolderMarker(
+  containerClient: ContainerClient,
+  folderPath: string,
+  userId: string
+): Promise<void> {
+  const markerPath = getFolderMarkerPath(folderPath)
+  const content = ''
+  await containerClient
+    .getBlobClient(markerPath)
+    .getBlockBlobClient()
+    .upload(content, content.length, {
+      blobHTTPHeaders: { blobContentType: 'application/x-directory' },
+      metadata: {
+        isFolder: 'true',
+        createdBy: userId,
+        createdAt: new Date().toISOString()
+      }
+    })
+}
+
 export async function folderExists(
   containerClient: ContainerClient,
   folderPath: string
@@ -28,9 +44,6 @@ export async function folderExists(
   }
 }
 
-/**
- * Create a folder
- */
 export async function createFolder(
   containerClient: ContainerClient,
   folderPath: string,
@@ -40,7 +53,6 @@ export async function createFolder(
   try {
     const normalizedPath = normalizePath(folderPath)
 
-    // Validate folder name
     if (!isValidName(normalizedPath.split('/').pop() ?? '')) {
       return {
         success: false,
@@ -49,7 +61,6 @@ export async function createFolder(
       }
     }
 
-    // Check if folder already exists
     if (await folderExists(containerClient, normalizedPath)) {
       return {
         success: false,
@@ -57,27 +68,8 @@ export async function createFolder(
       }
     }
 
-    // Create folder marker
-    const markerPath = getFolderMarkerPath(normalizedPath)
-    const blockBlobClient = containerClient.getBlobClient(markerPath)
+    await createFolderMarker(containerClient, normalizedPath, userId)
 
-    // Upload empty content with folder metadata
-    const content = ''
-    const options = {
-      blobHTTPHeaders: {
-        blobContentType: 'application/x-directory'
-      },
-      metadata: {
-        isFolder: 'true',
-        createdBy: userId,
-        createdAt: new Date().toISOString()
-      }
-    }
-    await blockBlobClient
-      .getBlockBlobClient()
-      .upload(content, content.length, options)
-
-    // Log the folder creation activity
     await logActivity({
       userId,
       userName,
@@ -100,9 +92,6 @@ export async function createFolder(
   }
 }
 
-/**
- * Delete a folder and all its contents
- */
 export async function deleteFolder(
   containerClient: ContainerClient,
   folderPath: string,
@@ -113,7 +102,6 @@ export async function deleteFolder(
     const normalizedPath = normalizePath(folderPath)
     const prefix = normalizedPath ? `${normalizedPath}${FOLDER_SEPARATOR}` : ''
 
-    // Ensure the folder exists
     if (!(await folderExists(containerClient, normalizedPath))) {
       return {
         success: false,
@@ -124,18 +112,15 @@ export async function deleteFolder(
     let deletedCount = 0
     const blobsToDelete: string[] = []
 
-    // List all blobs in the folder
     for await (const blob of containerClient.listBlobsFlat({ prefix })) {
       blobsToDelete.push(blob.name)
     }
 
-    // Also add the folder marker
     const folderMarkerPath = getFolderMarkerPath(normalizedPath)
     if (await containerClient.getBlobClient(folderMarkerPath).exists()) {
       blobsToDelete.push(folderMarkerPath)
     }
 
-    // Delete all blobs
     for (const blobName of blobsToDelete) {
       try {
         await containerClient.getBlobClient(blobName).delete()
@@ -145,7 +130,6 @@ export async function deleteFolder(
       }
     }
 
-    // Log the folder deletion activity
     await logActivity({
       userId,
       userName,
@@ -168,9 +152,6 @@ export async function deleteFolder(
   }
 }
 
-/**
- * Rename a folder
- */
 export async function renameFolder(
   containerClient: ContainerClient,
   oldPath: string,
@@ -181,7 +162,6 @@ export async function renameFolder(
   try {
     const normalizedPath = normalizePath(oldPath)
 
-    // Validate the new name
     if (!isValidName(newName)) {
       return {
         success: false,
@@ -190,7 +170,6 @@ export async function renameFolder(
       }
     }
 
-    // Ensure the folder exists
     if (!(await folderExists(containerClient, normalizedPath))) {
       return {
         success: false,
@@ -198,14 +177,11 @@ export async function renameFolder(
       }
     }
 
-    // Determine the parent path and create a new path with the new name
     const pathParts = normalizedPath.split('/')
     const parentPath =
       pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : ''
-
     const newPath = parentPath ? `${parentPath}/${newName}` : newName
 
-    // Check if destination already exists
     if (await folderExists(containerClient, newPath)) {
       return {
         success: false,
@@ -213,11 +189,9 @@ export async function renameFolder(
       }
     }
 
-    // Get a list of all blobs in the source folder
-    const sourcePrefix = normalizedPath ? `${normalizedPath}/` : ''
-    const targetPrefix = newPath ? `${newPath}/` : ''
+    const sourcePrefix = `${normalizedPath}/`
+    const targetPrefix = `${newPath}/`
 
-    // List all blobs with the folder prefix
     const blobs: string[] = []
     try {
       for await (const blob of containerClient.listBlobsFlat({
@@ -235,18 +209,15 @@ export async function renameFolder(
     }
 
     if (blobs.length === 0) {
-      // If there are no contents, just create a new empty folder and delete the old marker
-      await createFolder(containerClient, newPath, userId, userName)
+      await createFolderMarker(containerClient, newPath, userId)
 
-      // Delete the old folder marker
-      const folderMarkerPath = getFolderMarkerPath(normalizedPath)
-      const markerClient = containerClient.getBlobClient(folderMarkerPath)
-
+      const markerClient = containerClient.getBlobClient(
+        getFolderMarkerPath(normalizedPath)
+      )
       if (await markerClient.exists()) {
         await markerClient.delete()
       }
 
-      // Log the rename activity
       await logActivity({
         userId,
         userName,
@@ -261,27 +232,23 @@ export async function renameFolder(
       }
     }
 
-    // Process each blob
     let copiedCount = 0
     let errorCount = 0
 
     for (const blobName of blobs) {
       try {
         const sourceBlobClient = containerClient.getBlobClient(blobName)
-
-        // Compute the target blob name by replacing the source prefix with the target prefix
         const relativePath = blobName.substring(sourcePrefix.length)
-        const targetBlobName = `${targetPrefix}${relativePath}`
-        const targetBlobClient = containerClient.getBlobClient(targetBlobName)
+        const targetBlobClient = containerClient.getBlobClient(
+          `${targetPrefix}${relativePath}`
+        )
 
-        // Copy the blob
         const copyPoller = await targetBlobClient.beginCopyFromURL(
           sourceBlobClient.url
         )
         const copyResult = await copyPoller.pollUntilDone()
 
         if (copyResult.copyStatus === 'success') {
-          // Delete the original blob after successful copy
           await sourceBlobClient.delete()
           copiedCount++
         } else {
@@ -299,18 +266,15 @@ export async function renameFolder(
       }
     }
 
-    // Create folder marker in the target location
-    await createFolder(containerClient, newPath, userId, userName)
+    await createFolderMarker(containerClient, newPath, userId)
 
-    // Remove the source folder marker
-    const sourceFolderMarker = getFolderMarkerPath(normalizedPath)
-    const markerClient = containerClient.getBlobClient(sourceFolderMarker)
-
-    if (await markerClient.exists()) {
-      await markerClient.delete()
+    const sourceMarkerClient = containerClient.getBlobClient(
+      getFolderMarkerPath(normalizedPath)
+    )
+    if (await sourceMarkerClient.exists()) {
+      await sourceMarkerClient.delete()
     }
 
-    // Log the rename activity
     await logActivity({
       userId,
       userName,
@@ -333,9 +297,6 @@ export async function renameFolder(
   }
 }
 
-/**
- * Move a folder and all its contents to another location
- */
 export async function moveFolder(
   containerClient: ContainerClient,
   sourcePath: string,
@@ -345,25 +306,17 @@ export async function moveFolder(
 ): Promise<FileOperationResult> {
   try {
     const normalizedSourcePath = normalizePath(sourcePath)
-
-    // Extract folder name
     const folderName = normalizedSourcePath.split('/').pop() ?? ''
 
-    // Handle the target path differently based on context
-    let normalizedTargetPath
-
+    let normalizedTargetPath: string
     if (targetPath === '') {
-      // Moving to root - keep the folder name
       normalizedTargetPath = folderName
     } else if (targetPath.endsWith('/' + folderName)) {
-      // Target already includes the folder name
       normalizedTargetPath = normalizePath(targetPath)
     } else {
-      // Target is a different folder - append the folder name
       normalizedTargetPath = normalizePath(`${targetPath}/${folderName}`)
     }
 
-    // Ensure the source folder exists
     if (!(await folderExists(containerClient, normalizedSourcePath))) {
       return {
         success: false,
@@ -371,7 +324,6 @@ export async function moveFolder(
       }
     }
 
-    // Check if destination folder already exists
     if (await folderExists(containerClient, normalizedTargetPath)) {
       return {
         success: false,
@@ -379,11 +331,9 @@ export async function moveFolder(
       }
     }
 
-    // Get a list of all blobs in the source folder
-    const sourcePrefix = normalizedSourcePath ? `${normalizedSourcePath}/` : ''
-    const targetPrefix = normalizedTargetPath ? `${normalizedTargetPath}/` : ''
+    const sourcePrefix = `${normalizedSourcePath}/`
+    const targetPrefix = `${normalizedTargetPath}/`
 
-    // List all blobs with the folder prefix
     const blobs: string[] = []
     try {
       for await (const blob of containerClient.listBlobsFlat({
@@ -403,27 +353,23 @@ export async function moveFolder(
       }
     }
 
-    // Process each blob
     let movedCount = 0
     let errorCount = 0
 
     for (const blobName of blobs) {
       try {
         const sourceBlobClient = containerClient.getBlobClient(blobName)
-
-        // Compute the target blob name by replacing the source prefix with the target prefix
         const relativePath = blobName.substring(sourcePrefix.length)
-        const targetBlobName = `${targetPrefix}${relativePath}`
-        const targetBlobClient = containerClient.getBlobClient(targetBlobName)
+        const targetBlobClient = containerClient.getBlobClient(
+          `${targetPrefix}${relativePath}`
+        )
 
-        // Copy the blob
         const copyPoller = await targetBlobClient.beginCopyFromURL(
           sourceBlobClient.url
         )
         const copyResult = await copyPoller.pollUntilDone()
 
         if (copyResult.copyStatus === 'success') {
-          // Delete the original blob after successful copy
           await sourceBlobClient.delete()
           movedCount++
         } else {
@@ -441,17 +387,15 @@ export async function moveFolder(
       }
     }
 
-    // Create folder marker in the target location
-    await createFolder(containerClient, normalizedTargetPath, userId, userName)
+    await createFolderMarker(containerClient, normalizedTargetPath, userId)
 
-    // Remove the source folder marker
-    const sourceFolderMarker = getFolderMarkerPath(normalizedSourcePath)
-    const markerClient = containerClient.getBlobClient(sourceFolderMarker)
-    if (await markerClient.exists()) {
-      await markerClient.delete()
+    const sourceMarkerClient = containerClient.getBlobClient(
+      getFolderMarkerPath(normalizedSourcePath)
+    )
+    if (await sourceMarkerClient.exists()) {
+      await sourceMarkerClient.delete()
     }
 
-    // Log the move activity
     await logActivity({
       userId,
       userName,
