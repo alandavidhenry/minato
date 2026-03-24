@@ -2,7 +2,7 @@ export const FOLDER_SEPARATOR = '/'
 export const FOLDER_MARKER = '.folder'
 
 export function normalizePath(path: string): string {
-  return path.trim().replace(/^\/+|\/+$/g, '')
+  return path.trim().replace(/^\/+/, '').replace(/\/+$/, '')
 }
 
 export function getFolderMarkerPath(folderPath: string): string {
