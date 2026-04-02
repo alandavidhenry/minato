@@ -1,0 +1,38 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - src/**
+      - public/**
+      - package.json
+      - package-lock.json
+      - next.config.mjs
+      - postcss.config.mjs
+      - Dockerfile
+      - .github/workflows/**
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  actions: read
+
+jobs:
+  lint_and_test:
+    name: Lint and Test
+    uses: ./.github/workflows/lint-format.yml
+
+  security_scan:
+    name: Security Scan
+    uses: ./.github/workflows/security-scan.yml
+
+  build:
+    name: Build Docker Image
+    needs: [lint_and_test, security_scan]
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      environment: dev
+      version: pr
+      push: false

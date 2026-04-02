@@ -90,6 +90,14 @@ function SignInContent() {
             <Button type='submit' className='w-full' disabled={isLoading}>
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
+            <p className='text-center text-sm text-muted-foreground'>
+              <a
+                href='/auth/forgot-password'
+                className='underline underline-offset-4 hover:text-primary'
+              >
+                Forgot your password?
+              </a>
+            </p>
           </form>
         </CardContent>
       </Card>

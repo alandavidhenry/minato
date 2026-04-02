@@ -1,0 +1,62 @@
+name: Deploy to Dev
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/**
+      - public/**
+      - package.json
+      - package-lock.json
+      - next.config.mjs
+      - postcss.config.mjs
+      - Dockerfile
+      - .github/workflows/**
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  actions: read
+
+jobs:
+  lint_and_test:
+    name: Lint and Test
+    uses: ./.github/workflows/lint-format.yml
+
+  security_scan:
+    name: Security Scan
+    uses: ./.github/workflows/security-scan.yml
+
+  setup:
+    name: Extract Version
+    needs: [lint_and_test, security_scan]
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Extract version from package.json
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build Docker Image
+    needs: setup
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      environment: dev
+      version: ${{ needs.setup.outputs.version }}
+      push: true
+
+  deploy:
+    name: Deploy to Azure Dev
+    needs: [setup, build]
+    uses: ./.github/workflows/azure-deploy.yml
+    with:
+      environment: dev
+      image_uri: ${{ needs.build.outputs.image_uri }}
+    secrets:
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}

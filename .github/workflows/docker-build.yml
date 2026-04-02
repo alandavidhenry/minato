@@ -11,6 +11,11 @@ on:
         description: Application version
         required: true
         type: string
+      push:
+        description: Whether to push the image to the registry
+        required: false
+        type: boolean
+        default: true
     outputs:
       image_uri:
         description: The URI of the built Docker image
@@ -46,7 +51,6 @@ jobs:
           DOCKER_IMAGE="ghcr.io/${{ github.repository }}:${{ github.sha }}"
           echo "image_uri=$DOCKER_IMAGE" >> $GITHUB_OUTPUT
 
-          # Set up different tags based on environment
           if [[ "${{ inputs.environment }}" == "prod" ]]; then
             TAGS="ghcr.io/${{ github.repository }}:${{ github.sha }},ghcr.io/${{ github.repository }}:latest,ghcr.io/${{ github.repository }}:v${{ inputs.version }}"
           else
@@ -59,7 +63,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          push: true
+          push: ${{ inputs.push }}
           tags: ${{ steps.image-info.outputs.tags }}
           cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:${{ inputs.environment == 'prod' && 'latest' || 'dev-latest' }}
           cache-to: type=inline

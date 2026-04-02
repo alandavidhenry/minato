@@ -13,6 +13,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@azure/communication-email": "^1.1.0",
     "@azure/data-tables": "^13.3.2",
     "@azure/storage-blob": "^12.31.0",
     "@radix-ui/react-checkbox": "^1.3.3",

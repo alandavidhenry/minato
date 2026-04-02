@@ -94,3 +94,13 @@ variable "default_admin_email" {
   type        = string
   default     = ""
 }
+
+variable "communication_service" {
+  description = "Azure Communication Service configuration"
+  type = object({
+    data_location = string
+  })
+  default = {
+    data_location = "Europe"
+  }
+}
