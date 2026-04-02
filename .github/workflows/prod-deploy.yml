@@ -1,0 +1,42 @@
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+  actions: read
+
+jobs:
+  setup:
+    name: Extract Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Strip v prefix from release tag
+        id: version
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build Docker Image
+    needs: setup
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      environment: prod
+      version: ${{ needs.setup.outputs.version }}
+      push: true
+
+  deploy:
+    name: Deploy to Azure Production
+    needs: [setup, build]
+    uses: ./.github/workflows/azure-deploy.yml
+    with:
+      environment: prod
+      image_uri: ${{ needs.build.outputs.image_uri }}
+    secrets:
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
