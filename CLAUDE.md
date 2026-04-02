@@ -22,11 +22,16 @@ Document management portal built on **Next.js 16 App Router** with **Azure** as 
 
 ### Data Layer (no SQL database)
 - **Azure Blob Storage** — file storage, organized in hierarchical paths with versioning via naming convention; SAS tokens for secure temporary access (`src/lib/storage.ts`, `src/lib/file-system/`)
-- **Azure Table Storage** — two tables: `users` (accounts, password hashes, roles) and `activityLogs` (audit trail); accessed via `@azure/data-tables` (`src/lib/user-database.ts`, `src/lib/activity-logger.ts`)
+- **Azure Table Storage** — three tables: `users` (accounts, password hashes, roles), `activityLogs` (audit trail), and `passwordResets` (short-lived reset tokens, auto-created on first use); accessed via `@azure/data-tables` (`src/lib/user-database.ts`, `src/lib/activity-logger.ts`, `src/lib/password-reset.ts`)
 - **Azurite emulator** — set `USE_AZURITE=true` in `.env.local` for local development
 
 ### Authentication
 NextAuth.js v4 with Credentials provider. Users authenticate against Azure Table Storage; passwords hashed with bcryptjs. Roles are attached to JWT tokens and exposed via session. `src/lib/auth.ts` is the central config; `src/types/next-auth.ts` extends session types; `src/types/rbac.ts` defines roles and permissions.
+
+Password reset tokens are stored in a third Azure Table Storage table (`passwordResets`) and expire after 1 hour. See `src/lib/password-reset.ts`.
+
+### Email
+Transactional email (password reset) is sent via **Azure Communication Services (Email)** (`@azure/communication-email`). An Azure-managed sending domain (`DoNotReply@<uuid>.azurecomm.net`) is provisioned by Terraform — no custom domain or DNS setup required. Free tier: 100 emails/day. ACS is provisioned as part of the IaC (`infrastructure/modules/communication_service/`).
 
 ### App Structure
 ```
@@ -37,7 +42,7 @@ src/app/
   scan/             # Document scanning
   shared/           # Public shared document views
   s/                # Short URL redirects
-  auth/             # Sign-in / error pages
+  auth/             # Sign-in, error, forgot-password, reset-password pages
 src/components/
   admin/            # Admin UI
   providers/        # RBAC, Auth, Theme context providers
@@ -62,7 +67,9 @@ AZURE_STORAGE_CONTAINER_NAME=documents
 NEXTAUTH_SECRET=
 NEXTAUTH_URL=
 DEFAULT_ADMIN_EMAIL=
-USE_AZURITE=true   # local dev only
+AZURE_COMMUNICATION_CONNECTION_STRING=  # provisioned by Terraform via Key Vault
+ACS_SENDER_ADDRESS=                     # auto-set by Terraform (DoNotReply@<uuid>.azurecomm.net)
+USE_AZURITE=true         # local dev only
 ```
 
 ## Deployment

@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Document Portal
 
-## Getting Started
+A document management portal built with Next.js 16 App Router, Azure Blob Storage, and Azure Table Storage. Supports file browsing, upload, versioning, sharing, document scanning, and role-based access control.
 
-First, run the development server:
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router, standalone Docker output)
+- **Auth:** NextAuth.js v4 with Credentials provider
+- **Storage:** Azure Blob Storage (files) + Azure Table Storage (users, activity logs, password resets)
+- **Email:** Azure Communication Services — managed sending domain, no custom domain required
+- **Styling:** Tailwind CSS v4, Radix UI
+- **Infrastructure:** Terraform on Azure App Service, deployed via Docker
+
+## Local Development
+
+### Prerequisites
+
+- Node.js 22+
+- [Azurite](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite) (Azure Storage emulator)
+
+### Setup
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+2. Create `.env.local`:
+   ```env
+   AZURE_STORAGE_CONNECTION_STRING=
+   AZURE_STORAGE_CONTAINER_NAME=documents
+   NEXTAUTH_SECRET=any-random-string-for-local-dev
+   NEXTAUTH_URL=http://localhost:3000
+   DEFAULT_ADMIN_EMAIL=your@email.com
+   AZURE_COMMUNICATION_CONNECTION_STRING=  # from Azure portal (ACS resource → Keys)
+   ACS_SENDER_ADDRESS=                     # e.g. DoNotReply@<uuid>.azurecomm.net
+   USE_AZURITE=true
+   ```
+
+3. Start Azurite, then run the dev server:
+   ```bash
+   npm run dev
+   ```
+
+### Available Commands
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run lint         # Run ESLint
+npm run format       # Format with Prettier
+npm run checks       # Lint + format check + TypeScript (full quality gate)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Email (Password Reset)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Transactional email is handled by [Azure Communication Services (Email)](https://azure.microsoft.com/en-us/products/communication-services). An Azure-managed sending domain (`DoNotReply@<uuid>.azurecomm.net`) is provisioned automatically by Terraform — no custom domain ownership or DNS setup required. Free tier: 100 emails/day.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The ACS resources are defined in `infrastructure/modules/communication_service/`. Running `terraform apply` provisions everything and injects the connection string and sender address into the App Service via Key Vault.
 
-## Learn More
+## CI/CD
 
-To learn more about Next.js, take a look at the following resources:
+| Trigger | Workflow | What happens |
+|---|---|---|
+| PR opened/updated → `main` | `pr-check.yml` | Lint, security scan, Docker build (no push) |
+| Merge to `main` | `dev-deploy.yml` | Lint, security scan, build+push, deploy to dev |
+| Release published in GitHub UI | `prod-deploy.yml` | Build+push, deploy to prod |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+To release to production: go to **GitHub → Releases → Draft a new release**, choose a tag (e.g. `v1.2.3`), and publish. The prod deploy triggers automatically.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Infrastructure
 
-## Deploy on Vercel
+Azure resources are defined with Terraform in `infrastructure/`. See `infrastructure/readme.md` for provisioning steps.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Modules:
+- `resource_group` — Azure resource group
+- `storage` — Blob Storage account and containers
+- `key_vault` — Key Vault for secrets
+- `app_service` — App Service plan and web app (Docker)
+- `document_intelligence` — Azure AI Document Intelligence
+- `communication_service` — Azure Communication Services for email
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Environments are configured in `infrastructure/env/dev/` and `infrastructure/env/prod/`.
+
+## Deployment
+
+Docker images are built and pushed to GitHub Container Registry (`ghcr.io`) by GitHub Actions, then pulled by Azure App Service.
+
+- Dev image tag: `dev-latest`
+- Prod image tags: `latest`, `v<version>`, and the commit SHA
