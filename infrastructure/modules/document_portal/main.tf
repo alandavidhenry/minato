@@ -82,6 +82,17 @@ module "document_intelligence" {
   tags                = local.common_tags
 }
 
+module "communication_service" {
+  source = "../communication_service"
+
+  project             = var.project
+  environment         = var.environment
+  resource_group_name = module.resource_group.resource_group_name
+  data_location       = var.communication_service.data_location
+  key_vault_id        = module.key_vault.key_vault_id
+  tags                = local.common_tags
+}
+
 module "app_service" {
   source = "../app_service"
 
@@ -101,17 +112,19 @@ module "app_service" {
   }
 
   app_settings = {
-    "WEBSITES_PORT"                       = "8080"
-    "AZURE_STORAGE_CONNECTION_STRING"     = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.storage_connection_string.versionless_id})"
-    "AZURE_STORAGE_CONTAINER_NAME"        = var.storage_container.name
-    "NEXTAUTH_URL"                        = "https://app-${var.project}-${var.environment}.azurewebsites.net"
-    "NEXTAUTH_SECRET"                     = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.nextauth_secret.versionless_id})"
-    "WEBSITE_NODE_DEFAULT_VERSION"        = "~22"
-    "SCM_DO_BUILD_DURING_DEPLOYMENT"      = "true"
-    "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "true"
-    "WEBSITES_CONTAINER_START_TIME_LIMIT" = "600"
-    "DOCUMENT_INTELLIGENCE_ENDPOINT"      = "@Microsoft.KeyVault(SecretUri=${module.document_intelligence.document_intelligence_endpoint_secret_versionless_id})"
-    "DOCUMENT_INTELLIGENCE_KEY"           = "@Microsoft.KeyVault(SecretUri=${module.document_intelligence.document_intelligence_key_secret_versionless_id})"
+    "WEBSITES_PORT"                         = "8080"
+    "AZURE_STORAGE_CONNECTION_STRING"       = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.storage_connection_string.versionless_id})"
+    "AZURE_STORAGE_CONTAINER_NAME"          = var.storage_container.name
+    "NEXTAUTH_URL"                          = "https://app-${var.project}-${var.environment}.azurewebsites.net"
+    "NEXTAUTH_SECRET"                       = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.nextauth_secret.versionless_id})"
+    "WEBSITE_NODE_DEFAULT_VERSION"          = "~22"
+    "SCM_DO_BUILD_DURING_DEPLOYMENT"        = "true"
+    "WEBSITES_ENABLE_APP_SERVICE_STORAGE"   = "true"
+    "WEBSITES_CONTAINER_START_TIME_LIMIT"   = "600"
+    "DOCUMENT_INTELLIGENCE_ENDPOINT"        = "@Microsoft.KeyVault(SecretUri=${module.document_intelligence.document_intelligence_endpoint_secret_versionless_id})"
+    "DOCUMENT_INTELLIGENCE_KEY"             = "@Microsoft.KeyVault(SecretUri=${module.document_intelligence.document_intelligence_key_secret_versionless_id})"
+    "AZURE_COMMUNICATION_CONNECTION_STRING" = "@Microsoft.KeyVault(SecretUri=${module.communication_service.acs_connection_string_secret_versionless_id})"
+    "ACS_SENDER_ADDRESS"                    = module.communication_service.sender_address
   }
 }
 

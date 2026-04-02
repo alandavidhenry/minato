@@ -45,3 +45,8 @@ output "document_intelligence_key" {
   value       = module.document_intelligence.document_intelligence_primary_key
   sensitive   = true
 }
+
+output "acs_sender_address" {
+  description = "The Azure-managed sender email address for transactional emails"
+  value       = module.communication_service.sender_address
+}
