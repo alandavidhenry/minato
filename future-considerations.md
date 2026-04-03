@@ -172,33 +172,32 @@ Add a `tenantId` foreign key to every table. All queries are scoped by `tenantId
 
 ## Testing Strategy
 
-### Approach
-All three layers — unit, integration, and end-to-end — with unit tests prioritised first.
+### Current state
+Vitest is configured. Unit and integration tests are in place. E2E tests are not yet written.
 
-**TDD workflow with AI assistance:**
+**Stack:**
+
+| Layer | Tool | Status |
+|---|---|---|
+| Unit | Vitest | Done — full coverage of `src/lib/` |
+| Integration | Vitest (direct route handler calls) | Done — health, admin user CRUD, forgot/reset password |
+| E2E | Playwright | Not yet started |
+| Coverage | Vitest built-in (`v8`) | Configured |
+
+**TDD workflow:**
 1. Define interface types and function signatures first
-2. Have AI write tests against the interface (before implementation exists)
-3. Have AI implement to make the tests pass
+2. Write tests against the interface (before implementation exists)
+3. Implement to make the tests pass
 4. Review both together
 
-This works well and catches design problems early. The key discipline: always request tests before implementation.
+This works well and catches design problems early. Always request tests before implementation.
 
-### Recommended stack
-
-| Layer | Tool | Rationale |
-|---|---|---|
-| Unit & integration | **Vitest** | Faster than Jest, native ESM support, compatible with Next.js, same API as Jest |
-| E2E | **Playwright** | Best-in-class for Next.js; handles auth state, file uploads, mobile viewports |
-| API route testing | Vitest + `msw` or direct handler calls | Test route handlers in isolation without a running server |
-| Coverage | Vitest built-in (`v8`) | No extra config needed |
-
-### Priority order
-1. Unit tests for `src/lib/` functions — user-database, file-system, auth, password-reset, activity-logger. These are pure logic with clear inputs/outputs and are the highest-value tests.
-2. Integration tests for API routes — especially auth, document upload/download, and signing flows.
-3. E2E tests for critical user journeys — sign in, view assigned documents, complete and sign a document, admin assigns a template.
+### What remains
+- **Integration tests for document routes** — upload, download, delete, move, rename, share, versions. These are the next highest-value tests. Mock Azure Blob Storage SDK directly (same pattern as existing integration tests).
+- **E2E tests (Playwright)** — sign in, view documents, admin manages users. Add once the document model is more stable, as UI tests are brittle against layout changes.
 
 ### Coverage target
-Aim for high coverage on `src/lib/` (>90%) and critical API routes. E2E coverage of the five to ten most important user journeys. Do not chase 100% coverage at the expense of test quality.
+High coverage on `src/lib/` (>90%) and critical API routes. E2E coverage of the five to ten most important user journeys. Do not chase 100% coverage at the expense of test quality.
 
 ---
 
@@ -230,22 +229,23 @@ Aim for high coverage on `src/lib/` (>90%) and critical API routes. E2E coverage
 ### Current state
 GitHub Actions: lint → security scan → Docker build/push → Azure deploy → release. Triggered on `main` (prod) and `dev` (dev environment) branches.
 
+### Current state
+Lint, format check, type check, and all Vitest tests (unit + integration) run on every PR and release via `lint-format.yml`.
+
 ### Gaps to address
-- No automated tests in the pipeline — add Vitest and Playwright steps before the Docker build
+- No E2E tests in the pipeline — add a Playwright step after the Docker build once E2E tests exist
 - No staging environment — consider adding a `staging` branch/environment between `dev` and `main`
 - No database migration step — once Prisma is introduced, `prisma migrate deploy` must run as part of deployment before the app starts
 - No smoke test after deployment — a basic health check hit against the deployed URL would catch failed deploys earlier
 
 ### Recommended pipeline order (target state)
-1. Lint + format check + type check (`npm run checks`)
-2. Unit + integration tests (Vitest)
-3. Build
-4. E2E tests against the built app (Playwright)
-5. Docker build + push
-6. Database migration (`prisma migrate deploy`)
-7. Azure deploy
-8. Post-deploy smoke test
-9. Release tag
+1. Lint + format check + type check + unit/integration tests (`npm run checks`) ✓ done
+2. Docker build + push
+3. E2E tests against the built app (Playwright) — not yet
+4. Database migration (`prisma migrate deploy`) — not yet
+5. Azure deploy
+6. Post-deploy smoke test — not yet
+7. Release tag
 
 ---
 
