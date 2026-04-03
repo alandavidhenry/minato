@@ -32,8 +32,8 @@ describe('generateShortCode', () => {
 
 // --- Azure-dependent tests ---
 
-const { mockBlobClient, mockBlockBlobClient, mockContainerClient } =
-  vi.hoisted(() => {
+const { mockBlobClient, mockBlockBlobClient, mockContainerClient } = vi.hoisted(
+  () => {
     const mockBlockBlobClient = { upload: vi.fn() }
     const mockBlobClient = {
       exists: vi.fn(),
@@ -47,7 +47,8 @@ const { mockBlobClient, mockBlockBlobClient, mockContainerClient } =
       create: vi.fn().mockResolvedValue({})
     }
     return { mockBlobClient, mockBlockBlobClient, mockContainerClient }
-  })
+  }
+)
 
 vi.mock('@azure/storage-blob', () => ({
   BlobServiceClient: {

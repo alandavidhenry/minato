@@ -116,6 +116,8 @@ describe('deleteResetToken', () => {
 
   it('does not throw when the entity does not exist', async () => {
     mockTableClient.deleteEntity.mockRejectedValue(new Error('not found'))
-    await expect(deleteResetToken('missing@example.com')).resolves.toBeUndefined()
+    await expect(
+      deleteResetToken('missing@example.com')
+    ).resolves.toBeUndefined()
   })
 })

@@ -2,19 +2,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getDocumentVersions, listBlobs } from '../list-blobs'
 
-const { mockFileManager, mockGroupDocumentsByVersion, mockGetDocumentVersions } =
-  vi.hoisted(() => {
-    const mockFileManager = {
-      listContent: vi.fn()
-    }
-    const mockGroupDocumentsByVersion = vi.fn()
-    const mockGetDocumentVersions = vi.fn()
-    return {
-      mockFileManager,
-      mockGroupDocumentsByVersion,
-      mockGetDocumentVersions
-    }
-  })
+const {
+  mockFileManager,
+  mockGroupDocumentsByVersion,
+  mockGetDocumentVersions
+} = vi.hoisted(() => {
+  const mockFileManager = {
+    listContent: vi.fn()
+  }
+  const mockGroupDocumentsByVersion = vi.fn()
+  const mockGetDocumentVersions = vi.fn()
+  return {
+    mockFileManager,
+    mockGroupDocumentsByVersion,
+    mockGetDocumentVersions
+  }
+})
 
 vi.mock('../file-system', () => ({
   getFileManager: vi.fn(() => mockFileManager)
@@ -88,7 +91,9 @@ describe('listBlobs', () => {
   })
 
   it('returns latest-version file items when includeVersions is false', async () => {
-    mockGroupDocumentsByVersion.mockResolvedValue([makeDocWithVersions('report')])
+    mockGroupDocumentsByVersion.mockResolvedValue([
+      makeDocWithVersions('report')
+    ])
 
     const result = await listBlobs(false)
 

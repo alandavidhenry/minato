@@ -52,7 +52,9 @@ describe('folderExists', () => {
     mockBlobClient.exists.mockResolvedValue(true)
 
     expect(await folderExists(containerClient as never, 'Reports')).toBe(true)
-    expect(containerClient.getBlobClient).toHaveBeenCalledWith('Reports/.folder')
+    expect(containerClient.getBlobClient).toHaveBeenCalledWith(
+      'Reports/.folder'
+    )
   })
 
   it('returns false when the folder marker blob does not exist', async () => {
@@ -212,7 +214,9 @@ describe('renameFolder', () => {
   it('returns failure when a destination with the same name already exists', async () => {
     const { containerClient, mockBlobClient } = makeContainerClient()
     // source exists → true, dest exists → true
-    mockBlobClient.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(true)
+    mockBlobClient.exists
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true)
     containerClient.listBlobsFlat.mockReturnValue(asyncOf())
 
     const result = await renameFolder(

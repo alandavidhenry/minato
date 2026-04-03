@@ -118,7 +118,9 @@ describe('renameFile', () => {
   it('returns failure when the destination already exists', async () => {
     const { containerClient, mockBlobClient } = makeContainerClient()
     // source exists, dest also exists
-    mockBlobClient.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(true)
+    mockBlobClient.exists
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true)
 
     const result = await renameFile(
       containerClient as never,
@@ -138,7 +140,9 @@ describe('renameFile', () => {
       .mockResolvedValueOnce(true) // source exists
       .mockResolvedValueOnce(false) // dest does not exist
     mockBlobClient.getProperties.mockResolvedValue({ metadata: null })
-    const mockPoller = { pollUntilDone: vi.fn().mockResolvedValue({ copyStatus: 'success' }) }
+    const mockPoller = {
+      pollUntilDone: vi.fn().mockResolvedValue({ copyStatus: 'success' })
+    }
     mockBlobClient.beginCopyFromURL.mockResolvedValue(mockPoller)
 
     const result = await renameFile(
@@ -161,7 +165,10 @@ describe('generateDownloadUrl', () => {
     mockBlobClient.exists.mockResolvedValue(true)
     mockBlobClient.generateSasUrl.mockResolvedValue('https://sas.url')
 
-    const url = await generateDownloadUrl(containerClient as never, 'report.pdf')
+    const url = await generateDownloadUrl(
+      containerClient as never,
+      'report.pdf'
+    )
 
     expect(url).toBe('https://sas.url')
   })
@@ -194,7 +201,9 @@ describe('moveFile', () => {
 
   it('returns failure when the destination already exists', async () => {
     const { containerClient, mockBlobClient } = makeContainerClient()
-    mockBlobClient.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(true)
+    mockBlobClient.exists
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true)
 
     const result = await moveFile(
       containerClient as never,
@@ -213,7 +222,9 @@ describe('moveFile', () => {
       .mockResolvedValueOnce(true) // source exists
       .mockResolvedValueOnce(false) // dest does not exist
     mockBlobClient.getProperties.mockResolvedValue({ metadata: null })
-    const mockPoller = { pollUntilDone: vi.fn().mockResolvedValue({ copyStatus: 'success' }) }
+    const mockPoller = {
+      pollUntilDone: vi.fn().mockResolvedValue({ copyStatus: 'success' })
+    }
     mockBlobClient.beginCopyFromURL.mockResolvedValue(mockPoller)
 
     const result = await moveFile(
