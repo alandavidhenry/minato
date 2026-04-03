@@ -27,37 +27,6 @@ export function PDFDocumentViewer({ fileName }: PDFDocumentViewerProps) {
   const { baseName, extension } = parseFileName(fileName)
   const displayName = `${baseName}${extension}`
 
-  // Add custom CSS for better mobile experience
-  useEffect(() => {
-    // Add custom CSS for mobile optimization
-    const style = document.createElement('style')
-    style.textContent = `
-      /* Larger touch targets for toolbar buttons on mobile */
-      @media (max-width: 768px) {
-        .rpv-core__minimal-button {
-          padding: 8px !important;
-          margin: 2px !important;
-        }
-        
-        /* Increase size of page navigation buttons */
-        .rpv-core__page-navigation-button {
-          min-width: 40px !important;
-          height: 40px !important;
-        }
-        
-        /* Make the page input wider */
-        .rpv-core__page-navigation-current-page-input {
-          width: 3rem !important;
-        }
-      }
-    `
-    document.head.appendChild(style)
-
-    return () => {
-      document.head.removeChild(style)
-    }
-  }, [])
-
   // Fetch PDF data
   const loadPdf = useCallback(async (fileNameToFetch: string) => {
     setIsLoading(true)
