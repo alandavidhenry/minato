@@ -1,7 +1,14 @@
 'use client'
 
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Printer,
+  ZoomIn,
+  ZoomOut
+} from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 
 import 'react-pdf/dist/Page/AnnotationLayer.css'
@@ -15,14 +22,31 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/b
 interface PDFRendererProps {
   readonly pdfData: Uint8Array | null
   readonly isLoading: boolean
+  readonly fileName?: string
 }
 
-export function PDFRenderer({ pdfData, isLoading }: PDFRendererProps) {
+export function PDFRenderer({
+  pdfData,
+  isLoading,
+  fileName = 'document.pdf'
+}: PDFRendererProps) {
   const [numPages, setNumPages] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const [scale, setScale] = useState(1.0)
+  const [fileUrl, setFileUrl] = useState<string | null>(null)
 
-  const file = useMemo(() => (pdfData ? { data: pdfData } : null), [pdfData])
+  useEffect(() => {
+    if (!pdfData) {
+      setFileUrl(null)
+      return
+    }
+    const blob = new Blob([pdfData as Uint8Array<ArrayBuffer>], {
+      type: 'application/pdf'
+    })
+    const url = URL.createObjectURL(blob)
+    setFileUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [pdfData])
 
   const onDocumentLoadSuccess = useCallback(
     ({ numPages: n }: { numPages: number }) => {
@@ -32,11 +56,35 @@ export function PDFRenderer({ pdfData, isLoading }: PDFRendererProps) {
     []
   )
 
-  if (isLoading) {
+  const handleDownload = useCallback(() => {
+    if (!fileUrl) return
+    const a = document.createElement('a')
+    a.href = fileUrl
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }, [fileUrl, fileName])
+
+  const handlePrint = useCallback(() => {
+    if (!fileUrl) return
+    const iframe = document.createElement('iframe')
+    // Off-screen but fully dimensioned so the PDF plugin loads correctly
+    iframe.style.cssText =
+      'position:fixed;top:0;left:100%;width:100%;height:100%;border:none;'
+    iframe.src = fileUrl
+    document.body.appendChild(iframe)
+    iframe.onload = () => {
+      iframe.contentWindow?.print()
+      setTimeout(() => document.body.removeChild(iframe), 60000)
+    }
+  }, [fileUrl])
+
+  if (isLoading || (pdfData && !fileUrl)) {
     return <div className='flex justify-center p-4'>Loading...</div>
   }
 
-  if (file) {
+  if (fileUrl) {
     return (
       <Card className='p-2 sm:p-6'>
         <div className='flex items-center justify-between mb-3 gap-2 flex-wrap'>
@@ -81,6 +129,12 @@ export function PDFRenderer({ pdfData, isLoading }: PDFRendererProps) {
             >
               <ZoomIn className='h-4 w-4' />
             </Button>
+            <Button variant='outline' size='icon' onClick={handlePrint}>
+              <Printer className='h-4 w-4' />
+            </Button>
+            <Button variant='outline' size='icon' onClick={handleDownload}>
+              <Download className='h-4 w-4' />
+            </Button>
           </div>
         </div>
 
@@ -89,7 +143,7 @@ export function PDFRenderer({ pdfData, isLoading }: PDFRendererProps) {
           style={{ maxHeight: 'calc(100vh - 250px)' }}
         >
           <Document
-            file={file}
+            file={fileUrl}
             onLoadSuccess={onDocumentLoadSuccess}
             loading={
               <div className='flex justify-center p-4'>Loading PDF...</div>
@@ -105,6 +159,7 @@ export function PDFRenderer({ pdfData, isLoading }: PDFRendererProps) {
               scale={scale}
               renderTextLayer
               renderAnnotationLayer
+              className='shadow-md'
             />
           </Document>
         </div>

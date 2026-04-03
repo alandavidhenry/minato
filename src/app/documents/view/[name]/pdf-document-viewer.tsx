@@ -124,7 +124,11 @@ export function PDFDocumentViewer({ fileName }: PDFDocumentViewerProps) {
           onNewVersion={() => setShowUploadModal(true)}
         />
 
-        <PDFRenderer pdfData={pdfData} isLoading={isLoading} />
+        <PDFRenderer
+          pdfData={pdfData}
+          isLoading={isLoading}
+          fileName={displayName}
+        />
       </div>
 
       {/* Version upload modal */}
