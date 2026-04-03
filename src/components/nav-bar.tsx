@@ -67,7 +67,7 @@ export function NavBar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center
+                className={`cursor-pointer px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center
                   ${
                     pathname === item.href ||
                     pathname?.startsWith(item.href + '/')
@@ -114,7 +114,7 @@ export function NavBar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors
+                className={`cursor-pointer flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors
                   ${
                     pathname === item.href ||
                     pathname?.startsWith(item.href + '/')

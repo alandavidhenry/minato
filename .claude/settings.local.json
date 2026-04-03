@@ -8,7 +8,9 @@
       "Bash(node:*)",
       "Bash(npm i:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm audit:*)"
     ]
   }
 }
