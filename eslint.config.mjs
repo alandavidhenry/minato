@@ -14,6 +14,7 @@ export default [
       'node_modules/**',
       'dist/**',
       '.next/**',
+      'coverage/**',
       'eslint.config.mjs',
       '.vscode/**',
       'next-env.d.ts',
