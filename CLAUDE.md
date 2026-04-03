@@ -11,10 +11,13 @@ npm run start        # Start production server
 npm run lint         # Run ESLint
 npm run format       # Format with Prettier
 npm run format:check # Check formatting without writing
-npm run checks       # Run lint + format check + TypeScript type check (no tests exist)
+npm run checks       # Run lint + format check + TypeScript type check + tests
+npm test             # Run all tests (unit + integration)
+npm run test:watch   # Run tests in watch mode
+npm run test:coverage # Run tests with coverage report
 ```
 
-No test suite is configured — `npm run checks` is the full quality gate.
+`npm run checks` is the full quality gate — run it before committing.
 
 ## Architecture
 
