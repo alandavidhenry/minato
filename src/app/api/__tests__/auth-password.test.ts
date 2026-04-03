@@ -85,7 +85,9 @@ beforeEach(() => {
   mockTableClient.listEntities.mockReturnValue(asyncOf())
   mockBcrypt.hash.mockResolvedValue('$newhashed')
   mockBcrypt.compare.mockResolvedValue(false)
-  mockBeginSend.mockResolvedValue({ pollUntilDone: vi.fn().mockResolvedValue({}) })
+  mockBeginSend.mockResolvedValue({
+    pollUntilDone: vi.fn().mockResolvedValue({})
+  })
   process.env.NEXTAUTH_URL = 'http://localhost:3000'
   process.env.AZURE_STORAGE_CONNECTION_STRING = 'mock-connection-string'
   process.env.AZURE_COMMUNICATION_CONNECTION_STRING = 'mock-acs-connection'

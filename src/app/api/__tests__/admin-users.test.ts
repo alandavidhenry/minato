@@ -65,11 +65,7 @@ const BASE_USER = {
   createdAt: '2024-01-01T00:00:00.000Z'
 }
 
-function jsonRequest(
-  url: string,
-  method: string,
-  body?: unknown
-): NextRequest {
+function jsonRequest(url: string, method: string, body?: unknown): NextRequest {
   return new NextRequest(new URL(url, 'http://localhost'), {
     method,
     headers: { 'Content-Type': 'application/json' },
@@ -143,22 +139,20 @@ describe('GET /api/admin/users', () => {
 describe('POST /api/admin/users/create', () => {
   it('returns 403 when not admin', async () => {
     mockGetServerSession.mockResolvedValue(null)
-    const req = jsonRequest(
-      'http://localhost/api/admin/users/create',
-      'POST',
-      { displayName: 'Bob', email: 'bob@example.com', password: 'secret123' }
-    )
+    const req = jsonRequest('http://localhost/api/admin/users/create', 'POST', {
+      displayName: 'Bob',
+      email: 'bob@example.com',
+      password: 'secret123'
+    })
     const res = await createUser(req)
     expect(res.status).toBe(403)
   })
 
   it('returns 400 for missing required fields', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    const req = jsonRequest(
-      'http://localhost/api/admin/users/create',
-      'POST',
-      { email: 'bob@example.com' }
-    )
+    const req = jsonRequest('http://localhost/api/admin/users/create', 'POST', {
+      email: 'bob@example.com'
+    })
     const res = await createUser(req)
     expect(res.status).toBe(400)
     expect((await res.json()).error).toMatch(/missing required/i)
@@ -167,11 +161,11 @@ describe('POST /api/admin/users/create', () => {
   it('returns 400 when email is already taken', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
     mockTableClient.getEntity.mockResolvedValue(BASE_USER)
-    const req = jsonRequest(
-      'http://localhost/api/admin/users/create',
-      'POST',
-      { displayName: 'Alice', email: 'user@example.com', password: 'secret123' }
-    )
+    const req = jsonRequest('http://localhost/api/admin/users/create', 'POST', {
+      displayName: 'Alice',
+      email: 'user@example.com',
+      password: 'secret123'
+    })
     const res = await createUser(req)
     expect(res.status).toBe(400)
     expect((await res.json()).error).toMatch(/already exists/i)
@@ -180,11 +174,11 @@ describe('POST /api/admin/users/create', () => {
   it('returns 200 with the new user on success', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
     mockTableClient.getEntity.mockRejectedValue({ statusCode: 404 })
-    const req = jsonRequest(
-      'http://localhost/api/admin/users/create',
-      'POST',
-      { displayName: 'Bob', email: 'bob@example.com', password: 'secret123' }
-    )
+    const req = jsonRequest('http://localhost/api/admin/users/create', 'POST', {
+      displayName: 'Bob',
+      email: 'bob@example.com',
+      password: 'secret123'
+    })
     const res = await createUser(req)
     expect(res.status).toBe(200)
     const body = await res.json()
