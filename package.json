@@ -9,6 +9,9 @@
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "checks": "npm run lint && npm run format && npx tsc --noEmit",
     "prepare": "husky"
   },
@@ -55,6 +58,7 @@
     "@types/react-dom": "19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.58.0",
     "@typescript-eslint/parser": "^8.58.0",
+    "@vitest/coverage-v8": "^4.1.2",
     "eslint": "^10.1.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import-x": "^4.16.2",
@@ -66,7 +70,8 @@
     "prettier": "^3.8.1",
     "tailwindcss": "^4",
     "typescript": "^6",
-    "typescript-eslint": "^8.58.0"
+    "typescript-eslint": "^8.58.0",
+    "vitest": "^4.1.2"
   },
   "overrides": {
     "@types/react": "19.2.14",
