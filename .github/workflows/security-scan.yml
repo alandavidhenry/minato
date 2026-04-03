@@ -36,12 +36,12 @@ jobs:
         run: npm audit --audit-level=high
         continue-on-error: true
 
-      # - name: Run CodeQL Analysis
-      #   if: inputs.run_advanced_scans
-      #   uses: github/codeql-action/init@v4
-      #   with:
-      #     languages: javascript
+      - name: Run CodeQL Analysis
+        if: inputs.run_advanced_scans
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript
 
-      # - name: Perform CodeQL Analysis
-      #   if: inputs.run_advanced_scans
-      #   uses: github/codeql-action/analyze@v4
+      - name: Perform CodeQL Analysis
+        if: inputs.run_advanced_scans
+        uses: github/codeql-action/analyze@v4

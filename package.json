@@ -70,6 +70,18 @@
   },
   "overrides": {
     "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3"
+    "@types/react-dom": "19.2.3",
+    "eslint-plugin-react": {
+      "brace-expansion": "1.1.13"
+    },
+    "@azure/core-xml": {
+      "fast-xml-parser": "5.5.7"
+    },
+    "flat-cache": {
+      "flatted": "3.4.2"
+    },
+    "micromatch": {
+      "picomatch": "2.3.2"
+    }
   }
 }
