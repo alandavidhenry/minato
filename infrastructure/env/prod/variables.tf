@@ -97,3 +97,9 @@ variable "default_admin_email" {
   type        = string
   default     = ""
 }
+
+variable "extra_app_settings" {
+  description = "Static app settings to merge with computed settings"
+  type        = map(string)
+  default     = {}
+}

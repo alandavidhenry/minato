@@ -24,6 +24,10 @@ resource "azurerm_key_vault" "main" {
   }
 
   tags = var.tags
+
+  lifecycle {
+    ignore_changes = [access_policy]
+  }
 }
 
 # Store a secret in the key vault

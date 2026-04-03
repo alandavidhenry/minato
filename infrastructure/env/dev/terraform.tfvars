@@ -34,3 +34,11 @@ azure_ad = {
 }
 
 default_admin_email = "alandavidhenry@outlook.com"
+
+extra_app_settings = {
+  "WEBSITES_PORT"                       = "8080"
+  "WEBSITE_NODE_DEFAULT_VERSION"        = "~22"
+  "SCM_DO_BUILD_DURING_DEPLOYMENT"      = "true"
+  "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "true"
+  "WEBSITES_CONTAINER_START_TIME_LIMIT" = "600"
+}
