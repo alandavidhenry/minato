@@ -105,27 +105,22 @@ module "app_service" {
   tags                = local.common_tags
 
   docker_image = {
-    name              = "ghcr.io/${var.github_username}/${var.project}:${var.environment == "prod" ? "latest" : "dev-latest"}"
+    name              = "${var.github_username}/${var.project}:${var.environment == "prod" ? "latest" : "dev-latest"}"
     registry_url      = "https://ghcr.io"
     registry_username = var.github_username
     registry_password = var.github_token
   }
 
-  app_settings = {
-    "WEBSITES_PORT"                         = "8080"
+  app_settings = merge(var.extra_app_settings, {
     "AZURE_STORAGE_CONNECTION_STRING"       = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.storage_connection_string.versionless_id})"
     "AZURE_STORAGE_CONTAINER_NAME"          = var.storage_container.name
     "NEXTAUTH_URL"                          = "https://app-${var.project}-${var.environment}.azurewebsites.net"
     "NEXTAUTH_SECRET"                       = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.nextauth_secret.versionless_id})"
-    "WEBSITE_NODE_DEFAULT_VERSION"          = "~22"
-    "SCM_DO_BUILD_DURING_DEPLOYMENT"        = "true"
-    "WEBSITES_ENABLE_APP_SERVICE_STORAGE"   = "true"
-    "WEBSITES_CONTAINER_START_TIME_LIMIT"   = "600"
     "DOCUMENT_INTELLIGENCE_ENDPOINT"        = "@Microsoft.KeyVault(SecretUri=${module.document_intelligence.document_intelligence_endpoint_secret_versionless_id})"
     "DOCUMENT_INTELLIGENCE_KEY"             = "@Microsoft.KeyVault(SecretUri=${module.document_intelligence.document_intelligence_key_secret_versionless_id})"
     "AZURE_COMMUNICATION_CONNECTION_STRING" = "@Microsoft.KeyVault(SecretUri=${module.communication_service.acs_connection_string_secret_versionless_id})"
     "ACS_SENDER_ADDRESS"                    = module.communication_service.sender_address
-  }
+  })
 }
 
 resource "azurerm_key_vault_access_policy" "app_service" {

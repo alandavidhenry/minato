@@ -95,6 +95,12 @@ variable "default_admin_email" {
   default     = ""
 }
 
+variable "extra_app_settings" {
+  description = "Static app settings to merge with computed settings (Key Vault refs, URLs)"
+  type        = map(string)
+  default     = {}
+}
+
 variable "communication_service" {
   description = "Azure Communication Service configuration"
   type = object({

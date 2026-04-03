@@ -57,5 +57,11 @@ resource "azurerm_linux_web_app" "main" {
 
   app_settings = var.app_settings
 
+  # Image tag is managed by CI/CD (GitHub Actions), not Terraform.
+  # Terraform sets the initial image; deployments update it independently.
+  lifecycle {
+    ignore_changes = [site_config[0].application_stack[0].docker_image_name]
+  }
+
   tags = var.tags
 }
