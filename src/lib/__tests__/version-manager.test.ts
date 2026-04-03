@@ -20,7 +20,9 @@ describe('generateVersionId', () => {
   it('matches the expected ISO-timestamp-derived format', () => {
     // generateVersionId replaces : and . from toISOString(), producing
     // a string like "2024-01-01T00-00-00-000Z"
-    expect(generateVersionId()).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/u)
+    expect(generateVersionId()).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/u
+    )
   })
 })
 
