@@ -10,7 +10,9 @@
       "Bash(npx tsc:*)",
       "Bash(npx eslint:*)",
       "Bash(npm ls:*)",
-      "Bash(npm audit:*)"
+      "Bash(npm audit:*)",
+      "Bash(npm test:*)",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

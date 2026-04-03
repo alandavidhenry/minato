@@ -10,8 +10,13 @@ permissions:
   actions: read
 
 jobs:
+  lint_and_test:
+    name: Lint and Test
+    uses: ./.github/workflows/lint-format.yml
+
   setup:
     name: Extract Version
+    needs: lint_and_test
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
