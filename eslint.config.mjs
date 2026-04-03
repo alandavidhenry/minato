@@ -16,7 +16,8 @@ export default [
       '.next/**',
       'eslint.config.mjs',
       '.vscode/**',
-      'next-env.d.ts'
+      'next-env.d.ts',
+      'scripts/**'
     ]
   },
 

@@ -56,5 +56,10 @@ terraform.rc
 crash.log
 crash.*.log
 
+# Azurite
+AzuriteConfig/
+
+# Others
 github_pat.txt
 .VSCodeCounter
+scripts/

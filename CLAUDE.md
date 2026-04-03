@@ -105,3 +105,33 @@ Infrastructure is defined with Terraform in `infrastructure/` (see `infrastructu
 8. Type imports
 
 Husky runs pre-commit checks. Run `npm run checks` before committing to catch all issues.
+
+## Business Context
+
+Health and safety document management platform. Primary user: a small H&S consultancy (Simon) serving up to 100 client businesses. Alan is the sole developer. Future potential: market the platform to other H&S companies (SaaS).
+
+Core document model (target state — not yet implemented):
+- **Templates** — reusable H&S documents maintained by the consultancy
+- **Assignments** — templates assigned to specific customers (many-to-many, some customised per customer)
+- **Completions** — customer signs an assigned document; becomes an immutable signed PDF with audit trail
+
+## Testing Strategy
+
+No tests exist yet. Target stack:
+- **Vitest** — unit and integration tests (`src/lib/` functions first, then API routes)
+- **Playwright** — E2E tests for critical user journeys
+
+**TDD workflow:** define interface types → write tests → implement to pass tests. Always request tests before implementation. Target >90% coverage on `src/lib/`.
+
+Add test steps to CI pipeline: unit/integration tests before Docker build, E2E after build.
+
+## Future Considerations
+
+See `future-considerations.md` for full architectural analysis. Key decisions pending:
+
+- **Database migration** — Azure Table Storage must be replaced with PostgreSQL (Neon free tier recommended) before the document assignment/completion model is built. Prisma as ORM. Design schema with `tenantId` columns from the start for future multi-tenancy.
+- **Document model** — templates → assignments → completions. Relational. Cannot be cleanly built on Table Storage.
+- **Role model** — needs Platform Admin, Tenant Admin, Tenant Staff, Customer Admin, Customer User. Not yet designed.
+- **Electronic signing** — start with server-side PDF generation (React-PDF) + audit trail. Signature pad (canvas) as next step. Third-party e-signing only if legally required.
+- **Multi-tenancy** — design schema for it now, build it later.
+- **Compliance** — GDPR (UK), data retention policy needed, signed documents retained 3-5 years under UK H&S law.
