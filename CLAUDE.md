@@ -23,15 +23,16 @@ npm run test:coverage # Run tests with coverage report
 
 Document management portal built on **Next.js 16 App Router** with **Azure** as the backend infrastructure.
 
-### Data Layer (no SQL database)
+### Data Layer
 - **Azure Blob Storage** — file storage, organized in hierarchical paths with versioning via naming convention; SAS tokens for secure temporary access (`src/lib/storage.ts`, `src/lib/file-system/`)
-- **Azure Table Storage** — three tables: `users` (accounts, password hashes, roles), `activityLogs` (audit trail), and `passwordResets` (short-lived reset tokens, auto-created on first use); accessed via `@azure/data-tables` (`src/lib/user-database.ts`, `src/lib/activity-logger.ts`, `src/lib/password-reset.ts`)
-- **Azurite emulator** — set `USE_AZURITE=true` in `.env.local` for local development
+- **Azure Table Storage** — one table: `activityLogs` (audit trail only); accessed via `@azure/data-tables` (`src/lib/activity-logger.ts`)
+- **Neon PostgreSQL + Prisma** — users and password resets; schema in `prisma/schema.prisma`; Prisma client generated to `src/generated/prisma/`; singleton at `src/lib/prisma.ts`; uses `@prisma/adapter-pg` driver (`src/lib/user-database.ts`, `src/lib/password-reset.ts`); schema includes `Tenant` model and nullable `tenantId` on `User` for future multi-tenancy
+- **Azurite emulator** — set `USE_AZURITE=true` in `.env.local` for Azure Storage local development; PostgreSQL connects to Neon (or local DB) via `DATABASE_URL`
 
 ### Authentication
-NextAuth.js v4 with Credentials provider. Users authenticate against Azure Table Storage; passwords hashed with bcryptjs. Roles are attached to JWT tokens and exposed via session. `src/lib/auth.ts` is the central config; `src/types/next-auth.ts` extends session types; `src/types/rbac.ts` defines roles and permissions.
+NextAuth.js v4 with Credentials provider. Users authenticate against Neon PostgreSQL via Prisma; passwords hashed with bcryptjs. Roles are attached to JWT tokens and exposed via session. `src/lib/auth.ts` is the central config; `src/types/next-auth.ts` extends session types; `src/types/rbac.ts` defines roles and permissions.
 
-Password reset tokens are stored in a third Azure Table Storage table (`passwordResets`) and expire after 1 hour. See `src/lib/password-reset.ts`.
+Password reset tokens are stored in the `PasswordReset` table in PostgreSQL and expire after 1 hour. See `src/lib/password-reset.ts`.
 
 ### Email
 Transactional email (password reset) is sent via **Azure Communication Services (Email)** (`@azure/communication-email`). An Azure-managed sending domain (`DoNotReply@<uuid>.azurecomm.net`) is provisioned by Terraform — no custom domain or DNS setup required. Free tier: 100 emails/day. ACS is provisioned as part of the IaC (`infrastructure/modules/communication_service/`).
@@ -73,15 +74,16 @@ DEFAULT_ADMIN_EMAIL=
 AZURE_COMMUNICATION_CONNECTION_STRING=  # provisioned by Terraform via Key Vault
 ACS_SENDER_ADDRESS=                     # auto-set by Terraform (DoNotReply@<uuid>.azurecomm.net)
 USE_AZURITE=true         # local dev only
+DATABASE_URL=            # Neon connection string (or local PostgreSQL for dev)
 ```
 
 ## Deployment
 
 Docker → GitHub Container Registry (ghcr.io) → Azure App Service.
 
-CI/CD via GitHub Actions (`main` branch → prod, `dev` branch → dev). The `main-deploy.yml` workflow orchestrates: lint → security scan → Docker build/push → Azure deploy → release.
+CI/CD via GitHub Actions (`main` branch → dev, release → prod). Deploy order: lint → security scan → Docker build/push → **`prisma migrate deploy`** → Azure App Service deploy. `DATABASE_URL` must be set as a GitHub environment secret (`dev` and `prod` environments).
 
-Infrastructure is defined with Terraform in `infrastructure/` (see `infrastructure/readme.md` for provisioning steps).
+Infrastructure is defined with Terraform in `infrastructure/` (see `infrastructure/readme.md` for provisioning steps). `database_url` is a required Terraform variable — stored in Key Vault and injected into App Service via `@Microsoft.KeyVault(...)` reference.
 
 ## Code Style
 
@@ -147,7 +149,7 @@ Add E2E tests (Playwright) once the document model is more stable. Add E2E step 
 
 See `future-considerations.md` for full architectural analysis. Key decisions pending:
 
-- **Database migration** — Azure Table Storage must be replaced with PostgreSQL (Neon free tier recommended) before the document assignment/completion model is built. Prisma as ORM. Design schema with `tenantId` columns from the start for future multi-tenancy.
+- **Database migration** — ✅ Done. Users and password resets now use Neon PostgreSQL via Prisma. Schema includes `Tenant` model and nullable `tenantId` on `User` ready for multi-tenancy. Activity logs remain in Azure Table Storage.
 - **Document model** — templates → assignments → completions. Relational. Cannot be cleanly built on Table Storage.
 - **Role model** — needs Platform Admin, Tenant Admin, Tenant Staff, Customer Admin, Customer User. Not yet designed.
 - **Electronic signing** — start with server-side PDF generation (React-PDF) + audit trail. Signature pad (canvas) as next step. Third-party e-signing only if legally required.

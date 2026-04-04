@@ -6,7 +6,8 @@ A document management portal built with Next.js 16 App Router, Azure Blob Storag
 
 - **Framework:** Next.js 16 (App Router, standalone Docker output)
 - **Auth:** NextAuth.js v4 with Credentials provider
-- **Storage:** Azure Blob Storage (files) + Azure Table Storage (users, activity logs, password resets)
+- **Storage:** Azure Blob Storage (files) + Azure Table Storage (activity logs)
+- **Database:** Neon PostgreSQL (users, password resets) via Prisma ORM
 - **Email:** Azure Communication Services — managed sending domain, no custom domain required
 - **Styling:** Tailwind CSS v4, Radix UI
 - **Infrastructure:** Terraform on Azure App Service, deployed via Docker
@@ -35,9 +36,20 @@ A document management portal built with Next.js 16 App Router, Azure Blob Storag
    AZURE_COMMUNICATION_CONNECTION_STRING=  # from Azure portal (ACS resource → Keys)
    ACS_SENDER_ADDRESS=                     # e.g. DoNotReply@<uuid>.azurecomm.net
    USE_AZURITE=true
+   DATABASE_URL=postgresql://...           # Neon connection string (or local PostgreSQL)
    ```
 
-3. Start Azurite, then run the dev server:
+3. Apply the database schema (run once, and again after schema changes):
+   ```bash
+   npx prisma migrate dev
+   ```
+
+4. Seed the initial admin user:
+   ```bash
+   node scripts/seed-admin.js <password> "Display Name"
+   ```
+
+5. Start Azurite, then run the dev server:
    ```bash
    npm run dev
    ```
@@ -67,7 +79,7 @@ Tests are written with [Vitest](https://vitest.dev/) and live alongside the code
 | `src/lib/file-system/__tests__/` | Unit | `file-operations`, `folder-operations`, `format-utils`, `path-utils` |
 | `src/app/api/__tests__/` | Integration | `health`, admin user CRUD, `forgot-password`, `reset-password`, document routes (`upload`, `download`, `delete`, `move`, `rename`, `share`, `versions`) |
 
-Unit tests mock the Azure SDKs directly and test `src/lib/` functions in isolation. Integration tests call API route handlers end-to-end, mocking only external services (Azure SDKs, email client, NextAuth session) — the full path through route handler → lib function → mocked infrastructure is exercised.
+Unit tests mock the Prisma client and Azure SDKs directly and test `src/lib/` functions in isolation. Integration tests call API route handlers end-to-end, mocking only external services (Prisma client, Azure SDKs, email client, NextAuth session) — the full path through route handler → lib function → mocked infrastructure is exercised.
 
 **Test discipline:** Update tests whenever code changes. Add new tests whenever new code is added. Run `npm run checks` before every commit.
 
@@ -92,8 +104,8 @@ The ACS resources are defined in `infrastructure/modules/communication_service/`
 | Trigger | Workflow | What happens |
 |---|---|---|
 | PR opened/updated → `main` | `pr-check.yml` | Lint, security scan, Docker build (no push) |
-| Merge to `main` | `dev-deploy.yml` | Lint, security scan, build+push, deploy to dev |
-| Release published in GitHub UI | `prod-deploy.yml` | Build+push, deploy to prod |
+| Merge to `main` | `dev-deploy.yml` | Lint, security scan, build+push, DB migrate, deploy to dev |
+| Release published in GitHub UI | `prod-deploy.yml` | Build+push, DB migrate, deploy to prod |
 
 To release to production: go to **GitHub → Releases → Draft a new release**, choose a tag (e.g. `v1.2.3`), and publish. The prod deploy triggers automatically.
 

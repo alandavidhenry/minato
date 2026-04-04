@@ -58,6 +58,12 @@ module "storage" {
   }
 }
 
+resource "azurerm_key_vault_secret" "database_url" {
+  name         = "database-url"
+  value        = var.database_url
+  key_vault_id = module.key_vault.key_vault_id
+}
+
 resource "azurerm_key_vault_secret" "nextauth_secret" {
   name         = "nextauth-secret"
   value        = random_password.nextauth_secret.result
@@ -120,6 +126,7 @@ module "app_service" {
     "DOCUMENT_INTELLIGENCE_KEY"             = "@Microsoft.KeyVault(SecretUri=${module.document_intelligence.document_intelligence_key_secret_versionless_id})"
     "AZURE_COMMUNICATION_CONNECTION_STRING" = "@Microsoft.KeyVault(SecretUri=${module.communication_service.acs_connection_string_secret_versionless_id})"
     "ACS_SENDER_ADDRESS"                    = module.communication_service.sender_address
+    "DATABASE_URL"                          = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.database_url.versionless_id})"
   })
 }
 

@@ -101,6 +101,12 @@ variable "extra_app_settings" {
   default     = {}
 }
 
+variable "database_url" {
+  description = "Neon PostgreSQL connection string"
+  type        = string
+  sensitive   = true
+}
+
 variable "communication_service" {
   description = "Azure Communication Service configuration"
   type = object({

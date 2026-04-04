@@ -32,46 +32,46 @@ This model **cannot be cleanly implemented in Azure Table Storage** — see the 
 
 ## Data Layer: Azure Table Storage vs PostgreSQL
 
-### Current approach
-User accounts, activity logs, and password reset tokens are stored in Azure Table Storage. This was pragmatic: Blob Storage is already required for files, and Table Storage comes free with the same storage account.
+### Current approach (as of 2026-04)
+User accounts and password reset tokens are stored in **Neon PostgreSQL** via **Prisma ORM**. Activity logs remain in Azure Table Storage (well-suited to append-only, time-series data with no relational queries).
 
-### Why it works now
-- The current data model is flat — users have a role, logs are append-only, reset tokens are ephemeral
-- No joins are needed yet
-- Activity logs suit Table Storage well (high-volume, append-only, time-series)
-- Zero marginal cost
+**Migration completed:** `prisma/schema.prisma` defines `Tenant`, `User`, and `PasswordReset` models. The schema includes a nullable `tenantId` on `User` so multi-tenancy can be enforced later without a schema change. The Prisma client is generated to `src/generated/prisma/` and accessed via a singleton at `src/lib/prisma.ts` using `@prisma/adapter-pg`.
 
-### Why it will break down
-The document model above requires:
+**What stays in Azure Storage:**
+- Blob Storage — all file storage stays here permanently
+- Table Storage — activity logs only (no change needed)
+
+### Why PostgreSQL was needed
+The document model (templates → assignments → completions) requires:
 - Many-to-many relationships (customers ↔ templates)
 - Per-assignment state (completed, signed, by whom, when)
 - Per-user access scoping within a company
 - Transactional writes (create assignment + log activity atomically)
 - Relational queries ("which templates does this customer have?", "which customers have completed this template?")
 
-Table Storage handles none of these well. Attempting to implement this model in Table Storage will produce denormalised data, multiple round trips per query, and fragile manual consistency logic.
+Table Storage handles none of these well.
 
-### Recommendation: migrate to PostgreSQL before building the document model
-
-**For free tier:** Use [Neon](https://neon.tech) — a serverless PostgreSQL provider with a generous free tier (0.5 GB storage, auto-suspend when idle). Neon works well with Prisma and Next.js. When ready to move to paid, it can be migrated to Azure Database for PostgreSQL Flexible Server or kept on Neon.
-
-**ORM:** Use Prisma — type-safe, excellent migration tooling, works well with Next.js App Router, and pairs naturally with TDD (generate types from schema, write tests against types, implement).
-
-**What stays in Azure Storage:**
-- Blob Storage — all file storage stays here permanently
-- Table Storage — activity logs can stay (they suit Table Storage and don't need relational queries). Users table should migrate to PostgreSQL.
-
-### Proposed schema (initial)
+### Schema (current)
 
 ```
-Tenant              — one row per H&S company using the platform (future multi-tenancy)
-User                — belongs to a Tenant; has a Role
+Tenant              — one row per H&S company using the platform (future multi-tenancy; populated when needed)
+User                — belongs to a Tenant (tenantId nullable until multi-tenancy is enforced); has a Role
+PasswordReset       — one token per user; expires after 1 hour
+```
+
+### Schema (target — next additions)
+
+```
 CustomerCompany     — a client business; belongs to a Tenant
 CustomerUser        — a user within a CustomerCompany; has a Role
 DocumentTemplate    — a reusable H&S document; belongs to a Tenant
 Assignment          — links a DocumentTemplate to a CustomerCompany (or individual CustomerUser)
 CompletionRecord    — when a CustomerUser signs an Assignment; stores signer, timestamp, blob path to signed PDF
 ```
+
+### Remaining deployment work
+- Migrate existing users from Azure Table Storage to PostgreSQL (one-time data migration script needed if there are production users)
+- Run `terraform apply` to provision the `database-url` Key Vault secret and App Service setting in each environment
 
 ---
 
@@ -238,14 +238,14 @@ Lint, format check, type check, and all Vitest tests (unit + integration) run on
 ### Gaps to address
 - No E2E tests in the pipeline — add a Playwright step after the Docker build once E2E tests exist
 - No staging environment — consider adding a `staging` branch/environment between `dev` and `main`
-- No database migration step — once Prisma is introduced, `prisma migrate deploy` must run as part of deployment before the app starts
+- No database migration step — ✅ Done. `prisma migrate deploy` runs in `azure-deploy.yml` before the App Service deploy step, using `DATABASE_URL` from GitHub environment secrets.
 - No smoke test after deployment — a basic health check hit against the deployed URL would catch failed deploys earlier
 
 ### Recommended pipeline order (target state)
 1. Lint + format check + type check + unit/integration tests (`npm run checks`) ✓ done
 2. Docker build + push
 3. E2E tests against the built app (Playwright) — not yet
-4. Database migration (`prisma migrate deploy`) — not yet
+4. Database migration (`prisma migrate deploy`) ✓ done — runs in `azure-deploy.yml` before deploy
 5. Azure deploy
 6. Post-deploy smoke test — not yet
 7. Release tag

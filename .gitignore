@@ -63,3 +63,4 @@ AzuriteConfig/
 github_pat.txt
 .VSCodeCounter
 scripts/
+/src/generated/prisma
