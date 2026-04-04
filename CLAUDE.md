@@ -109,6 +109,13 @@ Infrastructure is defined with Terraform in `infrastructure/` (see `infrastructu
 
 Husky runs pre-commit checks. Run `npm run checks` before committing to catch all issues.
 
+## Documentation Maintenance
+
+After every meaningful change, update these three files to reflect the new state:
+- **`README.md`** — user-facing: update the Testing table, commands, or any section affected by the change
+- **`CLAUDE.md`** — Claude-facing: update architecture notes, testing coverage, or any guidance that has changed
+- **`future-considerations.md`** — update the status of anything completed, and add any new decisions or considerations that emerged
+
 ## Business Context
 
 Health and safety document management platform. Primary user: a small H&S consultancy (Simon) serving up to 100 client businesses. Alan is the sole developer. Future potential: market the platform to other H&S companies (SaaS).
@@ -120,13 +127,21 @@ Core document model (target state — not yet implemented):
 
 ## Testing Strategy
 
-No tests exist yet. Target stack:
-- **Vitest** — unit and integration tests (`src/lib/` functions first, then API routes)
-- **Playwright** — E2E tests for critical user journeys
+**Stack:** Vitest (unit + integration), Playwright (E2E — not yet written).
+
+**Current coverage:**
+- Unit: full coverage of `src/lib/` and `src/lib/file-system/`
+- Integration: `health`, admin user CRUD, password reset flows, all document API routes (`upload`, `download`, `delete`, `move`, `rename`, `share`, `versions`)
+- E2E: not yet started
 
 **TDD workflow:** define interface types → write tests → implement to pass tests. Always request tests before implementation. Target >90% coverage on `src/lib/`.
 
-Add test steps to CI pipeline: unit/integration tests before Docker build, E2E after build.
+**Test discipline (non-negotiable):**
+- Update existing tests whenever code changes
+- Write new tests whenever new code is added
+- Run `npm run checks` before every commit
+
+Add E2E tests (Playwright) once the document model is more stable. Add E2E step to CI after the Playwright suite exists.
 
 ## Future Considerations
 

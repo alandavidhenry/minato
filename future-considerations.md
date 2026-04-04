@@ -179,10 +179,12 @@ Vitest is configured. Unit and integration tests are in place. E2E tests are not
 
 | Layer | Tool | Status |
 |---|---|---|
-| Unit | Vitest | Done — full coverage of `src/lib/` |
-| Integration | Vitest (direct route handler calls) | Done — health, admin user CRUD, forgot/reset password |
+| Unit | Vitest | Done — full coverage of `src/lib/` and `src/lib/file-system/` |
+| Integration | Vitest (direct route handler calls) | Done — health, admin user CRUD, forgot/reset password, all document routes |
 | E2E | Playwright | Not yet started |
 | Coverage | Vitest built-in (`v8`) | Configured |
+
+**Integration tests cover all document routes** (`src/app/api/__tests__/documents.test.ts`): upload, download, delete, move, rename, share, versions — auth checks, validation, success paths, and failure paths for each.
 
 **TDD workflow:**
 1. Define interface types and function signatures first
@@ -192,9 +194,10 @@ Vitest is configured. Unit and integration tests are in place. E2E tests are not
 
 This works well and catches design problems early. Always request tests before implementation.
 
+**Test discipline (non-negotiable):** update existing tests whenever code changes; write new tests whenever new code is added.
+
 ### What remains
-- **Integration tests for document routes** — upload, download, delete, move, rename, share, versions. These are the next highest-value tests. Mock Azure Blob Storage SDK directly (same pattern as existing integration tests).
-- **E2E tests (Playwright)** — sign in, view documents, admin manages users. Add once the document model is more stable, as UI tests are brittle against layout changes.
+- **E2E tests (Playwright)** — sign in, view documents, admin manages users. Add once the document model is more stable, as UI tests are brittle against layout changes. Add Playwright step to CI after the suite exists.
 
 ### Coverage target
 High coverage on `src/lib/` (>90%) and critical API routes. E2E coverage of the five to ten most important user journeys. Do not chase 100% coverage at the expense of test quality.

@@ -65,9 +65,11 @@ Tests are written with [Vitest](https://vitest.dev/) and live alongside the code
 |---|---|---|
 | `src/lib/__tests__/` | Unit | `user-database`, `password-reset`, `activity-logger`, `storage`, `url-shortener`, `version-manager`, `list-blobs`, `utils` |
 | `src/lib/file-system/__tests__/` | Unit | `file-operations`, `folder-operations`, `format-utils`, `path-utils` |
-| `src/app/api/__tests__/` | Integration | `health`, admin user CRUD, `forgot-password`, `reset-password` |
+| `src/app/api/__tests__/` | Integration | `health`, admin user CRUD, `forgot-password`, `reset-password`, document routes (`upload`, `download`, `delete`, `move`, `rename`, `share`, `versions`) |
 
 Unit tests mock the Azure SDKs directly and test `src/lib/` functions in isolation. Integration tests call API route handlers end-to-end, mocking only external services (Azure SDKs, email client, NextAuth session) — the full path through route handler → lib function → mocked infrastructure is exercised.
+
+**Test discipline:** Update tests whenever code changes. Add new tests whenever new code is added. Run `npm run checks` before every commit.
 
 ### Running tests
 
