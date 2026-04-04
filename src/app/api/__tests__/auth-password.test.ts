@@ -7,27 +7,22 @@ import { POST as resetPassword } from '../auth/reset-password/route'
 // Module mocks
 // ---------------------------------------------------------------------------
 
-function asyncOf<T>(...items: T[]) {
-  return (async function* () {
-    for (const item of items) yield item
-  })()
-}
-
-const { mockTableClient, mockBcrypt } = vi.hoisted(() => {
-  const mockTableClient = {
-    createTable: vi.fn(),
-    createEntity: vi.fn(),
-    getEntity: vi.fn(),
-    listEntities: vi.fn(),
-    updateEntity: vi.fn(),
-    deleteEntity: vi.fn()
+const { mockPrisma, mockBcrypt } = vi.hoisted(() => {
+  const mockPrisma = {
+    user: {
+      findUnique: vi.fn(),
+      update: vi.fn()
+    },
+    passwordReset: {
+      findUnique: vi.fn(),
+      upsert: vi.fn(),
+      delete: vi.fn()
+    }
   }
   const mockBcrypt = { hash: vi.fn(), compare: vi.fn() }
-  return { mockTableClient, mockBcrypt }
+  return { mockPrisma, mockBcrypt }
 })
-vi.mock('@azure/data-tables', () => ({
-  TableClient: { fromConnectionString: vi.fn(() => mockTableClient) }
-}))
+vi.mock('@/lib/prisma', () => ({ default: mockPrisma }))
 vi.mock('bcryptjs', () => ({ default: mockBcrypt }))
 
 const { mockBeginSend } = vi.hoisted(() => ({
@@ -44,13 +39,13 @@ vi.mock('@azure/communication-email', () => ({
 // ---------------------------------------------------------------------------
 
 const BASE_USER = {
-  partitionKey: 'users',
-  rowKey: 'user@example.com',
+  id: 'cuid_abc123',
   email: 'user@example.com',
   displayName: 'Alice',
   passwordHash: '$hashed',
   role: 'Customer',
-  createdAt: '2024-01-01T00:00:00.000Z'
+  createdAt: new Date('2024-01-01T00:00:00.000Z'),
+  tenantId: null
 }
 
 function jsonRequest(url: string, body: unknown): Request {
@@ -64,12 +59,13 @@ function jsonRequest(url: string, body: unknown): Request {
 // Valid 64-char hex token
 const VALID_TOKEN = 'a'.repeat(64)
 
-// Token entity with future expiry
-const TOKEN_ENTITY = {
-  partitionKey: 'resets',
-  rowKey: 'user@example.com',
+// Token record with future expiry
+const TOKEN_RECORD = {
+  id: 'cuid_token1',
+  email: 'user@example.com',
   token: VALID_TOKEN,
-  expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+  expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+  createdAt: new Date()
 }
 
 // ---------------------------------------------------------------------------
@@ -78,18 +74,17 @@ const TOKEN_ENTITY = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockTableClient.createTable.mockResolvedValue({})
-  mockTableClient.createEntity.mockResolvedValue({})
-  mockTableClient.updateEntity.mockResolvedValue({})
-  mockTableClient.deleteEntity.mockResolvedValue({})
-  mockTableClient.listEntities.mockReturnValue(asyncOf())
+  mockPrisma.user.findUnique.mockResolvedValue(null)
+  mockPrisma.user.update.mockResolvedValue(BASE_USER)
+  mockPrisma.passwordReset.findUnique.mockResolvedValue(null)
+  mockPrisma.passwordReset.upsert.mockResolvedValue({})
+  mockPrisma.passwordReset.delete.mockResolvedValue({})
   mockBcrypt.hash.mockResolvedValue('$newhashed')
   mockBcrypt.compare.mockResolvedValue(false)
   mockBeginSend.mockResolvedValue({
     pollUntilDone: vi.fn().mockResolvedValue({})
   })
   process.env.NEXTAUTH_URL = 'http://localhost:3000'
-  process.env.AZURE_STORAGE_CONNECTION_STRING = 'mock-connection-string'
   process.env.AZURE_COMMUNICATION_CONNECTION_STRING = 'mock-acs-connection'
   process.env.ACS_SENDER_ADDRESS = 'DoNotReply@mock.azurecomm.net'
 })
@@ -115,7 +110,7 @@ describe('POST /api/auth/forgot-password', () => {
   })
 
   it('returns 200 and sends no email when user does not exist', async () => {
-    mockTableClient.getEntity.mockRejectedValue({ statusCode: 404 })
+    mockPrisma.user.findUnique.mockResolvedValue(null)
     const req = jsonRequest('http://localhost/api/auth/forgot-password', {
       email: 'ghost@example.com'
     })
@@ -125,8 +120,7 @@ describe('POST /api/auth/forgot-password', () => {
   })
 
   it('returns 200 and sends a reset email when user exists', async () => {
-    mockTableClient.getEntity.mockResolvedValue(BASE_USER)
-    mockTableClient.deleteEntity.mockRejectedValue({ statusCode: 404 })
+    mockPrisma.user.findUnique.mockResolvedValue(BASE_USER)
     const req = jsonRequest('http://localhost/api/auth/forgot-password', {
       email: 'user@example.com'
     })
@@ -173,8 +167,8 @@ describe('POST /api/auth/reset-password', () => {
     expect((await res.json()).error).toMatch(/invalid or expired/i)
   })
 
-  it('returns 400 when token is not found in storage', async () => {
-    mockTableClient.listEntities.mockReturnValue(asyncOf())
+  it('returns 400 when token is not found', async () => {
+    mockPrisma.passwordReset.findUnique.mockResolvedValue(null)
     const req = jsonRequest('http://localhost/api/auth/reset-password', {
       token: VALID_TOKEN,
       password: 'newPassword1'
@@ -185,11 +179,10 @@ describe('POST /api/auth/reset-password', () => {
   })
 
   it('returns 400 when token is expired', async () => {
-    const expiredEntity = {
-      ...TOKEN_ENTITY,
-      expiresAt: new Date(Date.now() - 1000).toISOString()
-    }
-    mockTableClient.listEntities.mockReturnValue(asyncOf(expiredEntity))
+    mockPrisma.passwordReset.findUnique.mockResolvedValue({
+      ...TOKEN_RECORD,
+      expiresAt: new Date(Date.now() - 1000)
+    })
     const req = jsonRequest('http://localhost/api/auth/reset-password', {
       token: VALID_TOKEN,
       password: 'newPassword1'
@@ -200,8 +193,7 @@ describe('POST /api/auth/reset-password', () => {
   })
 
   it('returns 200 and changes the password on success', async () => {
-    mockTableClient.listEntities.mockReturnValue(asyncOf(TOKEN_ENTITY))
-    mockTableClient.getEntity.mockResolvedValue(BASE_USER)
+    mockPrisma.passwordReset.findUnique.mockResolvedValue(TOKEN_RECORD)
     const req = jsonRequest('http://localhost/api/auth/reset-password', {
       token: VALID_TOKEN,
       password: 'newPassword1'

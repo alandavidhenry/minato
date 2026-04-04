@@ -17,6 +17,7 @@ module "document_portal" {
   github_username    = var.github_username
   github_token       = var.github_token
   extra_app_settings = var.extra_app_settings
+  database_url       = var.database_url
 
   allowed_origins = [
     "https://app-${var.project}-${var.environment}.azurewebsites.net",

@@ -25,27 +25,20 @@ const { mockGetServerSession } = vi.hoisted(() => ({
 }))
 vi.mock('next-auth', () => ({ getServerSession: mockGetServerSession }))
 
-function asyncOf<T>(...items: T[]) {
-  return (async function* () {
-    for (const item of items) yield item
-  })()
-}
-
-const { mockTableClient, mockBcrypt } = vi.hoisted(() => {
-  const mockTableClient = {
-    createTable: vi.fn(),
-    createEntity: vi.fn(),
-    getEntity: vi.fn(),
-    listEntities: vi.fn(),
-    updateEntity: vi.fn(),
-    deleteEntity: vi.fn()
+const { mockPrisma, mockBcrypt } = vi.hoisted(() => {
+  const mockPrisma = {
+    user: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn()
+    }
   }
   const mockBcrypt = { hash: vi.fn(), compare: vi.fn() }
-  return { mockTableClient, mockBcrypt }
+  return { mockPrisma, mockBcrypt }
 })
-vi.mock('@azure/data-tables', () => ({
-  TableClient: { fromConnectionString: vi.fn(() => mockTableClient) }
-}))
+vi.mock('@/lib/prisma', () => ({ default: mockPrisma }))
 vi.mock('bcryptjs', () => ({ default: mockBcrypt }))
 
 // ---------------------------------------------------------------------------
@@ -56,13 +49,13 @@ const ADMIN_SESSION = { user: { roles: ['Administrator'] } }
 const NON_ADMIN_SESSION = { user: { roles: ['Customer'] } }
 
 const BASE_USER = {
-  partitionKey: 'users',
-  rowKey: 'user@example.com',
+  id: 'cuid_abc123',
   email: 'user@example.com',
   displayName: 'Alice',
   passwordHash: '$hashed',
   role: 'Customer',
-  createdAt: '2024-01-01T00:00:00.000Z'
+  createdAt: new Date('2024-01-01T00:00:00.000Z'),
+  tenantId: null
 }
 
 function jsonRequest(url: string, method: string, body?: unknown): NextRequest {
@@ -83,11 +76,11 @@ function params(id: string) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockTableClient.createTable.mockResolvedValue({})
-  mockTableClient.createEntity.mockResolvedValue({})
-  mockTableClient.updateEntity.mockResolvedValue({})
-  mockTableClient.deleteEntity.mockResolvedValue({})
-  mockTableClient.listEntities.mockReturnValue(asyncOf())
+  mockPrisma.user.findMany.mockResolvedValue([])
+  mockPrisma.user.findUnique.mockResolvedValue(null)
+  mockPrisma.user.create.mockResolvedValue(BASE_USER)
+  mockPrisma.user.update.mockResolvedValue(BASE_USER)
+  mockPrisma.user.delete.mockResolvedValue(BASE_USER)
   mockBcrypt.hash.mockResolvedValue('$newhashed')
   mockBcrypt.compare.mockResolvedValue(false)
 })
@@ -122,7 +115,7 @@ describe('GET /api/admin/users', () => {
 
   it('returns 200 with mapped user list', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockTableClient.listEntities.mockReturnValue(asyncOf(BASE_USER))
+    mockPrisma.user.findMany.mockResolvedValue([BASE_USER])
     const req = new NextRequest('http://localhost/api/admin/users')
     const res = await listUsers(req)
     const body = await res.json()
@@ -160,7 +153,7 @@ describe('POST /api/admin/users/create', () => {
 
   it('returns 400 when email is already taken', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockTableClient.getEntity.mockResolvedValue(BASE_USER)
+    mockPrisma.user.findUnique.mockResolvedValue(BASE_USER)
     const req = jsonRequest('http://localhost/api/admin/users/create', 'POST', {
       displayName: 'Alice',
       email: 'user@example.com',
@@ -173,7 +166,12 @@ describe('POST /api/admin/users/create', () => {
 
   it('returns 200 with the new user on success', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockTableClient.getEntity.mockRejectedValue({ statusCode: 404 })
+    mockPrisma.user.findUnique.mockResolvedValue(null)
+    mockPrisma.user.create.mockResolvedValue({
+      ...BASE_USER,
+      email: 'bob@example.com',
+      displayName: 'Bob'
+    })
     const req = jsonRequest('http://localhost/api/admin/users/create', 'POST', {
       displayName: 'Bob',
       email: 'bob@example.com',
@@ -203,7 +201,7 @@ describe('GET /api/admin/users/[id]', () => {
 
   it('returns 404 when user not found', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockTableClient.getEntity.mockRejectedValue({ statusCode: 404 })
+    mockPrisma.user.findUnique.mockResolvedValue(null)
     const req = new NextRequest(
       'http://localhost/api/admin/users/ghost@example.com'
     )
@@ -213,7 +211,7 @@ describe('GET /api/admin/users/[id]', () => {
 
   it('returns 200 with the user', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockTableClient.getEntity.mockResolvedValue(BASE_USER)
+    mockPrisma.user.findUnique.mockResolvedValue(BASE_USER)
     const req = new NextRequest(
       'http://localhost/api/admin/users/user@example.com'
     )
@@ -242,7 +240,7 @@ describe('PATCH /api/admin/users/[id]', () => {
 
   it('returns 404 when user not found', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockTableClient.getEntity.mockRejectedValue({ statusCode: 404 })
+    mockPrisma.user.update.mockRejectedValue(new Error('record not found'))
     const req = jsonRequest(
       'http://localhost/api/admin/users/ghost@example.com',
       'PATCH',
@@ -254,7 +252,7 @@ describe('PATCH /api/admin/users/[id]', () => {
 
   it('returns 200 on success', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockTableClient.getEntity.mockResolvedValue(BASE_USER)
+    mockPrisma.user.findUnique.mockResolvedValue(BASE_USER)
     const req = jsonRequest(
       'http://localhost/api/admin/users/user@example.com',
       'PATCH',
@@ -335,7 +333,7 @@ describe('POST /api/admin/users/[id]/role', () => {
 
   it('returns 404 when user not found', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockTableClient.getEntity.mockRejectedValue({ statusCode: 404 })
+    mockPrisma.user.update.mockRejectedValue(new Error('record not found'))
     const req = jsonRequest(
       'http://localhost/api/admin/users/ghost@example.com/role',
       'POST',
@@ -347,7 +345,7 @@ describe('POST /api/admin/users/[id]/role', () => {
 
   it('returns 200 on success', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockTableClient.getEntity.mockResolvedValue(BASE_USER)
+    mockPrisma.user.findUnique.mockResolvedValue(BASE_USER)
     const req = jsonRequest(
       'http://localhost/api/admin/users/user@example.com/role',
       'POST',
@@ -376,10 +374,6 @@ describe('DELETE /api/admin/users/[id]/role', () => {
 
   it('returns 200 and resets role to Customer', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockTableClient.getEntity.mockResolvedValue({
-      ...BASE_USER,
-      role: 'Employee'
-    })
     const req = new NextRequest(
       'http://localhost/api/admin/users/user@example.com/role',
       { method: 'DELETE' }
@@ -387,8 +381,8 @@ describe('DELETE /api/admin/users/[id]/role', () => {
     const res = await removeRole(req, params('user@example.com'))
     expect(res.status).toBe(200)
     expect((await res.json()).success).toBe(true)
-    const updatedEntity = mockTableClient.updateEntity.mock.calls[0][0]
-    expect(updatedEntity.role).toBe('Customer')
+    const updateCall = mockPrisma.user.update.mock.calls[0][0]
+    expect(updateCall.data.role).toBe('Customer')
   })
 })
 
@@ -434,7 +428,7 @@ describe('POST /api/admin/users/[id]/reset-password', () => {
 
   it('returns 404 when user not found', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockTableClient.getEntity.mockRejectedValue({ statusCode: 404 })
+    mockPrisma.user.update.mockRejectedValue(new Error('record not found'))
     const req = jsonRequest(
       'http://localhost/api/admin/users/ghost@example.com/reset-password',
       'POST',
@@ -446,7 +440,7 @@ describe('POST /api/admin/users/[id]/reset-password', () => {
 
   it('returns 200 on success', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockTableClient.getEntity.mockResolvedValue(BASE_USER)
+    mockPrisma.user.findUnique.mockResolvedValue(BASE_USER)
     const req = jsonRequest(
       'http://localhost/api/admin/users/user@example.com/reset-password',
       'POST',

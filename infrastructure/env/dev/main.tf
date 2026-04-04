@@ -19,6 +19,7 @@ module "document_portal" {
   github_token          = var.github_token
   default_admin_email   = var.default_admin_email
   extra_app_settings    = var.extra_app_settings
+  database_url          = var.database_url
 
   allowed_origins = [
     "http://localhost:3000",

@@ -103,3 +103,9 @@ variable "extra_app_settings" {
   type        = map(string)
   default     = {}
 }
+
+variable "database_url" {
+  description = "Neon PostgreSQL connection string"
+  type        = string
+  sensitive   = true
+}

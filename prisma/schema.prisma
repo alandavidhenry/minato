@@ -1,0 +1,61 @@
+// Learn more about Prisma schema: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Tenancy
+// Tenant is included from the start to support future multi-tenancy.
+// All users belong to a Tenant. In the current single-tenant deployment,
+// there is one default Tenant row. tenantId is nullable on User so that
+// existing records survive the migration; it will be made required once
+// multi-tenancy is actively enforced.
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  users User[]
+}
+
+// ---------------------------------------------------------------------------
+// Users
+// Replaces the Azure Table Storage `users` table.
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  displayName  String
+  passwordHash String
+  role         String    @default("Customer")
+  createdAt    DateTime  @default(now())
+  tenantId     String? // null = default single-tenant; required when multi-tenancy is enforced
+
+  tenant        Tenant?        @relation(fields: [tenantId], references: [id])
+  passwordReset PasswordReset?
+}
+
+// ---------------------------------------------------------------------------
+// Password resets
+// Replaces the Azure Table Storage `passwordResets` table.
+// One token per user at a time; expires after 1 hour.
+// ---------------------------------------------------------------------------
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [email], references: [email])
+}

@@ -12,7 +12,8 @@
       "Bash(npm ls:*)",
       "Bash(npm audit:*)",
       "Bash(npm test:*)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(npx prisma:*)"
     ]
   }
 }

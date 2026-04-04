@@ -45,3 +45,4 @@ jobs:
       image_uri: ${{ needs.build.outputs.image_uri }}
     secrets:
       AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
