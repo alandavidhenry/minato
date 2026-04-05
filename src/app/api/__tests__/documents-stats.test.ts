@@ -37,7 +37,12 @@ async function* blobsOf(names: string[]) {
 }
 
 const AUTH_SESSION = {
-  user: { id: 'user-1', name: 'Alice', email: 'alice@example.com', roles: ['Admin'] }
+  user: {
+    id: 'user-1',
+    name: 'Alice',
+    email: 'alice@example.com',
+    roles: ['Admin']
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -59,16 +64,22 @@ describe('GET /api/documents/stats', () => {
     expect(res.status).toBe(401)
   })
 
-  it('counts only real documents, excluding .folder markers', async () => {
+  it('counts unique documents, excluding .folder markers and deduplicating versions', async () => {
     mockGetServerSession.mockResolvedValue(AUTH_SESSION)
     mockListBlobsFlat.mockReturnValue(
       blobsOf([
+        // doc1: 4 versions
+        'doc1_v_2024-01-01T00-00-00-000Z.pdf',
+        'doc1_v_2024-01-02T00-00-00-000Z.pdf',
+        'doc1_v_2024-01-03T00-00-00-000Z.pdf',
         'doc1.pdf',
+        // doc2: 2 versions in a folder
         'folder-a/.folder',
+        'folder-a/doc2_v_2024-01-01T00-00-00-000Z.pdf',
         'folder-a/doc2.pdf',
+        // doc3: 1 version
         'folder-b/.folder',
-        'folder-b/sub/.folder',
-        'folder-b/sub/doc3.pdf',
+        'folder-b/doc3.pdf',
         '.folder'
       ])
     )
