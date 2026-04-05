@@ -104,8 +104,10 @@ The ACS resources are defined in `infrastructure/modules/communication_service/`
 | Trigger | Workflow | What happens |
 |---|---|---|
 | PR opened/updated → `main` | `pr-check.yml` | Lint, security scan, Docker build (no push) |
-| Merge to `main` | `dev-deploy.yml` | Lint, security scan, build+push, DB migrate, deploy to dev |
-| Release published in GitHub UI | `prod-deploy.yml` | Build+push, DB migrate, deploy to prod |
+| Merge to `main` | `dev-deploy.yml` | Lint, security scan, build+push, DB migrate, deploy to dev, smoke test |
+| Release published in GitHub UI | `prod-deploy.yml` | Build+push, DB migrate, deploy to prod, smoke test |
+
+The smoke test polls `GET /api/health` (up to 12 × 15 s = 3 min) and fails the deployment if the app does not return `{ "status": "ok" }`. The health endpoint checks both the PostgreSQL database and Azure Blob Storage.
 
 To release to production: go to **GitHub → Releases → Draft a new release**, choose a tag (e.g. `v1.2.3`), and publish. The prod deploy triggers automatically.
 
