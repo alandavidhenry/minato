@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
+import { parseFileName } from '@/lib/version-manager'
 
 export async function GET() {
   // Check authentication
@@ -20,15 +21,16 @@ export async function GET() {
       BlobServiceClient.fromConnectionString(connectionString)
     const containerClient = blobServiceClient.getContainerClient(containerName)
 
-    // Count all blobs
-    let blobCount = 0
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    for await (const _ of containerClient.listBlobsFlat()) {
-      blobCount++
+    // Count unique documents, excluding folder markers and deduplicating versions
+    const uniqueDocuments = new Set<string>()
+    for await (const blob of containerClient.listBlobsFlat()) {
+      if (blob.name.endsWith('/.folder') || blob.name === '.folder') continue
+      const { baseName, extension } = parseFileName(blob.name)
+      uniqueDocuments.add(baseName + extension)
     }
 
     return NextResponse.json({
-      totalDocuments: blobCount
+      totalDocuments: uniqueDocuments.size
     })
   } catch (error) {
     console.error('Error getting document stats:', error)

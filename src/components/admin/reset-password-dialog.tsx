@@ -13,8 +13,8 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/ui/password-input'
 import { toast } from '@/components/ui/use-toast'
 
 interface ResetPasswordDialogProps {
@@ -154,9 +154,8 @@ export function ResetPasswordDialog({
                   Generate Random
                 </Button>
               </div>
-              <Input
+              <PasswordInput
                 id='password'
-                type='text' // Using text to make it visible for admin
                 value={password}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setPassword(e.target.value)
