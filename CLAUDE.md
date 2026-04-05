@@ -81,7 +81,7 @@ DATABASE_URL=            # Neon connection string (or local PostgreSQL for dev)
 
 Docker → GitHub Container Registry (ghcr.io) → Azure App Service.
 
-CI/CD via GitHub Actions (`main` branch → dev, release → prod). Deploy order: lint → security scan → Docker build/push → **`prisma migrate deploy`** → Azure App Service deploy. `DATABASE_URL` must be set as a GitHub environment secret (`dev` and `prod` environments).
+CI/CD via GitHub Actions (`main` branch → dev, release → prod). Deploy order: lint → security scan → Docker build/push → **`prisma migrate deploy`** → Azure App Service deploy → **smoke test** (`GET /api/health` with 12 retries × 15 s). `DATABASE_URL` must be set as a GitHub environment secret (`dev` and `prod` environments).
 
 Infrastructure is defined with Terraform in `infrastructure/` (see `infrastructure/readme.md` for provisioning steps). `database_url` is a required Terraform variable — stored in Key Vault and injected into App Service via `@Microsoft.KeyVault(...)` reference.
 
@@ -133,7 +133,7 @@ Core document model (target state — not yet implemented):
 
 **Current coverage:**
 - Unit: full coverage of `src/lib/` and `src/lib/file-system/`
-- Integration: `health`, admin user CRUD, password reset flows, all document API routes (`upload`, `download`, `delete`, `move`, `rename`, `share`, `versions`)
+- Integration: `health` (checks db + storage, all pass/fail combinations), admin user CRUD, password reset flows, all document API routes (`upload`, `download`, `delete`, `move`, `rename`, `share`, `versions`)
 - E2E: not yet started
 
 **TDD workflow:** define interface types → write tests → implement to pass tests. Always request tests before implementation. Target >90% coverage on `src/lib/`.
