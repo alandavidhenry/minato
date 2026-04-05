@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/ui/password-input'
 import {
   Select,
   SelectContent,
@@ -191,9 +192,8 @@ export function CreateUserDialog({
                   Generate
                 </Button>
               </div>
-              <Input
+              <PasswordInput
                 id='password'
-                type='password'
                 value={formData.password}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   handleChange('password', e.target.value)
