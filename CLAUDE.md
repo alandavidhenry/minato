@@ -151,7 +151,7 @@ See `future-considerations.md` for full architectural analysis. Key decisions pe
 
 - **Database migration** — ✅ Done. Users and password resets now use Neon PostgreSQL via Prisma. Schema includes `Tenant` model and nullable `tenantId` on `User` ready for multi-tenancy. Activity logs remain in Azure Table Storage.
 - **Document model** — templates → assignments → completions. Relational. Cannot be cleanly built on Table Storage.
-- **Role model** — needs Platform Admin, Tenant Admin, Tenant Staff, Customer Admin, Customer User. Not yet designed.
+- **Role model** — ✅ Done. Five roles implemented: `Platform Admin`, `Tenant Admin`, `Tenant Staff`, `Customer Admin`, `Customer User`. Defined in `src/types/rbac.ts`; `ADMIN_ROLES` constant used for admin-gate checks across all routes.
 - **Electronic signing** — start with server-side PDF generation (React-PDF) + audit trail. Signature pad (canvas) as next step. Third-party e-signing only if legally required.
 - **Multi-tenancy** — design schema for it now, build it later.
 - **Compliance** — GDPR (UK), data retention policy needed, signed documents retained 3-5 years under UK H&S law.

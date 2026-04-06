@@ -126,17 +126,20 @@ export function ChangeRoleDialog({
                   <SelectValue placeholder='Select a role' />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value='Administrator'>Administrator</SelectItem>
-                  <SelectItem value='Employee'>Employee</SelectItem>
-                  <SelectItem value='Customer'>Customer</SelectItem>
+                  <SelectItem value='Platform Admin'>Platform Admin</SelectItem>
+                  <SelectItem value='Tenant Admin'>Tenant Admin</SelectItem>
+                  <SelectItem value='Tenant Staff'>Tenant Staff</SelectItem>
+                  <SelectItem value='Customer Admin'>Customer Admin</SelectItem>
+                  <SelectItem value='Customer User'>Customer User</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {selectedRole === 'Administrator' && (
+            {(selectedRole === 'Platform Admin' ||
+              selectedRole === 'Tenant Admin') && (
               <div className='rounded-md bg-amber-50 p-3'>
                 <p className='text-sm text-amber-800'>
-                  Warning: Administrators have full access to manage users and
+                  Warning: This role has full access to manage users and
                   settings.
                 </p>
               </div>

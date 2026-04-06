@@ -36,7 +36,7 @@ model User {
   email        String    @unique
   displayName  String
   passwordHash String
-  role         String    @default("Customer")
+  role         String    @default("Customer User")
   createdAt    DateTime  @default(now())
   tenantId     String? // null = default single-tenant; required when multi-tenancy is enforced
 

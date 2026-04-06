@@ -45,15 +45,15 @@ vi.mock('bcryptjs', () => ({ default: mockBcrypt }))
 // Helpers
 // ---------------------------------------------------------------------------
 
-const ADMIN_SESSION = { user: { roles: ['Administrator'] } }
-const NON_ADMIN_SESSION = { user: { roles: ['Customer'] } }
+const ADMIN_SESSION = { user: { roles: ['Tenant Admin'] } }
+const NON_ADMIN_SESSION = { user: { roles: ['Customer User'] } }
 
 const BASE_USER = {
   id: 'cuid_abc123',
   email: 'user@example.com',
   displayName: 'Alice',
   passwordHash: '$hashed',
-  role: 'Customer',
+  role: 'Customer User',
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
   tenantId: null
 }
@@ -121,7 +121,7 @@ describe('GET /api/admin/users', () => {
     const body = await res.json()
     expect(body.users).toHaveLength(1)
     expect(body.users[0].mail).toBe('user@example.com')
-    expect(body.users[0].role).toBe('Customer')
+    expect(body.users[0].role).toBe('Customer User')
   })
 })
 
@@ -337,7 +337,7 @@ describe('POST /api/admin/users/[id]/role', () => {
     const req = jsonRequest(
       'http://localhost/api/admin/users/ghost@example.com/role',
       'POST',
-      { role: 'Employee' }
+      { role: 'Tenant Staff' }
     )
     const res = await assignRole(req, params('ghost@example.com'))
     expect(res.status).toBe(404)
@@ -349,7 +349,7 @@ describe('POST /api/admin/users/[id]/role', () => {
     const req = jsonRequest(
       'http://localhost/api/admin/users/user@example.com/role',
       'POST',
-      { role: 'Employee' }
+      { role: 'Tenant Staff' }
     )
     const res = await assignRole(req, params('user@example.com'))
     expect(res.status).toBe(200)
@@ -382,7 +382,7 @@ describe('DELETE /api/admin/users/[id]/role', () => {
     expect(res.status).toBe(200)
     expect((await res.json()).success).toBe(true)
     const updateCall = mockPrisma.user.update.mock.calls[0][0]
-    expect(updateCall.data.role).toBe('Customer')
+    expect(updateCall.data.role).toBe('Customer User')
   })
 })
 

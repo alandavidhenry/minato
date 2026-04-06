@@ -77,22 +77,22 @@ CompletionRecord    — when a CustomerUser signs an Assignment; stores signer, 
 
 ## Role Model
 
-### Current roles
-`Admin`, `Customer` — coarse-grained, stored on the JWT.
+### Current roles (as of 2026-04)
+Five roles are implemented, stored as strings in the `User.role` column and attached to the JWT at sign-in. Defined in `src/types/rbac.ts`.
 
-### Roles needed (not yet fully decided)
-The following are likely based on the business model:
+| Role | Description | Admin portal access |
+|---|---|---|
+| `Platform Admin` | Alan — manages tenants, billing, platform config | Yes |
+| `Tenant Admin` | H&S consultancy admin (Simon) — manages templates, customers, users | Yes |
+| `Tenant Staff` | H&S consultancy employee — can view documents and activity logs | No |
+| `Customer Admin` | A client company's manager — view documents and users | No |
+| `Customer User` | An individual within a client company — view and download docs only | No |
 
-| Role | Description |
-|---|---|
-| Platform Admin | Alan — manages tenants, billing, platform config |
-| Tenant Admin | H&S consultancy admin (Simon) — manages templates, assigns documents to customers, manages customer accounts |
-| Tenant Staff | H&S consultancy employee — can view all, limited management rights |
-| Customer Admin | A client company's manager — can manage their own users |
-| Customer User | An individual within a client company — accesses only their assigned documents |
-| Read-only / Auditor | View access only, no signing |
+`ADMIN_ROLES` (`Platform Admin`, `Tenant Admin`) is used as the gate for all admin API routes and the admin portal UI. The `ROLE_PERMISSIONS` map in `rbac.ts` defines what each role can do.
 
-Role assignments must be per-tenant once multi-tenancy is introduced. The current approach of attaching roles directly to the JWT will need to evolve to include tenant context.
+### What remains
+- Role assignments will need to be per-tenant once multi-tenancy is introduced — the JWT will need to carry tenant context alongside the role.
+- `Read-only / Auditor` role deferred until a concrete use case appears.
 
 ---
 

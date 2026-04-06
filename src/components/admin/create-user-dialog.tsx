@@ -41,7 +41,7 @@ export function CreateUserDialog({
     displayName: '',
     email: '',
     password: '',
-    role: 'Customer', // Default to Customer role
+    role: 'Customer User', // Default to Customer User role
     accountEnabled: true
   })
 
@@ -121,7 +121,7 @@ export function CreateUserDialog({
         displayName: '',
         email: '',
         password: '',
-        role: 'Customer',
+        role: 'Customer User',
         accountEnabled: true
       })
     } catch (error) {
@@ -214,9 +214,11 @@ export function CreateUserDialog({
                   <SelectValue placeholder='Select a role' />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value='Administrator'>Administrator</SelectItem>
-                  <SelectItem value='Employee'>Employee</SelectItem>
-                  <SelectItem value='Customer'>Customer</SelectItem>
+                  <SelectItem value='Platform Admin'>Platform Admin</SelectItem>
+                  <SelectItem value='Tenant Admin'>Tenant Admin</SelectItem>
+                  <SelectItem value='Tenant Staff'>Tenant Staff</SelectItem>
+                  <SelectItem value='Customer Admin'>Customer Admin</SelectItem>
+                  <SelectItem value='Customer User'>Customer User</SelectItem>
                 </SelectContent>
               </Select>
             </div>

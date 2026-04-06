@@ -35,7 +35,7 @@ export async function createUser({
   email,
   password,
   displayName,
-  role = 'Customer'
+  role = 'Customer User'
 }: {
   email: string
   password: string
