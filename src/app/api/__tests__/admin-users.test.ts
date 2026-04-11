@@ -55,7 +55,8 @@ const BASE_USER = {
   passwordHash: '$hashed',
   role: 'Customer User',
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
-  tenantId: null
+  tenantId: null,
+  customerCompanyId: null
 }
 
 function jsonRequest(url: string, method: string, body?: unknown): NextRequest {

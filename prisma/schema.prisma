@@ -23,30 +23,36 @@ model Tenant {
   name      String
   createdAt DateTime @default(now())
 
-  users User[]
+  users             User[]
+  customerCompanies CustomerCompany[]
+  documentTemplates DocumentTemplate[]
 }
 
 // ---------------------------------------------------------------------------
 // Users
-// Replaces the Azure Table Storage `users` table.
+// Consultancy staff and customer users share this model for authentication.
+// Customer-role users (Customer Admin / Customer User) link to a
+// CustomerCompany via customerCompanyId.
 // ---------------------------------------------------------------------------
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  displayName  String
-  passwordHash String
-  role         String    @default("Customer User")
-  createdAt    DateTime  @default(now())
-  tenantId     String? // null = default single-tenant; required when multi-tenancy is enforced
+  id                String   @id @default(cuid())
+  email             String   @unique
+  displayName       String
+  passwordHash      String
+  role              String   @default("Customer User")
+  createdAt         DateTime @default(now())
+  tenantId          String? // null = default single-tenant; required when multi-tenancy is enforced
+  customerCompanyId String? // null for consultancy staff; required for customer-role users
 
-  tenant        Tenant?        @relation(fields: [tenantId], references: [id])
-  passwordReset PasswordReset?
+  tenant          Tenant?          @relation(fields: [tenantId], references: [id])
+  customerCompany CustomerCompany? @relation(fields: [customerCompanyId], references: [id])
+  passwordReset   PasswordReset?
+  completions     CompletionRecord[]
 }
 
 // ---------------------------------------------------------------------------
 // Password resets
-// Replaces the Azure Table Storage `passwordResets` table.
 // One token per user at a time; expires after 1 hour.
 // ---------------------------------------------------------------------------
 
@@ -58,4 +64,69 @@ model PasswordReset {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [email], references: [email])
+}
+
+// ---------------------------------------------------------------------------
+// Document model
+// templates → assignments → completions
+// ---------------------------------------------------------------------------
+
+// A client business served by the consultancy.
+model CustomerCompany {
+  id         String   @id @default(cuid())
+  name       String
+  tenantId   String?
+  folderPath String? // blob storage folder path; auto-set on creation
+  createdAt  DateTime @default(now())
+
+  tenant      Tenant?      @relation(fields: [tenantId], references: [id])
+  users       User[]
+  assignments Assignment[]
+}
+
+// A reusable H&S document maintained by the consultancy.
+// blobPath is the path to the template file in Azure Blob Storage; nullable
+// because form-based templates may not have a backing file initially.
+model DocumentTemplate {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  blobPath    String? // path in Azure Blob Storage; null for form-only templates
+  tenantId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant?      @relation(fields: [tenantId], references: [id])
+  assignments Assignment[]
+}
+
+// Links a DocumentTemplate to a CustomerCompany.
+// A template can only be assigned once per company.
+model Assignment {
+  id                String   @id @default(cuid())
+  templateId        String
+  customerCompanyId String
+  createdAt         DateTime @default(now())
+
+  template        DocumentTemplate @relation(fields: [templateId], references: [id])
+  customerCompany CustomerCompany  @relation(fields: [customerCompanyId], references: [id])
+  completions     CompletionRecord[]
+
+  @@unique([templateId, customerCompanyId])
+}
+
+// A customer user's signed completion of an assigned document.
+// blobPath is nullable — PDF generation is a future step; for now a
+// completion is recorded as an audit trail entry only.
+// formData stores structured form responses for future Document Intelligence.
+model CompletionRecord {
+  id           String   @id @default(cuid())
+  assignmentId String
+  signedById   String // User.id of the signer
+  signedAt     DateTime @default(now())
+  blobPath     String? // path to signed PDF in Azure Blob Storage; null until PDF generation is built
+  formData     Json? // structured form data; populated when Document Intelligence is added
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id])
+  signedBy   User       @relation(fields: [signedById], references: [id])
 }

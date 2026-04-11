@@ -12,6 +12,12 @@ export const ADMIN_ROLES: readonly UserRole[] = [
   UserRole.TENANT_ADMIN
 ]
 
+// Roles for client-company users
+export const CUSTOMER_ROLES: readonly UserRole[] = [
+  UserRole.CUSTOMER_ADMIN,
+  UserRole.CUSTOMER_USER
+]
+
 export enum Permission {
   // Document permissions
   VIEW_DOCUMENTS = 'view:documents',

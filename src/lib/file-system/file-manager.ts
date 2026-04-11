@@ -132,7 +132,8 @@ export class FileManager {
         : ''
 
       const files: FileItem[] = []
-      const folders = new Set<string>()
+      // Map of folderName → creation date string
+      const folderDates = new Map<string, string>()
 
       for await (const blob of this.containerClient.listBlobsFlat({ prefix })) {
         if (blob.name === `${prefix}${FOLDER_MARKER}`) {
@@ -148,7 +149,10 @@ export class FileManager {
           if (isDirectChild(folderPath, normalizedPath)) {
             const folderName =
               folderPath.split(FOLDER_SEPARATOR).pop() ?? folderPath
-            folders.add(folderName)
+            folderDates.set(
+              folderName,
+              blob.properties.lastModified?.toLocaleDateString() ?? '-'
+            )
           }
           continue
         }
@@ -157,8 +161,12 @@ export class FileManager {
 
         if (relativePath.includes(FOLDER_SEPARATOR)) {
           const folderName = relativePath.split(FOLDER_SEPARATOR)[0]
-          if (folderName && folderName !== FOLDER_MARKER) {
-            folders.add(folderName)
+          if (
+            folderName &&
+            folderName !== FOLDER_MARKER &&
+            !folderDates.has(folderName)
+          ) {
+            folderDates.set(folderName, '-')
           }
         } else {
           files.push({
@@ -175,20 +183,34 @@ export class FileManager {
         }
       }
 
-      const folderItems = Array.from(folders).map((folderName) => ({
-        name: folderName,
-        path: normalizedPath,
-        fullPath: normalizedPath
-          ? `${normalizedPath}/${folderName}`
-          : folderName,
-        isFolder: true
-      }))
+      const folderItems = Array.from(folderDates.entries()).map(
+        ([folderName, uploadedAt]) => ({
+          name: folderName,
+          path: normalizedPath,
+          fullPath: normalizedPath
+            ? `${normalizedPath}/${folderName}`
+            : folderName,
+          isFolder: true,
+          uploadedAt
+        })
+      )
 
       return [...folderItems, ...files]
     } catch (error) {
       console.error(`Error listing contents for path: ${path}`, error)
       return []
     }
+  }
+
+  public async getFolderSize(folderPath: string): Promise<number> {
+    const prefix = folderPath ? `${folderPath}${FOLDER_SEPARATOR}` : ''
+    let totalBytes = 0
+    for await (const blob of this.containerClient.listBlobsFlat({ prefix })) {
+      if (!blob.name.endsWith(FOLDER_MARKER)) {
+        totalBytes += blob.properties.contentLength ?? 0
+      }
+    }
+    return totalBytes
   }
 }
 

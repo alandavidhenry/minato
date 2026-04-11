@@ -9,6 +9,7 @@ export interface UserData {
   passwordHash: string
   role: string
   createdAt: string
+  customerCompanyId: string | null
 }
 
 type PrismaUser = {
@@ -18,6 +19,7 @@ type PrismaUser = {
   passwordHash: string
   role: string
   createdAt: Date
+  customerCompanyId: string | null
 }
 
 function toUserData(user: PrismaUser): UserData {
@@ -27,7 +29,8 @@ function toUserData(user: PrismaUser): UserData {
     displayName: user.displayName,
     passwordHash: user.passwordHash,
     role: user.role,
-    createdAt: user.createdAt.toISOString()
+    createdAt: user.createdAt.toISOString(),
+    customerCompanyId: user.customerCompanyId
   }
 }
 
@@ -35,12 +38,14 @@ export async function createUser({
   email,
   password,
   displayName,
-  role = 'Customer User'
+  role = 'Customer User',
+  customerCompanyId
 }: {
   email: string
   password: string
   displayName: string
   role?: string
+  customerCompanyId?: string
 }): Promise<UserData | null> {
   try {
     const existing = await prisma.user.findUnique({ where: { email } })
@@ -49,7 +54,7 @@ export async function createUser({
     const passwordHash = await bcrypt.hash(password, 10)
 
     const user = await prisma.user.create({
-      data: { email, displayName, passwordHash, role }
+      data: { email, displayName, passwordHash, role, customerCompanyId }
     })
 
     return toUserData(user)

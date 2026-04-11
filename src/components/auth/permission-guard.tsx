@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
 import { useRBAC } from '@/components/providers/rbac-provider'
-import { Permission, UserRole } from '@/types/rbac'
+import { CUSTOMER_ROLES, Permission, UserRole } from '@/types/rbac'
 
 // Props for requiring permission
 interface RequirePermissionProps {
@@ -70,6 +70,28 @@ export function RequireAuth({ children, fallback = null }: RequireAuthProps) {
 // Props for a page that requires admin access
 interface AdminPageGuardProps {
   readonly children: React.ReactNode
+}
+
+// Component to guard an entire page that requires customer access
+export function CustomerPageGuard({
+  children
+}: {
+  readonly children: React.ReactNode
+}) {
+  const { hasRole, isLoading } = useRBAC()
+  const router = useRouter()
+
+  const isCustomer = CUSTOMER_ROLES.some((role) => hasRole(role as UserRole))
+
+  useEffect(() => {
+    if (!isLoading && !isCustomer) {
+      router.push('/unauthorized')
+    }
+  }, [isCustomer, isLoading, router])
+
+  if (isLoading || !isCustomer) return null
+
+  return <>{children}</>
 }
 
 // Component to guard an entire page that requires admin access

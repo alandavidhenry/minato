@@ -26,7 +26,7 @@ Document management portal built on **Next.js 16 App Router** with **Azure** as 
 ### Data Layer
 - **Azure Blob Storage** — file storage, organized in hierarchical paths with versioning via naming convention; SAS tokens for secure temporary access (`src/lib/storage.ts`, `src/lib/file-system/`)
 - **Azure Table Storage** — one table: `activityLogs` (audit trail only); accessed via `@azure/data-tables` (`src/lib/activity-logger.ts`)
-- **Neon PostgreSQL + Prisma** — users and password resets; schema in `prisma/schema.prisma`; Prisma client generated to `src/generated/prisma/`; singleton at `src/lib/prisma.ts`; uses `@prisma/adapter-pg` driver (`src/lib/user-database.ts`, `src/lib/password-reset.ts`); schema includes `Tenant` model and nullable `tenantId` on `User` for future multi-tenancy
+- **Neon PostgreSQL + Prisma** — all relational data; schema in `prisma/schema.prisma`; Prisma client generated to `src/generated/prisma/`; singleton at `src/lib/prisma.ts`; uses `@prisma/adapter-pg` driver; models: `Tenant`, `User`, `PasswordReset`, `CustomerCompany`, `DocumentTemplate`, `Assignment`, `CompletionRecord`; lib functions in `src/lib/customer-companies.ts`, `src/lib/document-templates.ts`, `src/lib/assignments.ts`, `src/lib/completion-records.ts`
 - **Azurite emulator** — set `USE_AZURITE=true` in `.env.local` for Azure Storage local development; PostgreSQL connects to Neon (or local DB) via `DATABASE_URL`
 
 ### Authentication
@@ -40,9 +40,10 @@ Transactional email (password reset) is sent via **Azure Communication Services 
 ### App Structure
 ```
 src/app/
-  admin/            # Admin dashboard (users, activity logs, settings)
-  api/              # Route handlers — auth, documents, folders, scan, shorturl, health
-  documents/        # Main file browser UI
+  admin/            # Admin dashboard (users, companies, templates, activity logs, settings)
+  api/              # Route handlers — auth, documents, folders, scan, shorturl, health, admin/*, customer/*
+  customer/         # Customer-facing pages (documents/assignments view)
+  documents/        # Consultancy staff file browser UI
   scan/             # Document scanning
   shared/           # Public shared document views
   s/                # Short URL redirects
@@ -133,7 +134,7 @@ Core document model (target state — not yet implemented):
 
 **Current coverage:**
 - Unit: full coverage of `src/lib/` and `src/lib/file-system/`
-- Integration: `health` (checks db + storage, all pass/fail combinations), admin user CRUD, password reset flows, all document API routes (`upload`, `download`, `delete`, `move`, `rename`, `share`, `versions`)
+- Integration: `health`, admin user CRUD, password reset flows, all document API routes, admin companies/templates/assignments CRUD, customer assignments/completions routes
 - E2E: not yet started
 
 **TDD workflow:** define interface types → write tests → implement to pass tests. Always request tests before implementation. Target >90% coverage on `src/lib/`.
@@ -150,7 +151,7 @@ Add E2E tests (Playwright) once the document model is more stable. Add E2E step 
 See `future-considerations.md` for full architectural analysis. Key decisions pending:
 
 - **Database migration** — ✅ Done. Users and password resets now use Neon PostgreSQL via Prisma. Schema includes `Tenant` model and nullable `tenantId` on `User` ready for multi-tenancy. Activity logs remain in Azure Table Storage.
-- **Document model** — templates → assignments → completions. Relational. Cannot be cleanly built on Table Storage.
+- **Document model** — ✅ Done. Schema, API routes, tests, and UI all built. See below.
 - **Role model** — ✅ Done. Five roles implemented: `Platform Admin`, `Tenant Admin`, `Tenant Staff`, `Customer Admin`, `Customer User`. Defined in `src/types/rbac.ts`; `ADMIN_ROLES` constant used for admin-gate checks across all routes.
 - **Electronic signing** — start with server-side PDF generation (React-PDF) + audit trail. Signature pad (canvas) as next step. Third-party e-signing only if legally required.
 - **Multi-tenancy** — design schema for it now, build it later.

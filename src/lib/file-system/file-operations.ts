@@ -5,6 +5,7 @@ import {
 } from '@azure/storage-blob'
 
 import { logActivity, ActivityType } from '../activity-logger'
+import { parseFileName } from '../version-manager'
 
 import { isValidName, normalizePath } from './path-utils'
 import { FileOperationResult } from './types'
@@ -16,16 +17,31 @@ export async function deleteFile(
   userName: string
 ): Promise<FileOperationResult> {
   try {
-    const blobClient = containerClient.getBlobClient(filePath)
+    const { baseName } = parseFileName(filePath)
 
-    if (!(await blobClient.exists())) {
+    // Scope the scan to the same folder so we don't walk the whole container
+    const lastSlash = filePath.lastIndexOf('/')
+    const prefix = lastSlash > 0 ? filePath.substring(0, lastSlash + 1) : ''
+
+    // Collect every blob that belongs to this document (all versions)
+    const toDelete: string[] = []
+    for await (const blob of containerClient.listBlobsFlat({ prefix })) {
+      const { baseName: blobBase } = parseFileName(blob.name)
+      if (blobBase === baseName) {
+        toDelete.push(blob.name)
+      }
+    }
+
+    if (toDelete.length === 0) {
       return {
         success: false,
         message: `File "${filePath}" does not exist.`
       }
     }
 
-    await blobClient.delete()
+    for (const blobPath of toDelete) {
+      await containerClient.getBlobClient(blobPath).delete()
+    }
 
     await logActivity({
       userId,
