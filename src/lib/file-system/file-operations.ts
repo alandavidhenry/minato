@@ -139,7 +139,14 @@ export async function renameFile(
       data: { oldPath, newPath }
     }
   } catch (error) {
-    console.error('Error renaming file from', oldPath, 'to', newName, ':', error)
+    console.error(
+      'Error renaming file from',
+      oldPath,
+      'to',
+      newName,
+      ':',
+      error
+    )
     return {
       success: false,
       message: `Failed to rename file: ${error instanceof Error ? error.message : 'Unknown error'}`,
