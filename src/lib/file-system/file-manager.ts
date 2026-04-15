@@ -197,7 +197,7 @@ export class FileManager {
 
       return [...folderItems, ...files]
     } catch (error) {
-      console.error(`Error listing contents for path: ${path}`, error)
+      console.error('Error listing contents for path:', path, error)
       return []
     }
   }

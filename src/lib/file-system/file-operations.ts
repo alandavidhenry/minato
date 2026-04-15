@@ -55,7 +55,7 @@ export async function deleteFile(
       message: `File "${filePath}" deleted successfully.`
     }
   } catch (error) {
-    console.error(`Error deleting file: ${filePath}`, error)
+    console.error('Error deleting file:', filePath, ':', error)
     return {
       success: false,
       message: `Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -139,7 +139,7 @@ export async function renameFile(
       data: { oldPath, newPath }
     }
   } catch (error) {
-    console.error(`Error renaming file from ${oldPath} to ${newName}:`, error)
+    console.error('Error renaming file from', oldPath, 'to', newName, ':', error)
     return {
       success: false,
       message: `Failed to rename file: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -170,7 +170,7 @@ export async function generateDownloadUrl(
       protocol: SASProtocol.Https
     })
   } catch (error) {
-    console.error(`Error generating download URL for ${filePath}:`, error)
+    console.error('Error generating download URL for', filePath, ':', error)
     return null
   }
 }

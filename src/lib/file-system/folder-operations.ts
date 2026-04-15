@@ -39,7 +39,7 @@ export async function folderExists(
     const blockBlobClient = containerClient.getBlobClient(markerPath)
     return await blockBlobClient.exists()
   } catch (error) {
-    console.error(`Error checking if folder exists: ${folderPath}`, error)
+    console.error('Error checking if folder exists:', folderPath, error)
     return false
   }
 }
@@ -83,7 +83,7 @@ export async function createFolder(
       data: { path: normalizedPath }
     }
   } catch (error) {
-    console.error(`Error creating folder: ${folderPath}`, error)
+    console.error('Error creating folder:', folderPath, error)
     return {
       success: false,
       message: `Failed to create folder: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -126,7 +126,7 @@ export async function deleteFolder(
         await containerClient.getBlobClient(blobName).delete()
         deletedCount++
       } catch (blobError) {
-        console.error(`Failed to delete blob ${blobName}:`, blobError)
+        console.error('Failed to delete blob:', blobName, blobError)
       }
     }
 
@@ -143,7 +143,7 @@ export async function deleteFolder(
       data: { deletedCount }
     }
   } catch (error) {
-    console.error(`Error deleting folder: ${folderPath}`, error)
+    console.error('Error deleting folder:', folderPath, error)
     return {
       success: false,
       message: `Failed to delete folder: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -200,7 +200,7 @@ export async function renameFolder(
         blobs.push(blob.name)
       }
     } catch (error) {
-      console.error(`Error listing blobs for folder ${normalizedPath}:`, error)
+      console.error('Error listing blobs for folder:', normalizedPath, error)
       return {
         success: false,
         message: `Error listing folder contents: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -254,12 +254,16 @@ export async function renameFolder(
         } else {
           errorCount++
           console.error(
-            `Failed to copy blob ${blobName} during folder rename. Status: ${copyResult.copyStatus}`
+            'Failed to copy blob during folder rename:',
+            blobName,
+            'Status:',
+            copyResult.copyStatus
           )
         }
       } catch (error) {
         console.error(
-          `Error processing blob ${blobName} during folder rename:`,
+          'Error processing blob during folder rename:',
+          blobName,
           error
         )
         errorCount++
@@ -288,7 +292,7 @@ export async function renameFolder(
       data: { oldPath: normalizedPath, newPath, copiedCount, errorCount }
     }
   } catch (error) {
-    console.error(`Error renaming folder from ${oldPath} to ${newName}:`, error)
+    console.error('Error renaming folder from', oldPath, 'to', newName, error)
     return {
       success: false,
       message: `Failed to rename folder: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -343,7 +347,8 @@ export async function moveFolder(
       }
     } catch (error) {
       console.error(
-        `Error listing blobs for folder ${normalizedSourcePath}:`,
+        'Error listing blobs for folder:',
+        normalizedSourcePath,
         error
       )
       return {
@@ -375,12 +380,16 @@ export async function moveFolder(
         } else {
           errorCount++
           console.error(
-            `Failed to copy blob ${blobName} during folder move. Status: ${copyResult.copyStatus}`
+            'Failed to copy blob during folder move:',
+            blobName,
+            'Status:',
+            copyResult.copyStatus
           )
         }
       } catch (error) {
         console.error(
-          `Error processing blob ${blobName} during folder move:`,
+          'Error processing blob during folder move:',
+          blobName,
           error
         )
         errorCount++
@@ -415,7 +424,10 @@ export async function moveFolder(
     }
   } catch (error) {
     console.error(
-      `Error moving folder from ${sourcePath} to ${targetPath}:`,
+      'Error moving folder from',
+      sourcePath,
+      'to',
+      targetPath,
       error
     )
     return {

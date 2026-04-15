@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
         data: result.data
       })
     } else {
-      console.error(`Move error: ${result.message}`)
+      console.error('Move error:', result.message)
       return NextResponse.json({ error: result.message }, { status: 400 })
     }
   } catch (error) {
