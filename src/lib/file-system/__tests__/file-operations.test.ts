@@ -16,7 +16,15 @@ vi.mock('../../activity-logger', () => ({
   }
 }))
 
-function makeContainerClient() {
+function makeAsyncIterable<T>(items: T[]) {
+  return {
+    [Symbol.asyncIterator]: async function* () {
+      for (const item of items) yield item
+    }
+  }
+}
+
+function makeContainerClient(blobNames: string[] = []) {
   const mockBlobClient = {
     exists: vi.fn(),
     delete: vi.fn().mockResolvedValue({}),
@@ -28,16 +36,20 @@ function makeContainerClient() {
   }
 
   const containerClient = {
-    getBlobClient: vi.fn(() => mockBlobClient)
+    getBlobClient: vi.fn(() => mockBlobClient),
+    listBlobsFlat: vi.fn(() =>
+      makeAsyncIterable(blobNames.map((name) => ({ name })))
+    )
   }
 
   return { containerClient, mockBlobClient }
 }
 
 describe('deleteFile', () => {
-  it('deletes the file and returns success when it exists', async () => {
-    const { containerClient, mockBlobClient } = makeContainerClient()
-    mockBlobClient.exists.mockResolvedValue(true)
+  it('deletes a single-version file and returns success', async () => {
+    const { containerClient, mockBlobClient } = makeContainerClient([
+      'report.pdf'
+    ])
 
     const result = await deleteFile(
       containerClient as never,
@@ -50,9 +62,43 @@ describe('deleteFile', () => {
     expect(mockBlobClient.delete).toHaveBeenCalledOnce()
   })
 
-  it('returns a failure message when the file does not exist', async () => {
-    const { containerClient, mockBlobClient } = makeContainerClient()
-    mockBlobClient.exists.mockResolvedValue(false)
+  it('deletes all versions when multiple exist', async () => {
+    const { containerClient, mockBlobClient } = makeContainerClient([
+      'report_v_2024-01-01T00-00-00-000Z.pdf',
+      'report_v_2024-01-02T00-00-00-000Z.pdf',
+      'report_v_2024-01-03T00-00-00-000Z.pdf'
+    ])
+
+    const result = await deleteFile(
+      containerClient as never,
+      'report_v_2024-01-03T00-00-00-000Z.pdf', // latest version passed
+      'user-1',
+      'Alice'
+    )
+
+    expect(result.success).toBe(true)
+    expect(mockBlobClient.delete).toHaveBeenCalledTimes(3)
+  })
+
+  it('does not delete unrelated files in the same folder', async () => {
+    const { containerClient, mockBlobClient } = makeContainerClient([
+      'report_v_2024-01-01T00-00-00-000Z.pdf',
+      'other-doc.pdf'
+    ])
+
+    await deleteFile(
+      containerClient as never,
+      'report_v_2024-01-01T00-00-00-000Z.pdf',
+      'user-1',
+      'Alice'
+    )
+
+    // Only 1 delete call — not 2
+    expect(mockBlobClient.delete).toHaveBeenCalledOnce()
+  })
+
+  it('returns failure when no matching blobs exist', async () => {
+    const { containerClient, mockBlobClient } = makeContainerClient([])
 
     const result = await deleteFile(
       containerClient as never,
@@ -67,8 +113,9 @@ describe('deleteFile', () => {
   })
 
   it('returns a failure on unexpected errors', async () => {
-    const { containerClient, mockBlobClient } = makeContainerClient()
-    mockBlobClient.exists.mockResolvedValue(true)
+    const { containerClient, mockBlobClient } = makeContainerClient([
+      'report.pdf'
+    ])
     mockBlobClient.delete.mockRejectedValue(new Error('network error'))
 
     const result = await deleteFile(

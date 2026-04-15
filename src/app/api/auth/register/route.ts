@@ -4,14 +4,15 @@ import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
 import { createUser } from '@/lib/user-database'
-import { UserRole } from '@/types/rbac'
+import { ADMIN_ROLES } from '@/types/rbac'
 
 // POST: Register a new user (admin only)
 export async function POST(request: NextRequest) {
   // Check if user is admin (only admins can create users)
   const session = await getServerSession(authOptions)
+  const roles = session?.user?.roles ?? []
 
-  if (!session?.user?.roles?.includes(UserRole.ADMIN)) {
+  if (!roles.some((r) => ADMIN_ROLES.includes(r))) {
     return NextResponse.json(
       { error: 'Unauthorized. Admin access required.' },
       { status: 403 }
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
       email: data.email,
       password: data.password,
       displayName: data.displayName,
-      role: data.role || 'Customer'
+      role: data.role || 'Customer User'
     })
 
     if (!user) {

@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         newPath: result.data?.newPath
       })
     } else {
-      console.error(`Rename error: ${result.message}`)
+      console.error('Rename error:', result.message)
       return NextResponse.json({ error: result.message }, { status: 400 })
     }
   } catch (error) {

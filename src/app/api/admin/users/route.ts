@@ -4,18 +4,13 @@ import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
 import { getAllUsers } from '@/lib/user-database'
-import { UserRole } from '@/types/rbac'
+import { ADMIN_ROLES } from '@/types/rbac'
 
 // Middleware to check admin permissions
 async function checkAdminPermission() {
   const session = await getServerSession(authOptions)
-
-  // Check if user is logged in and has admin role
-  if (!session?.user?.roles?.includes(UserRole.ADMIN)) {
-    return false
-  }
-
-  return true
+  const roles = session?.user?.roles ?? []
+  return roles.some((r) => ADMIN_ROLES.includes(r))
 }
 
 // GET: List all users

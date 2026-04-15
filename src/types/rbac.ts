@@ -1,8 +1,22 @@
 export enum UserRole {
-  ADMIN = 'Administrator',
-  EMPLOYEE = 'Employee',
-  CUSTOMER = 'Customer'
+  PLATFORM_ADMIN = 'Platform Admin',
+  TENANT_ADMIN = 'Tenant Admin',
+  TENANT_STAFF = 'Tenant Staff',
+  CUSTOMER_ADMIN = 'Customer Admin',
+  CUSTOMER_USER = 'Customer User'
 }
+
+// Roles that have access to the admin portal
+export const ADMIN_ROLES: readonly UserRole[] = [
+  UserRole.PLATFORM_ADMIN,
+  UserRole.TENANT_ADMIN
+]
+
+// Roles for client-company users
+export const CUSTOMER_ROLES: readonly UserRole[] = [
+  UserRole.CUSTOMER_ADMIN,
+  UserRole.CUSTOMER_USER
+]
 
 export enum Permission {
   // Document permissions
@@ -27,7 +41,7 @@ export enum Permission {
 export const ROLE_PERMISSIONS: Readonly<
   Record<UserRole, readonly Permission[]>
 > = {
-  [UserRole.ADMIN]: [
+  [UserRole.PLATFORM_ADMIN]: [
     Permission.VIEW_DOCUMENTS,
     Permission.UPLOAD_DOCUMENTS,
     Permission.DOWNLOAD_DOCUMENTS,
@@ -41,7 +55,21 @@ export const ROLE_PERMISSIONS: Readonly<
     Permission.EDIT_SETTINGS,
     Permission.VIEW_SETTINGS
   ],
-  [UserRole.EMPLOYEE]: [
+  [UserRole.TENANT_ADMIN]: [
+    Permission.VIEW_DOCUMENTS,
+    Permission.UPLOAD_DOCUMENTS,
+    Permission.DOWNLOAD_DOCUMENTS,
+    Permission.DELETE_DOCUMENTS,
+    Permission.SHARE_DOCUMENTS,
+    Permission.VIEW_USERS,
+    Permission.CREATE_USERS,
+    Permission.UPDATE_USERS,
+    Permission.DELETE_USERS,
+    Permission.ASSIGN_ROLES,
+    Permission.EDIT_SETTINGS,
+    Permission.VIEW_SETTINGS
+  ],
+  [UserRole.TENANT_STAFF]: [
     Permission.VIEW_DOCUMENTS,
     Permission.UPLOAD_DOCUMENTS,
     Permission.DOWNLOAD_DOCUMENTS,
@@ -50,7 +78,15 @@ export const ROLE_PERMISSIONS: Readonly<
     Permission.VIEW_USERS,
     Permission.VIEW_SETTINGS
   ],
-  [UserRole.CUSTOMER]: [Permission.VIEW_DOCUMENTS]
+  [UserRole.CUSTOMER_ADMIN]: [
+    Permission.VIEW_DOCUMENTS,
+    Permission.DOWNLOAD_DOCUMENTS,
+    Permission.VIEW_USERS
+  ],
+  [UserRole.CUSTOMER_USER]: [
+    Permission.VIEW_DOCUMENTS,
+    Permission.DOWNLOAD_DOCUMENTS
+  ]
 }
 
 export interface RBACUser {
@@ -74,5 +110,5 @@ export function hasPermission(
   permission: Permission
 ): boolean {
   if (!user) return false
-  return user.roles.some((role) => ROLE_PERMISSIONS[role].includes(permission))
+  return user.roles.some((role) => ROLE_PERMISSIONS[role]?.includes(permission))
 }

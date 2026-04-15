@@ -101,8 +101,9 @@ export default function UsersPage() {
 
   // Extract badge variant logic into a function with proper return type
   function getRoleBadgeVariant(role: string): BadgeVariant {
-    if (role === 'Administrator') return 'destructive'
-    if (role === 'Employee') return 'default'
+    if (role === 'Platform Admin' || role === 'Tenant Admin')
+      return 'destructive'
+    if (role === 'Tenant Staff') return 'default'
     return 'secondary'
   }
 

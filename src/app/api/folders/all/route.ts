@@ -101,7 +101,7 @@ async function fetchFolderContents(
 
     return result
   } catch (error) {
-    console.error(`Error fetching contents for ${folderPath}:`, error)
+    console.error('Error fetching contents for:', folderPath, error)
     return []
   }
 }

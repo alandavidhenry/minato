@@ -4,19 +4,19 @@ import { getServerSession } from 'next-auth'
 
 import { getActivityLogs } from '@/lib/activity-logger'
 import { authOptions } from '@/lib/auth'
-import { UserRole } from '@/types/rbac'
+import { ADMIN_ROLES, UserRole } from '@/types/rbac'
+
+// Roles that can view activity logs (admins + tenant staff)
+const ACTIVITY_ROLES = [...ADMIN_ROLES, UserRole.TENANT_STAFF]
 
 // GET: List all activity logs
 export async function GET(request: NextRequest) {
   // Check authentication
   const session = await getServerSession(authOptions)
+  const roles = session?.user?.roles ?? []
 
-  // Check if user is logged in and has admin or employee role
-  if (
-    !session?.user?.roles?.some(
-      (role) => role === UserRole.ADMIN || role === UserRole.EMPLOYEE
-    )
-  ) {
+  // Check if user is logged in and has admin or staff role
+  if (!roles.some((role) => ACTIVITY_ROLES.includes(role))) {
     return NextResponse.json(
       { error: 'Unauthorized. Admin or Employee access required.' },
       { status: 403 }

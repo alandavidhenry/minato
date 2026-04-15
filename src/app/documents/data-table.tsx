@@ -33,11 +33,13 @@ import { useMediaQuery } from '@/hooks/use-media-query'
 interface DataTableProps<TData, TValue> {
   readonly columns: ColumnDef<TData, TValue>[]
   readonly data: TData[]
+  readonly readOnly?: boolean
 }
 
 export function DataTable<TData, TValue>({
   columns,
-  data
+  data,
+  readOnly = false
 }: DataTableProps<TData, TValue>) {
   const { data: session } = useSession()
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
@@ -49,10 +51,14 @@ export function DataTable<TData, TValue>({
   // Use the media query hook
   const isDesktop = useMediaQuery('(min-width: 768px)')
 
+  const visibleColumns = readOnly
+    ? columns.filter((c) => c.id !== 'select' && c.id !== 'actions')
+    : columns
+
   // Get the table instance
   const table = useReactTable({
     data,
-    columns,
+    columns: visibleColumns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -141,7 +147,7 @@ export function DataTable<TData, TValue>({
   return (
     <div className='space-y-4'>
       {/* Selection toolbar */}
-      {hasSelectedRows && (
+      {!readOnly && hasSelectedRows && (
         <div className='flex items-center justify-between bg-muted/50 p-2 rounded-md'>
           <div className='text-sm'>
             {selectedRows.length} {selectedRows.length === 1 ? 'item' : 'items'}{' '}
@@ -247,13 +253,15 @@ export function DataTable<TData, TValue>({
                   >
                     <div className='flex items-center justify-between'>
                       <div className='flex items-center gap-2'>
-                        <Checkbox
-                          checked={row.getIsSelected()}
-                          onCheckedChange={(value) =>
-                            row.toggleSelected(!!value)
-                          }
-                          aria-label='Select row'
-                        />
+                        {!readOnly && (
+                          <Checkbox
+                            checked={row.getIsSelected()}
+                            onCheckedChange={(value) =>
+                              row.toggleSelected(!!value)
+                            }
+                            aria-label='Select row'
+                          />
+                        )}
                         {/* Document name cell with icon */}
                         {nameCell &&
                           flexRender(

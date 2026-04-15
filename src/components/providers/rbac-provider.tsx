@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react'
 import { createContext, useContext, useMemo } from 'react'
 
 import {
+  ADMIN_ROLES,
   Permission,
   UserRole,
   hasPermission,
@@ -51,13 +52,13 @@ export function RBACProvider({
       name: session.user.name,
       email: session.user.email,
       image: session.user.image,
-      roles: session.user.roles || [UserRole.CUSTOMER]
+      roles: session.user.roles || [UserRole.CUSTOMER_USER]
     }
   }, [session?.user])
 
   // Determine if the user is an admin (memoized)
   const isAdmin = useMemo(() => {
-    return user ? hasRole(user, UserRole.ADMIN) : false
+    return user ? ADMIN_ROLES.some((role) => user.roles.includes(role)) : false
   }, [user])
 
   // Check if the user is authenticated

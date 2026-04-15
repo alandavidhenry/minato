@@ -16,6 +16,36 @@ import { ShareCell } from './cell-components/ShareCell'
 import { VersionCell } from './cell-components/VersionCell'
 import { sortBySize } from './helpers/sort-helper'
 
+// Columns used at the root level — company folders only.
+// No selection, no actions, no type, no version.
+export const rootColumns: ColumnDef<Document>[] = [
+  {
+    accessorKey: 'name',
+    header: 'Name',
+    cell: ({ row }) => (
+      <DocumentNameCell
+        name={row.getValue('name')}
+        type='folder'
+        hasVersions={false}
+        isFolder={true}
+        path={row.original.path}
+      />
+    ),
+    enableSorting: true
+  },
+  {
+    accessorKey: 'uploadedAt',
+    header: 'Creation Date',
+    enableSorting: true
+  },
+  {
+    accessorKey: 'size',
+    header: 'Total Size',
+    enableSorting: true,
+    sortingFn: sortBySize
+  }
+]
+
 export const columns: ColumnDef<Document>[] = [
   // Selection column
   {

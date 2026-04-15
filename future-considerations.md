@@ -51,23 +51,19 @@ The document model (templates → assignments → completions) requires:
 
 Table Storage handles none of these well.
 
-### Schema (current)
+### Schema (current — as of 2026-04)
 
 ```
 Tenant              — one row per H&S company using the platform (future multi-tenancy; populated when needed)
-User                — belongs to a Tenant (tenantId nullable until multi-tenancy is enforced); has a Role
+User                — belongs to a Tenant; has a Role; customer-role users also link to a CustomerCompany
 PasswordReset       — one token per user; expires after 1 hour
-```
-
-### Schema (target — next additions)
-
-```
 CustomerCompany     — a client business; belongs to a Tenant
-CustomerUser        — a user within a CustomerCompany; has a Role
-DocumentTemplate    — a reusable H&S document; belongs to a Tenant
-Assignment          — links a DocumentTemplate to a CustomerCompany (or individual CustomerUser)
-CompletionRecord    — when a CustomerUser signs an Assignment; stores signer, timestamp, blob path to signed PDF
+DocumentTemplate    — a reusable H&S document; belongs to a Tenant; blobPath nullable (form-only templates)
+Assignment          — links a DocumentTemplate to a CustomerCompany; unique per [templateId, customerCompanyId]
+CompletionRecord    — a customer user's signed completion; blobPath nullable until PDF generation is built; formData Json? for Document Intelligence
 ```
+
+No separate `CustomerUser` model — the existing `User` model covers customer users via `customerCompanyId` (nullable; set for Customer Admin / Customer User roles, null for consultancy staff).
 
 ### Remaining deployment work
 - Migrate existing users from Azure Table Storage to PostgreSQL (one-time data migration script needed if there are production users)
@@ -77,22 +73,22 @@ CompletionRecord    — when a CustomerUser signs an Assignment; stores signer, 
 
 ## Role Model
 
-### Current roles
-`Admin`, `Customer` — coarse-grained, stored on the JWT.
+### Current roles (as of 2026-04)
+Five roles are implemented, stored as strings in the `User.role` column and attached to the JWT at sign-in. Defined in `src/types/rbac.ts`.
 
-### Roles needed (not yet fully decided)
-The following are likely based on the business model:
+| Role | Description | Admin portal access |
+|---|---|---|
+| `Platform Admin` | Alan — manages tenants, billing, platform config | Yes |
+| `Tenant Admin` | H&S consultancy admin (Simon) — manages templates, customers, users | Yes |
+| `Tenant Staff` | H&S consultancy employee — can view documents and activity logs | No |
+| `Customer Admin` | A client company's manager — view documents and users | No |
+| `Customer User` | An individual within a client company — view and download docs only | No |
 
-| Role | Description |
-|---|---|
-| Platform Admin | Alan — manages tenants, billing, platform config |
-| Tenant Admin | H&S consultancy admin (Simon) — manages templates, assigns documents to customers, manages customer accounts |
-| Tenant Staff | H&S consultancy employee — can view all, limited management rights |
-| Customer Admin | A client company's manager — can manage their own users |
-| Customer User | An individual within a client company — accesses only their assigned documents |
-| Read-only / Auditor | View access only, no signing |
+`ADMIN_ROLES` (`Platform Admin`, `Tenant Admin`) is used as the gate for all admin API routes and the admin portal UI. The `ROLE_PERMISSIONS` map in `rbac.ts` defines what each role can do.
 
-Role assignments must be per-tenant once multi-tenancy is introduced. The current approach of attaching roles directly to the JWT will need to evolve to include tenant context.
+### What remains
+- Role assignments will need to be per-tenant once multi-tenancy is introduced — the JWT will need to carry tenant context alongside the role.
+- `Read-only / Auditor` role deferred until a concrete use case appears.
 
 ---
 

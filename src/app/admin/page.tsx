@@ -1,7 +1,7 @@
 // src/app/admin/page.tsx
 'use client'
 
-import { FileText, Shield, Users, Clock } from 'lucide-react'
+import { Building2, FileText, Shield, Users, Clock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { RecentActivity } from '@/components/admin/recent-activity'
@@ -16,6 +16,7 @@ interface Stats {
   totalUsers: number
   totalDocuments: number
   adminUsers: number
+  totalCompanies: number
 }
 
 // Function extracted outside to avoid deep nesting
@@ -32,7 +33,8 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats>({
     totalUsers: 0,
     totalDocuments: 0,
-    adminUsers: 0
+    adminUsers: 0,
+    totalCompanies: 0
   })
 
   // Moved outside of useEffect to reduce nesting
@@ -50,6 +52,16 @@ export default function AdminDashboardPage() {
           ...prev,
           totalUsers: data.users.length,
           adminUsers: adminCount
+        }))
+      }
+
+      // Fetch company stats
+      const companiesResponse = await fetch('/api/admin/companies')
+      if (companiesResponse.ok) {
+        const data = await companiesResponse.json()
+        setStats((prev) => ({
+          ...prev,
+          totalCompanies: data.companies.length
         }))
       }
 
@@ -77,7 +89,7 @@ export default function AdminDashboardPage() {
     <div className='space-y-6'>
       <h1 className='text-3xl font-bold'>Admin Dashboard</h1>
 
-      <div className='grid gap-4 md:grid-cols-3'>
+      <div className='grid gap-4 md:grid-cols-4'>
         {/* Stats Cards */}
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
@@ -103,6 +115,22 @@ export default function AdminDashboardPage() {
               <div className='h-8 w-16 animate-pulse rounded bg-muted'></div>
             ) : (
               <div className='text-2xl font-bold'>{stats.adminUsers}</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+            <CardTitle className='text-sm font-medium'>
+              Total Companies
+            </CardTitle>
+            <Building2 className='h-4 w-4 text-muted-foreground' />
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className='h-8 w-16 animate-pulse rounded bg-muted'></div>
+            ) : (
+              <div className='text-2xl font-bold'>{stats.totalCompanies}</div>
             )}
           </CardContent>
         </Card>

@@ -28,7 +28,8 @@ export const authOptions: NextAuthOptions = {
             id: user.id,
             name: user.displayName,
             email: user.email,
-            roles: [user.role as UserRole]
+            roles: [user.role as UserRole],
+            customerCompanyId: user.customerCompanyId
           }
         }
 
@@ -42,12 +43,14 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.roles = user.roles
         token.id = user.id
+        token.customerCompanyId = user.customerCompanyId
       }
       return token
     },
     async session({ session, token }) {
       session.user.id = token.id
       session.user.roles = token.roles
+      session.user.customerCompanyId = token.customerCompanyId
       return session
     }
   },

@@ -1,12 +1,12 @@
 // src/app/documents/page.tsx
 import { notFound } from 'next/navigation'
 
-import { columns } from '@/app/documents/components/columns'
+import { columns, rootColumns } from '@/app/documents/components/columns'
 import { CreateFolderButton } from '@/components/create-folder-button'
 import { DocumentBreadcrumb } from '@/components/document-breadcrumb'
 import { DragDropUploader } from '@/components/drag-drop-uploader'
 import { UpLevelButton } from '@/components/up-level-button'
-import { getFileManager } from '@/lib/file-system'
+import { formatSize, getFileManager } from '@/lib/file-system'
 import { listBlobs } from '@/lib/list-blobs'
 
 import { DataTable } from './data-table'
@@ -21,10 +21,12 @@ export default async function DocumentsPage({
   const resolvedSearchParams = await searchParams
   const pathParam = resolvedSearchParams.path
   const path = typeof pathParam === 'string' ? pathParam : ''
+  const isRoot = !path
+
+  const fileManager = getFileManager()
 
   // If path is provided, verify it exists
   if (path) {
-    const fileManager = getFileManager()
     const exists = await fileManager.folderExists(path)
     if (!exists) {
       notFound()
@@ -33,6 +35,16 @@ export default async function DocumentsPage({
 
   // Fetch documents from Azure Storage for the current path
   const documents = await listBlobs(false, path)
+
+  // At root, compute total size for each company folder
+  if (isRoot) {
+    for (const doc of documents) {
+      if (doc.isFolder) {
+        const totalBytes = await fileManager.getFolderSize(doc.name)
+        doc.size = totalBytes > 0 ? formatSize(totalBytes) : '—'
+      }
+    }
+  }
 
   return (
     <div className='grid gap-4'>
@@ -44,12 +56,16 @@ export default async function DocumentsPage({
           {path && <UpLevelButton currentPath={path} />}
         </div>
         <div className='flex flex-wrap gap-2'>
-          <CreateFolderButton currentPath={path} />
-          <DragDropUploader currentPath={path} />
+          {path && <CreateFolderButton currentPath={path} />}
+          {path && <DragDropUploader currentPath={path} />}
         </div>
       </div>
 
-      <DataTable columns={columns} data={documents} />
+      <DataTable
+        columns={isRoot ? rootColumns : columns}
+        data={documents}
+        readOnly={isRoot}
+      />
     </div>
   )
 }
