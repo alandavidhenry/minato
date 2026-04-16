@@ -6,6 +6,7 @@ import {
   deleteUser,
   getAllUsers,
   getUserByEmail,
+  getUserById,
   updateUser,
   verifyUserCredentials
 } from '../user-database'
@@ -132,6 +133,25 @@ describe('getUserByEmail', () => {
   })
 })
 
+describe('getUserById', () => {
+  it('returns the user when found', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(BASE_USER)
+
+    const user = await getUserById('cuid_abc123')
+
+    expect(user?.id).toBe('cuid_abc123')
+    expect(user?.email).toBe('user@example.com')
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'cuid_abc123' }
+    })
+  })
+
+  it('returns null when the user does not exist', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null)
+    expect(await getUserById('nonexistent')).toBeNull()
+  })
+})
+
 describe('getAllUsers', () => {
   it('returns an empty array when there are no users', async () => {
     mockPrisma.user.findMany.mockResolvedValue([])
@@ -157,34 +177,34 @@ describe('updateUser', () => {
       displayName: 'Bob'
     })
 
-    const result = await updateUser('user@example.com', { displayName: 'Bob' })
+    const result = await updateUser('cuid_abc123', { displayName: 'Bob' })
 
     expect(result).toBe(true)
     expect(mockPrisma.user.update).toHaveBeenCalledWith({
-      where: { email: 'user@example.com' },
+      where: { id: 'cuid_abc123' },
       data: { displayName: 'Bob' }
     })
   })
 
   it('returns false when an error occurs', async () => {
     mockPrisma.user.update.mockRejectedValue(new Error('not found'))
-    expect(await updateUser('ghost@example.com', { role: 'Admin' })).toBe(false)
+    expect(await updateUser('nonexistent', { role: 'Admin' })).toBe(false)
   })
 })
 
 describe('deleteUser', () => {
   it('deletes the user and returns true', async () => {
     mockPrisma.user.delete.mockResolvedValue(BASE_USER)
-    const result = await deleteUser('user@example.com')
+    const result = await deleteUser('cuid_abc123')
     expect(result).toBe(true)
     expect(mockPrisma.user.delete).toHaveBeenCalledWith({
-      where: { email: 'user@example.com' }
+      where: { id: 'cuid_abc123' }
     })
   })
 
   it('returns false when an error occurs', async () => {
     mockPrisma.user.delete.mockRejectedValue(new Error('not found'))
-    expect(await deleteUser('ghost@example.com')).toBe(false)
+    expect(await deleteUser('nonexistent')).toBe(false)
   })
 })
 
@@ -196,18 +216,18 @@ describe('changePassword', () => {
       passwordHash: '$newhashed'
     })
 
-    const result = await changePassword('user@example.com', 'newSecret')
+    const result = await changePassword('cuid_abc123', 'newSecret')
 
     expect(result).toBe(true)
     expect(mockBcrypt.hash).toHaveBeenCalledWith('newSecret', 10)
     expect(mockPrisma.user.update).toHaveBeenCalledWith({
-      where: { email: 'user@example.com' },
+      where: { id: 'cuid_abc123' },
       data: { passwordHash: '$newhashed' }
     })
   })
 
   it('returns false when an error occurs', async () => {
     mockPrisma.user.update.mockRejectedValue(new Error('not found'))
-    expect(await changePassword('ghost@example.com', 'pass')).toBe(false)
+    expect(await changePassword('nonexistent', 'pass')).toBe(false)
   })
 })

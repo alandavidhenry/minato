@@ -26,7 +26,7 @@ Document management portal built on **Next.js 16 App Router** with **Azure** as 
 ### Data Layer
 - **Azure Blob Storage** — file storage, organized in hierarchical paths with versioning via naming convention; SAS tokens for secure temporary access (`src/lib/storage.ts`, `src/lib/file-system/`)
 - **Azure Table Storage** — one table: `activityLogs` (audit trail only); accessed via `@azure/data-tables` (`src/lib/activity-logger.ts`)
-- **Neon PostgreSQL + Prisma** — all relational data; schema in `prisma/schema.prisma`; Prisma client generated to `src/generated/prisma/`; singleton at `src/lib/prisma.ts`; uses `@prisma/adapter-pg` driver; models: `Tenant`, `User`, `PasswordReset`, `CustomerCompany`, `DocumentTemplate`, `Assignment`, `CompletionRecord`; lib functions in `src/lib/customer-companies.ts`, `src/lib/document-templates.ts`, `src/lib/assignments.ts`, `src/lib/completion-records.ts`
+- **Neon PostgreSQL + Prisma** — all relational data; schema in `prisma/schema.prisma`; Prisma client generated to `src/generated/prisma/`; singleton at `src/lib/prisma.ts`; uses `@prisma/adapter-pg` driver; models: `Tenant`, `User`, `PasswordReset`, `CustomerCompany`, `DocumentTemplate` (with `formSchema Json?`), `Assignment`, `CompletionRecord`; lib functions in `src/lib/customer-companies.ts`, `src/lib/document-templates.ts`, `src/lib/assignments.ts`, `src/lib/completion-records.ts`; Prisma nullable JSON fields use `Prisma.NullableJsonNullValueInput` / `Prisma.InputJsonValue` (imported from `@/generated/prisma/client`)
 - **Azurite emulator** — set `USE_AZURITE=true` in `.env.local` for Azure Storage local development; PostgreSQL connects to Neon (or local DB) via `DATABASE_URL`
 
 ### Authentication
@@ -49,11 +49,12 @@ src/app/
   s/                # Short URL redirects
   auth/             # Sign-in, error, forgot-password, reset-password pages
 src/components/
-  admin/            # Admin UI
+  admin/            # Admin UI (includes edit-template-dialog with form field builder)
   providers/        # RBAC, Auth, Theme context providers
-  ui/               # Radix UI-based reusable components
+  ui/               # Radix UI-based reusable components (includes Textarea, Separator)
 src/lib/
   file-system/      # File/folder operation abstractions
+  pdf/              # Server-side PDF generation (completion-pdf.tsx uses @react-pdf/renderer)
 ```
 
 ### Key Patterns
@@ -134,7 +135,7 @@ Core document model (target state — not yet implemented):
 
 **Current coverage:**
 - Unit: full coverage of `src/lib/` and `src/lib/file-system/`
-- Integration: `health`, admin user CRUD, password reset flows, all document API routes, admin companies/templates/assignments CRUD, customer assignments/completions routes
+- Integration: `health`, admin user CRUD, password reset flows, all document API routes, admin companies/templates/assignments CRUD, admin completions (list + download), customer assignments (list, get single, complete with required-field validation, download) and completions (list + PDF download)
 - E2E: not yet started
 
 **TDD workflow:** define interface types → write tests → implement to pass tests. Always request tests before implementation. Target >90% coverage on `src/lib/`.

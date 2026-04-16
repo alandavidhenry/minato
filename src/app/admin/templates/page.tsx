@@ -1,10 +1,12 @@
 // src/app/admin/templates/page.tsx
 'use client'
 
-import { Plus, Trash2 } from 'lucide-react'
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { CreateTemplateDialog } from '@/components/admin/create-template-dialog'
+import { EditTemplateDialog } from '@/components/admin/edit-template-dialog'
+import { ViewTemplateDialog } from '@/components/admin/view-template-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -15,11 +17,13 @@ import {
   TableRow
 } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
+import type { FormField } from '@/types/form-schema'
 
 interface Template {
   id: string
   title: string
   description: string | null
+  formSchema: FormField[] | null
   blobPath: string | null
   createdAt: string
 }
@@ -28,6 +32,8 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
+  const [viewingTemplate, setViewingTemplate] = useState<Template | null>(null)
 
   useEffect(() => {
     fetchTemplates()
@@ -82,11 +88,17 @@ export default function TemplatesPage() {
     toast({ title: 'Success', description: 'Template created successfully.' })
   }
 
+  function handleTemplateSaved() {
+    fetchTemplates()
+    setEditingTemplate(null)
+    toast({ title: 'Success', description: 'Template saved.' })
+  }
+
   function renderRows() {
     if (isLoading) {
       return (
         <TableRow>
-          <TableCell colSpan={3} className='h-24 text-center'>
+          <TableCell colSpan={4} className='h-24 text-center'>
             Loading templates...
           </TableCell>
         </TableRow>
@@ -96,7 +108,7 @@ export default function TemplatesPage() {
     if (templates.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={3} className='h-24 text-center'>
+          <TableCell colSpan={4} className='h-24 text-center'>
             No templates yet. Create your first document template.
           </TableCell>
         </TableRow>
@@ -109,7 +121,28 @@ export default function TemplatesPage() {
         <TableCell className='text-muted-foreground'>
           {template.description ?? '—'}
         </TableCell>
+        <TableCell className='text-muted-foreground'>
+          {template.formSchema && template.formSchema.length > 0
+            ? `${template.formSchema.length} field${template.formSchema.length === 1 ? '' : 's'}`
+            : '—'}
+        </TableCell>
         <TableCell className='text-right'>
+          <Button
+            variant='ghost'
+            size='sm'
+            onClick={() => setViewingTemplate(template)}
+            className='mr-1'
+          >
+            <Eye className='h-4 w-4' />
+          </Button>
+          <Button
+            variant='ghost'
+            size='sm'
+            onClick={() => setEditingTemplate(template)}
+            className='mr-1'
+          >
+            <Pencil className='h-4 w-4' />
+          </Button>
           <Button
             variant='ghost'
             size='sm'
@@ -138,6 +171,7 @@ export default function TemplatesPage() {
             <TableRow>
               <TableHead>Title</TableHead>
               <TableHead>Description</TableHead>
+              <TableHead>Form Fields</TableHead>
               <TableHead className='text-right'>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -145,10 +179,27 @@ export default function TemplatesPage() {
         </Table>
       </div>
 
+      <ViewTemplateDialog
+        open={viewingTemplate !== null}
+        onOpenChange={(open) => {
+          if (!open) setViewingTemplate(null)
+        }}
+        template={viewingTemplate}
+      />
+
       <CreateTemplateDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         onTemplateCreated={handleTemplateCreated}
+      />
+
+      <EditTemplateDialog
+        open={editingTemplate !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingTemplate(null)
+        }}
+        template={editingTemplate}
+        onTemplateSaved={handleTemplateSaved}
       />
     </div>
   )

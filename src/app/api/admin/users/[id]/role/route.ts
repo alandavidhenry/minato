@@ -29,7 +29,7 @@ export async function POST(
 
   try {
     const { id: userId } = await params
-    const { role } = await request.json()
+    const { role, customerCompanyId } = await request.json()
 
     if (!role) {
       return NextResponse.json({ error: 'Role is required' }, { status: 400 })
@@ -46,7 +46,10 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
 
-    const success = await updateUser(userId, { role })
+    const success = await updateUser(userId, {
+      role,
+      ...(customerCompanyId !== undefined && { customerCompanyId })
+    })
 
     if (!success) {
       return NextResponse.json(

@@ -3,7 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 
 import { UserRole } from '@/types/rbac'
 
-import { verifyUserCredentials } from './user-database'
+import { getUserById, verifyUserCredentials } from './user-database'
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -39,11 +39,20 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user }) {
-      // Initial sign in
       if (user) {
-        token.roles = user.roles
+        // Initial sign in — write fields from the authorize() return value
         token.id = user.id
+        token.roles = user.roles
         token.customerCompanyId = user.customerCompanyId
+      } else if (token.id) {
+        // Subsequent requests — refresh mutable fields from the database so
+        // changes made by admins (role, company assignment) are reflected
+        // without requiring the user to sign out and back in.
+        const dbUser = await getUserById(token.id)
+        if (dbUser) {
+          token.roles = [dbUser.role as UserRole]
+          token.customerCompanyId = dbUser.customerCompanyId
+        }
       }
       return token
     },

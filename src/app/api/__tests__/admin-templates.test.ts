@@ -51,6 +51,7 @@ const BASE_TEMPLATE = {
   title: 'Farmyard Safety Checklist',
   description: 'Annual review',
   blobPath: null,
+  formSchema: null,
   tenantId: null,
   createdAt: '2024-01-01T00:00:00.000Z',
   updatedAt: '2024-01-01T00:00:00.000Z'
@@ -188,6 +189,28 @@ describe('PATCH /api/admin/templates/[id]', () => {
     const res = await updateTemplate(req, params('template_123'))
     expect(res.status).toBe(200)
     expect((await res.json()).success).toBe(true)
+  })
+
+  it('returns 200 when saving a formSchema', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const schema = [
+      {
+        id: 'q1',
+        label: 'Are fire exits clear?',
+        type: 'checkbox',
+        required: true
+      }
+    ]
+    const req = jsonRequest(
+      'http://localhost/api/admin/templates/template_123',
+      'PATCH',
+      { formSchema: schema }
+    )
+    const res = await updateTemplate(req, params('template_123'))
+    expect(res.status).toBe(200)
+    expect(mockUpdate).toHaveBeenCalledWith('template_123', {
+      formSchema: schema
+    })
   })
 })
 

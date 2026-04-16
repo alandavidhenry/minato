@@ -2,7 +2,7 @@
 'use client'
 
 import { Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -25,11 +25,18 @@ import {
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
 
+interface Company {
+  id: string
+  name: string
+}
+
 interface CreateUserDialogProps {
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
   readonly onUserCreated: () => void
 }
+
+const CUSTOMER_ROLES = ['Customer Admin', 'Customer User']
 
 export function CreateUserDialog({
   open,
@@ -37,53 +44,60 @@ export function CreateUserDialog({
   onUserCreated
 }: CreateUserDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [companies, setCompanies] = useState<Company[]>([])
   const [formData, setFormData] = useState({
     displayName: '',
     email: '',
     password: '',
-    role: 'Customer User', // Default to Customer User role
-    accountEnabled: true
+    role: 'Customer User',
+    customerCompanyId: ''
   })
 
-  // Handle form input changes
+  useEffect(() => {
+    if (open) {
+      fetch('/api/admin/companies')
+        .then((r) => r.json())
+        .then((data) => setCompanies(data.companies ?? []))
+        .catch(() => setCompanies([]))
+    }
+  }, [open])
+
+  const isCustomerRole = CUSTOMER_ROLES.includes(formData.role)
+
   function handleChange(field: string, value: string | boolean) {
     setFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
+      // clear company selection when switching away from customer role
+      ...(field === 'role' &&
+        !CUSTOMER_ROLES.includes(value as string) && {
+          customerCompanyId: ''
+        })
     }))
   }
 
-  // Helper to generate a random password
   function generateRandomPassword() {
     const chars =
       'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
     let password = ''
-
-    // Ensure at least one uppercase, one lowercase, one number and one special character
     password += chars.charAt(Math.floor(Math.random() * 26))
     password += chars.charAt(Math.floor(Math.random() * 26) + 26)
     password += chars.charAt(Math.floor(Math.random() * 10) + 52)
     password += chars.charAt(Math.floor(Math.random() * 10) + 62)
-
-    // Add random chars to reach minimum length of 8
     for (let i = 0; i < 8; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length))
     }
-
-    // Shuffle the password
     return password
       .split('')
       .sort(() => 0.5 - Math.random())
       .join('')
   }
 
-  // Create the user
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      // Basic validation
       if (!formData.displayName || !formData.email || !formData.password) {
         toast({
           title: 'Validation Error',
@@ -94,17 +108,27 @@ export function CreateUserDialog({
         return
       }
 
-      // Create user through API
+      if (isCustomerRole && !formData.customerCompanyId) {
+        toast({
+          title: 'Validation Error',
+          description: 'Please select a company for customer users',
+          variant: 'destructive'
+        })
+        setIsLoading(false)
+        return
+      }
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           displayName: formData.displayName,
           email: formData.email,
           password: formData.password,
-          role: formData.role
+          role: formData.role,
+          customerCompanyId: isCustomerRole
+            ? formData.customerCompanyId
+            : undefined
         })
       })
 
@@ -113,19 +137,15 @@ export function CreateUserDialog({
         throw new Error(error.error || 'Failed to create user')
       }
 
-      // Call success callback
       onUserCreated()
-
-      // Reset form
       setFormData({
         displayName: '',
         email: '',
         password: '',
         role: 'Customer User',
-        accountEnabled: true
+        customerCompanyId: ''
       })
     } catch (error) {
-      console.error('Error creating user:', error)
       toast({
         title: 'Error',
         description:
@@ -222,6 +242,30 @@ export function CreateUserDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {isCustomerRole && (
+              <div className='grid gap-2'>
+                <Label htmlFor='company'>Company</Label>
+                <Select
+                  value={formData.customerCompanyId}
+                  onValueChange={(value: string) =>
+                    handleChange('customerCompanyId', value)
+                  }
+                  disabled={isLoading}
+                >
+                  <SelectTrigger id='company'>
+                    <SelectValue placeholder='Select a company' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companies.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <DialogFooter>

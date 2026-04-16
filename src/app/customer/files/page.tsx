@@ -1,7 +1,8 @@
 // src/app/customer/files/page.tsx
 'use client'
 
-import { ChevronRight, Download, Folder, File } from 'lucide-react'
+import { ChevronRight, Download, Eye, File, Folder } from 'lucide-react'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,10 @@ interface FileItem {
   size?: string
   type?: string
   uploadedAt?: string
+  hasVersions?: boolean
+  versionNumber?: number
+  totalVersions?: number
+  originalName?: string
 }
 
 export default function CustomerFilesPage() {
@@ -177,12 +182,20 @@ export default function CustomerFilesPage() {
                 const filePath = currentPath
                   ? `${currentPath}/${file.name}`
                   : file.name
+                const displayName = file.originalName ?? file.name
                 return (
                   <TableRow key={file.name}>
                     <TableCell className='font-medium'>
                       <span className='flex items-center gap-2'>
                         <File className='h-4 w-4 text-muted-foreground' />
-                        {file.name}
+                        {displayName}
+                        {file.hasVersions &&
+                          file.versionNumber != null &&
+                          file.totalVersions != null && (
+                            <span className='text-xs text-muted-foreground'>
+                              v{file.versionNumber}/{file.totalVersions}
+                            </span>
+                          )}
                       </span>
                     </TableCell>
                     <TableCell className='text-muted-foreground'>
@@ -192,15 +205,29 @@ export default function CustomerFilesPage() {
                       {file.uploadedAt ?? '—'}
                     </TableCell>
                     <TableCell className='text-right'>
-                      <Button
-                        size='sm'
-                        variant='outline'
-                        disabled={downloading === filePath}
-                        onClick={() => handleDownload(file.name)}
-                      >
-                        <Download className='mr-1 h-3 w-3' />
-                        {downloading === filePath ? 'Preparing...' : 'Download'}
-                      </Button>
+                      <div className='flex items-center justify-end gap-2'>
+                        {file.name.toLowerCase().endsWith('.pdf') && (
+                          <Button size='sm' variant='outline' asChild>
+                            <Link
+                              href={`/customer/files/view/${filePath.split('/').map(encodeURIComponent).join('/')}`}
+                            >
+                              <Eye className='mr-1 h-3 w-3' />
+                              View
+                            </Link>
+                          </Button>
+                        )}
+                        <Button
+                          size='sm'
+                          variant='outline'
+                          disabled={downloading === filePath}
+                          onClick={() => handleDownload(file.name)}
+                        >
+                          <Download className='mr-1 h-3 w-3' />
+                          {downloading === filePath
+                            ? 'Preparing...'
+                            : 'Download'}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )

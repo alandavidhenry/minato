@@ -10,8 +10,26 @@ The platform may eventually be marketed to other H&S companies or to businesses 
 
 ## Document Model
 
-### Current state
-Files are stored as blobs in Azure Blob Storage with a hierarchical path structure. There is no concept of a document template or assignment — documents are uploaded and browsed.
+### Current state (as of 2026-04)
+Files are stored as blobs in Azure Blob Storage with a hierarchical path structure. The template → assignment → completion flow is now partially built:
+
+- **Templates** — created and managed by admins; each template has a `formSchema` (JSON array of `FormField`) defining what the customer fills in; admin can edit via the form field builder in `/admin/templates`
+- **Assignments** — templates assigned to customer companies; visible to customers at `/customer/documents`
+- **Completions** — customers navigate to `/customer/documents/[assignmentId]/complete`, fill in the form, and submit; `CompletionRecord` is written with `formData`; PDF uploaded to `completions/{recordId}.pdf`; customer and admin can download signed PDF
+- **Customer documents page** — shows assigned documents with Pending/Complete badges; "Fill In & Complete" navigates to the form page; "Mark Complete" for no-form templates works directly
+
+All of Steps 1–8 are now complete:
+- ✅ Form schema on templates (admin form field builder)
+- ✅ Customer form page at `/customer/documents/[assignmentId]/complete`
+- ✅ Required-field validation in the complete API
+- ✅ PDF generation via `@react-pdf/renderer` (`src/lib/pdf/completion-pdf.tsx`); uploaded to Blob Storage at `completions/{recordId}.pdf`
+- ✅ Customer can download their signed PDF from `/customer/documents`
+- ✅ Admin completions view at `/admin/completions` with per-record PDF download
+- ✅ Customer users must be linked to a company at creation time (or via role change); `Create User` and `Change Role` dialogs now include a company selector for customer roles
+
+**Remaining for the completion flow:**
+- Signature pad (canvas) — `react-signature-canvas`, embed drawn signature into PDF (Step 8)
+- Data retention / immutability policy — prevent deletion of completion blobs
 
 ### Target model
 The correct mental model is **templates → assignments → completions**:

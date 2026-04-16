@@ -1,11 +1,58 @@
 // src/app/api/customer/assignments/[id]/complete/route.ts
+import { BlobServiceClient } from '@azure/storage-blob'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import { getAssignmentById } from '@/lib/assignments'
+import { getAssignmentWithTemplate } from '@/lib/assignments'
 import { authOptions } from '@/lib/auth'
-import { createCompletionRecord } from '@/lib/completion-records'
+import {
+  createCompletionRecord,
+  updateCompletionBlobPath
+} from '@/lib/completion-records'
+import { getCustomerCompanyById } from '@/lib/customer-companies'
+import { generateCompletionPDF } from '@/lib/pdf/completion-pdf'
+import { generateVersionId } from '@/lib/version-manager'
+import type { FormField } from '@/types/form-schema'
 import { CUSTOMER_ROLES } from '@/types/rbac'
+
+function isFieldVisible(
+  field: FormField,
+  formData: Record<string, unknown>
+): boolean {
+  if (!field.condition) return true
+  return (formData[field.condition.fieldId] === true) === field.condition.value
+}
+
+function sanitizeFilename(title: string): string {
+  return title.replace(/[/\\:*?"<>|]/g, '-').trim()
+}
+
+async function uploadPdfToBlob(
+  recordId: string,
+  buffer: Buffer,
+  companyFolderPath: string | null,
+  templateTitle: string
+): Promise<string> {
+  const blobServiceClient = BlobServiceClient.fromConnectionString(
+    process.env.AZURE_STORAGE_CONNECTION_STRING!
+  )
+  const containerClient = blobServiceClient.getContainerClient(
+    process.env.AZURE_STORAGE_CONTAINER_NAME!
+  )
+
+  // Store in the company's Completed Forms folder so it appears in My Files.
+  // Always use a versioned filename so re-completions group as new versions.
+  // Fall back to the internal completions path if no company folder is set.
+  const blobPath = companyFolderPath
+    ? `${companyFolderPath}/Completed Forms/${sanitizeFilename(templateTitle)}_v_${generateVersionId()}.pdf`
+    : `completions/${recordId}.pdf`
+
+  const blockBlobClient = containerClient.getBlockBlobClient(blobPath)
+  await blockBlobClient.uploadData(buffer, {
+    blobHTTPHeaders: { blobContentType: 'application/pdf' }
+  })
+  return blobPath
+}
 
 export async function POST(
   request: NextRequest,
@@ -20,6 +67,8 @@ export async function POST(
 
   const customerCompanyId = session?.user?.customerCompanyId
   const userId = session?.user?.id
+  const signerName = session?.user?.name ?? 'Unknown'
+  const signerEmail = session?.user?.email ?? ''
 
   if (!customerCompanyId || !userId) {
     return NextResponse.json(
@@ -31,7 +80,7 @@ export async function POST(
   try {
     const { id: assignmentId } = await params
 
-    const assignment = await getAssignmentById(assignmentId)
+    const assignment = await getAssignmentWithTemplate(assignmentId)
 
     if (!assignment || assignment.customerCompanyId !== customerCompanyId) {
       return NextResponse.json(
@@ -41,17 +90,76 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}))
+    const formData: Record<string, unknown> = body.formData ?? {}
 
+    // Validate required fields defined in the template's form schema,
+    // skipping fields whose condition is not met (they were hidden from the customer)
+    const schema = assignment.template.formSchema ?? []
+    const missingFields = schema
+      .filter((field) => field.required && isFieldVisible(field, formData))
+      .filter((field) => {
+        const value = formData[field.id]
+        if (field.type === 'checkbox') return value !== true
+        return value === undefined || value === null || value === ''
+      })
+      .map((field) => field.label)
+
+    if (missingFields.length > 0) {
+      return NextResponse.json(
+        { error: `Required fields missing: ${missingFields.join(', ')}` },
+        { status: 400 }
+      )
+    }
+
+    // Only persist values for visible fields (hidden fields were never shown)
+    const visibleFormData = Object.fromEntries(
+      schema
+        .filter((field) => isFieldVisible(field, formData))
+        .map((field) => [field.id, formData[field.id]])
+    )
+
+    // Create the completion record first so it is always persisted
     const record = await createCompletionRecord({
       assignmentId,
       signedById: userId,
-      formData: body.formData
+      formData:
+        Object.keys(visibleFormData).length > 0 ? visibleFormData : undefined
     })
 
     if (!record) {
       return NextResponse.json(
         { error: 'Failed to record completion' },
         { status: 500 }
+      )
+    }
+
+    // Generate and upload PDF; non-fatal if it fails
+    try {
+      const company = await getCustomerCompanyById(customerCompanyId)
+      const visibleSchema = schema.filter((f) =>
+        isFieldVisible(f, visibleFormData)
+      )
+      const pdfBuffer = await generateCompletionPDF({
+        templateTitle: assignment.template.title,
+        signerName,
+        signerEmail,
+        signedAt: new Date(record.signedAt),
+        companyName: company?.name ?? 'Unknown Company',
+        formSchema: visibleSchema,
+        formData: visibleFormData
+      })
+      const blobPath = await uploadPdfToBlob(
+        record.id,
+        pdfBuffer,
+        company?.folderPath ?? null,
+        assignment.template.title
+      )
+      await updateCompletionBlobPath(record.id, blobPath)
+      record.blobPath = blobPath
+    } catch (pdfError) {
+      console.error(
+        'PDF generation failed (completion still recorded):',
+        pdfError
       )
     }
 

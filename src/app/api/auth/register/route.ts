@@ -35,7 +35,8 @@ export async function POST(request: NextRequest) {
       email: data.email,
       password: data.password,
       displayName: data.displayName,
-      role: data.role || 'Customer User'
+      role: data.role || 'Customer User',
+      customerCompanyId: data.customerCompanyId || undefined
     })
 
     if (!user) {

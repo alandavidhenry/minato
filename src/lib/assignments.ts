@@ -1,3 +1,5 @@
+import type { FormSchema } from '@/types/form-schema'
+
 import prisma from './prisma'
 
 export interface AssignmentData {
@@ -13,6 +15,7 @@ export interface AssignmentWithTemplate extends AssignmentData {
     title: string
     description: string | null
     blobPath: string | null
+    formSchema: FormSchema | null
   }
 }
 
@@ -29,6 +32,7 @@ type PrismaAssignmentWithTemplate = PrismaAssignment & {
     title: string
     description: string | null
     blobPath: string | null
+    formSchema: unknown
   }
 }
 
@@ -46,7 +50,10 @@ function toAssignmentWithTemplate(
 ): AssignmentWithTemplate {
   return {
     ...toAssignmentData(a),
-    template: a.template
+    template: {
+      ...a.template,
+      formSchema: (a.template.formSchema as FormSchema | null) ?? null
+    }
   }
 }
 
@@ -81,6 +88,32 @@ export async function getAssignmentById(
   }
 }
 
+export async function getAssignmentWithTemplate(
+  id: string
+): Promise<AssignmentWithTemplate | null> {
+  try {
+    const assignment = await prisma.assignment.findUnique({
+      where: { id },
+      include: {
+        template: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            blobPath: true,
+            formSchema: true
+          }
+        }
+      }
+    })
+    if (!assignment) return null
+    return toAssignmentWithTemplate(assignment)
+  } catch (error) {
+    console.error('Error getting assignment with template:', error)
+    return null
+  }
+}
+
 export async function getAssignmentByTemplateAndCompany(
   templateId: string,
   customerCompanyId: string
@@ -105,7 +138,13 @@ export async function getAssignmentsForCompany(
       where: { customerCompanyId },
       include: {
         template: {
-          select: { id: true, title: true, description: true, blobPath: true }
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            blobPath: true,
+            formSchema: true
+          }
         }
       },
       orderBy: { createdAt: 'asc' }

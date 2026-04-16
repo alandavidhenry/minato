@@ -36,7 +36,15 @@ export class FileManager {
   }
 
   public async folderExists(folderPath: string): Promise<boolean> {
-    return folderExists(this.containerClient, folderPath)
+    const markerExists = await folderExists(this.containerClient, folderPath)
+    if (markerExists) return true
+    // Also treat a path as existing if any blobs are stored under it
+    // (virtual folders created programmatically without a .folder marker)
+    const prefix = `${normalizePath(folderPath)}/`
+    for await (const _blob of this.containerClient.listBlobsFlat({ prefix })) {
+      return true
+    }
+    return false
   }
 
   public async createFolder(
