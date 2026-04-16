@@ -1,19 +1,22 @@
 // src/app/customer/documents/page.tsx
 'use client'
 
-import { CheckCircle2, Clock, Download } from 'lucide-react'
+import { CheckCircle2, Clock, Download, FileText } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
+import type { FormField } from '@/types/form-schema'
 
 interface Template {
   id: string
   title: string
   description: string | null
   blobPath: string | null
+  formSchema: FormField[] | null
 }
 
 interface Assignment {
@@ -28,14 +31,16 @@ interface Completion {
   id: string
   assignmentId: string
   signedAt: string
+  blobPath: string | null
 }
 
 export default function CustomerDocumentsPage() {
+  const router = useRouter()
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [completions, setCompletions] = useState<Completion[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [completing, setCompleting] = useState<string | null>(null)
   const [downloading, setDownloading] = useState<string | null>(null)
+  const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null)
 
   useEffect(() => {
     fetchData()
@@ -97,41 +102,36 @@ export default function CustomerDocumentsPage() {
     }
   }
 
-  async function handleComplete(assignmentId: string) {
-    setCompleting(assignmentId)
+  async function handleDownloadPdf(completionId: string) {
+    setDownloadingPdf(completionId)
     try {
       const response = await fetch(
-        `/api/customer/assignments/${assignmentId}/complete`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
-        }
+        `/api/customer/completions/${completionId}/download`
       )
-
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to record completion')
+        throw new Error(error.error || 'Failed to get download link')
       }
-
-      toast({ title: 'Completed', description: 'Document marked as complete.' })
-      fetchData()
+      const { url } = await response.json()
+      window.open(url, '_blank')
     } catch (error) {
       toast({
         title: 'Error',
         description:
-          error instanceof Error
-            ? error.message
-            : 'Failed to record completion',
+          error instanceof Error ? error.message : 'Failed to download PDF',
         variant: 'destructive'
       })
     } finally {
-      setCompleting(null)
+      setDownloadingPdf(null)
     }
   }
 
   function isCompleted(assignmentId: string) {
     return completions.some((c) => c.assignmentId === assignmentId)
+  }
+
+  function getCompletion(assignmentId: string): Completion | undefined {
+    return completions.find((c) => c.assignmentId === assignmentId)
   }
 
   function lastCompletedAt(assignmentId: string) {
@@ -166,6 +166,10 @@ export default function CustomerDocumentsPage() {
         {assignments.map((assignment) => {
           const completed = isCompleted(assignment.id)
           const completedDate = lastCompletedAt(assignment.id)
+          const completion = getCompletion(assignment.id)
+          const hasForm =
+            assignment.template.formSchema &&
+            assignment.template.formSchema.length > 0
 
           return (
             <Card key={assignment.id}>
@@ -202,34 +206,55 @@ export default function CustomerDocumentsPage() {
                   </p>
                 )}
 
-                <div className='flex gap-2'>
+                <div className='flex gap-2 flex-wrap'>
                   {assignment.template.blobPath && (
                     <Button
                       size='sm'
                       variant='outline'
                       disabled={downloading === assignment.id}
                       onClick={() => handleDownload(assignment.id)}
-                      className='flex-1'
                     >
                       <Download className='mr-1 h-3 w-3' />
                       {downloading === assignment.id
                         ? 'Preparing...'
-                        : 'Download'}
+                        : 'Template'}
+                    </Button>
+                  )}
+
+                  {completion?.blobPath && (
+                    <Button
+                      size='sm'
+                      variant='outline'
+                      disabled={downloadingPdf === completion.id}
+                      onClick={() => handleDownloadPdf(completion.id)}
+                    >
+                      <Download className='mr-1 h-3 w-3' />
+                      {downloadingPdf === completion.id
+                        ? 'Preparing...'
+                        : 'Your PDF'}
                     </Button>
                   )}
 
                   <Button
                     size='sm'
                     variant={completed ? 'outline' : 'default'}
-                    disabled={completing === assignment.id}
-                    onClick={() => handleComplete(assignment.id)}
+                    onClick={() =>
+                      router.push(
+                        `/customer/documents/${assignment.id}/complete`
+                      )
+                    }
                     className='flex-1'
                   >
-                    {completing === assignment.id
-                      ? 'Recording...'
-                      : completed
-                        ? 'Re-complete'
-                        : 'Mark Complete'}
+                    {hasForm ? (
+                      <>
+                        <FileText className='mr-1 h-3 w-3' />
+                        {completed ? 'Re-complete' : 'Fill In & Complete'}
+                      </>
+                    ) : completed ? (
+                      'Re-complete'
+                    ) : (
+                      'Mark Complete'
+                    )}
                   </Button>
                 </div>
               </CardContent>

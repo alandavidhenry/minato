@@ -3,6 +3,7 @@
 
 import {
   Building2,
+  CheckCircle2,
   Clock,
   FileText,
   Gauge,
@@ -41,6 +42,11 @@ export default function AdminLayout({
       name: 'Templates',
       href: '/admin/templates',
       icon: <FileText className='h-5 w-5' />
+    },
+    {
+      name: 'Completions',
+      href: '/admin/completions',
+      icon: <CheckCircle2 className='h-5 w-5' />
     },
     {
       name: 'Settings',

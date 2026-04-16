@@ -123,6 +123,18 @@ describe('GET /api/admin/users', () => {
     expect(body.users).toHaveLength(1)
     expect(body.users[0].mail).toBe('user@example.com')
     expect(body.users[0].role).toBe('Customer User')
+    expect(body.users[0].customerCompanyId).toBeNull()
+  })
+
+  it('returns customerCompanyId when set', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockPrisma.user.findMany.mockResolvedValue([
+      { ...BASE_USER, customerCompanyId: 'company_abc' }
+    ])
+    const req = new NextRequest('http://localhost/api/admin/users')
+    const res = await listUsers(req)
+    const body = await res.json()
+    expect(body.users[0].customerCompanyId).toBe('company_abc')
   })
 })
 
@@ -356,6 +368,20 @@ describe('POST /api/admin/users/[id]/role', () => {
     expect(res.status).toBe(200)
     expect((await res.json()).success).toBe(true)
   })
+
+  it('passes customerCompanyId when assigning a customer role', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockPrisma.user.findUnique.mockResolvedValue(BASE_USER)
+    const req = jsonRequest(
+      'http://localhost/api/admin/users/cuid_abc123/role',
+      'POST',
+      { role: 'Customer User', customerCompanyId: 'company_abc' }
+    )
+    const res = await assignRole(req, params('cuid_abc123'))
+    expect(res.status).toBe(200)
+    const updateCall = mockPrisma.user.update.mock.calls[0][0]
+    expect(updateCall.data.customerCompanyId).toBe('company_abc')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -376,10 +402,10 @@ describe('DELETE /api/admin/users/[id]/role', () => {
   it('returns 200 and resets role to Customer', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
     const req = new NextRequest(
-      'http://localhost/api/admin/users/user@example.com/role',
+      'http://localhost/api/admin/users/cuid_abc123/role',
       { method: 'DELETE' }
     )
-    const res = await removeRole(req, params('user@example.com'))
+    const res = await removeRole(req, params('cuid_abc123'))
     expect(res.status).toBe(200)
     expect((await res.json()).success).toBe(true)
     const updateCall = mockPrisma.user.update.mock.calls[0][0]

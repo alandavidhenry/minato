@@ -22,9 +22,14 @@ export async function generateSasToken(
   const containerClient = blobServiceClient.getContainerClient(containerName)
   const blobClient = containerClient.getBlobClient(blobName)
 
+  // Back-date startsOn by 5 minutes to absorb clock skew between the app
+  // server and Azure Storage — without this, a few seconds of drift causes
+  // Azure to reject the token as "not yet valid".
+  const startsOn = options.startsOn ?? new Date(Date.now() - 5 * 60 * 1000)
+
   return blobClient.generateSasUrl({
     permissions: BlobSASPermissions.parse(options.permissions),
-    startsOn: options.startsOn ?? new Date(),
+    startsOn,
     expiresOn: options.expiresOn ?? new Date(Date.now() + 30 * 60 * 1000),
     protocol: SASProtocol.Https,
     contentDisposition: options.contentDisposition

@@ -1,3 +1,6 @@
+import type { Prisma } from '@/generated/prisma/client'
+import type { FormSchema } from '@/types/form-schema'
+
 import prisma from './prisma'
 
 export interface DocumentTemplateData {
@@ -5,6 +8,7 @@ export interface DocumentTemplateData {
   title: string
   description: string | null
   blobPath: string | null
+  formSchema: FormSchema | null
   tenantId: string | null
   createdAt: string
   updatedAt: string
@@ -15,6 +19,7 @@ type PrismaDocumentTemplate = {
   title: string
   description: string | null
   blobPath: string | null
+  formSchema: unknown
   tenantId: string | null
   createdAt: Date
   updatedAt: Date
@@ -28,26 +33,43 @@ function toDocumentTemplateData(
     title: template.title,
     description: template.description,
     blobPath: template.blobPath,
+    formSchema: (template.formSchema as FormSchema | null) ?? null,
     tenantId: template.tenantId,
     createdAt: template.createdAt.toISOString(),
     updatedAt: template.updatedAt.toISOString()
   }
 }
 
+function toJsonValue(
+  value: FormSchema | null | undefined
+): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue | undefined {
+  if (value === undefined) return undefined
+  if (value === null) return 'DbNull'
+  return value as unknown as Prisma.InputJsonValue
+}
+
 export async function createDocumentTemplate({
   title,
   description,
   blobPath,
+  formSchema,
   tenantId
 }: {
   title: string
   description?: string
   blobPath?: string
+  formSchema?: FormSchema
   tenantId?: string
 }): Promise<DocumentTemplateData | null> {
   try {
     const template = await prisma.documentTemplate.create({
-      data: { title, description, blobPath, tenantId }
+      data: {
+        title,
+        description,
+        blobPath,
+        formSchema: toJsonValue(formSchema),
+        tenantId
+      }
     })
     return toDocumentTemplateData(template)
   } catch (error) {
@@ -85,7 +107,12 @@ export async function getDocumentTemplateById(
 
 export async function updateDocumentTemplate(
   id: string,
-  updates: { title?: string; description?: string; blobPath?: string }
+  updates: {
+    title?: string
+    description?: string
+    blobPath?: string
+    formSchema?: FormSchema | null
+  }
 ): Promise<boolean> {
   try {
     await prisma.documentTemplate.update({
@@ -95,7 +122,10 @@ export async function updateDocumentTemplate(
         ...(updates.description !== undefined && {
           description: updates.description
         }),
-        ...(updates.blobPath !== undefined && { blobPath: updates.blobPath })
+        ...(updates.blobPath !== undefined && { blobPath: updates.blobPath }),
+        ...('formSchema' in updates && {
+          formSchema: toJsonValue(updates.formSchema)
+        })
       }
     })
     return true

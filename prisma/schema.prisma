@@ -87,11 +87,14 @@ model CustomerCompany {
 // A reusable H&S document maintained by the consultancy.
 // blobPath is the path to the template file in Azure Blob Storage; nullable
 // because form-based templates may not have a backing file initially.
+// formSchema is a JSON array of FormField objects (see src/types/form-schema.ts)
+// that defines the fields the customer must fill in to complete this template.
 model DocumentTemplate {
   id          String   @id @default(cuid())
   title       String
   description String?
   blobPath    String? // path in Azure Blob Storage; null for form-only templates
+  formSchema  Json? // array of FormField; null means no form fields defined
   tenantId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

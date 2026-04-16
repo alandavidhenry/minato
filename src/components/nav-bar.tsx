@@ -10,35 +10,29 @@ import { useState, ReactNode } from 'react'
 import { useRBAC } from '@/components/providers/rbac-provider'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
+import { CUSTOMER_ROLES, UserRole } from '@/types/rbac'
 
-// Define a proper interface for navigation items
 interface NavItem {
   name: string
   href: string
   icon?: ReactNode
 }
 
-// Define navigation items
-const commonNavItems: NavItem[] = [
-  { name: 'Home', href: '/' },
-  { name: 'Documents', href: '/documents' }
-]
-
 export function NavBar() {
   const pathname = usePathname()
   const { data: session } = useSession()
-  const { isAdmin } = useRBAC()
+  const { isAdmin, hasRole } = useRBAC()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
-  // Function to handle sign in with explicit callback URL
-  const handleSignIn = () => {
-    signIn('azure-ad', { callbackUrl: '/documents' })
-  }
+  const isCustomer = CUSTOMER_ROLES.some((role) => hasRole(role as UserRole))
+  const isStaff = isAdmin || hasRole(UserRole.TENANT_STAFF)
 
-  // Get navigation items conditionally based on admin status
   const navItems: NavItem[] = [
-    ...commonNavItems,
-    // Add admin dashboard link for administrators
+    { name: 'Home', href: '/' },
+    ...(isCustomer
+      ? [{ name: 'My Documents', href: '/customer/documents' }]
+      : []),
+    ...(isStaff ? [{ name: 'Documents', href: '/documents' }] : []),
     ...(isAdmin
       ? [
           {
@@ -49,6 +43,11 @@ export function NavBar() {
         ]
       : [])
   ]
+
+  function isActive(href: string) {
+    if (href === '/') return pathname === '/'
+    return pathname === href || pathname?.startsWith(href + '/')
+  }
 
   return (
     <nav className='bg-background border-b'>
@@ -69,8 +68,7 @@ export function NavBar() {
                 href={item.href}
                 className={`cursor-pointer px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center
                   ${
-                    pathname === item.href ||
-                    pathname?.startsWith(item.href + '/')
+                    isActive(item.href)
                       ? 'bg-accent text-accent-foreground'
                       : 'hover:bg-accent hover:text-accent-foreground'
                   }`}
@@ -89,7 +87,7 @@ export function NavBar() {
                 Sign Out
               </Button>
             ) : (
-              <Button onClick={handleSignIn}>Sign In</Button>
+              <Button onClick={() => signIn()}>Sign In</Button>
             )}
           </div>
 
@@ -116,8 +114,7 @@ export function NavBar() {
                 href={item.href}
                 className={`cursor-pointer flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors
                   ${
-                    pathname === item.href ||
-                    pathname?.startsWith(item.href + '/')
+                    isActive(item.href)
                       ? 'bg-accent text-accent-foreground'
                       : 'hover:bg-accent hover:text-accent-foreground'
                   }`}
@@ -139,7 +136,7 @@ export function NavBar() {
               ) : (
                 <Button
                   className='w-full py-3 text-base'
-                  onClick={handleSignIn}
+                  onClick={() => signIn()}
                 >
                   Sign In
                 </Button>

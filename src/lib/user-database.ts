@@ -93,6 +93,17 @@ export async function getUserByEmail(email: string): Promise<UserData | null> {
   }
 }
 
+export async function getUserById(id: string): Promise<UserData | null> {
+  try {
+    const user = await prisma.user.findUnique({ where: { id } })
+    if (!user) return null
+    return toUserData(user)
+  } catch (error) {
+    console.error('Error getting user:', error)
+    return null
+  }
+}
+
 export async function getAllUsers(): Promise<UserData[]> {
   try {
     const users = await prisma.user.findMany()
@@ -104,17 +115,20 @@ export async function getAllUsers(): Promise<UserData[]> {
 }
 
 export async function updateUser(
-  email: string,
+  id: string,
   updates: Partial<Omit<UserData, 'id' | 'email' | 'passwordHash'>>
 ): Promise<boolean> {
   try {
     await prisma.user.update({
-      where: { email },
+      where: { id },
       data: {
         ...(updates.displayName !== undefined && {
           displayName: updates.displayName
         }),
-        ...(updates.role !== undefined && { role: updates.role })
+        ...(updates.role !== undefined && { role: updates.role }),
+        ...(updates.customerCompanyId !== undefined && {
+          customerCompanyId: updates.customerCompanyId
+        })
       }
     })
     return true
@@ -124,9 +138,9 @@ export async function updateUser(
   }
 }
 
-export async function deleteUser(email: string): Promise<boolean> {
+export async function deleteUser(id: string): Promise<boolean> {
   try {
-    await prisma.user.delete({ where: { email } })
+    await prisma.user.delete({ where: { id } })
     return true
   } catch (error) {
     console.error('Error deleting user:', error)
@@ -135,12 +149,12 @@ export async function deleteUser(email: string): Promise<boolean> {
 }
 
 export async function changePassword(
-  email: string,
+  id: string,
   newPassword: string
 ): Promise<boolean> {
   try {
     const passwordHash = await bcrypt.hash(newPassword, 10)
-    await prisma.user.update({ where: { email }, data: { passwordHash } })
+    await prisma.user.update({ where: { id }, data: { passwordHash } })
     return true
   } catch (error) {
     console.error('Error changing password:', error)

@@ -1,27 +1,40 @@
 // src/app/page.tsx
-import { FileText, Camera, Star } from 'lucide-react'
+import { Camera, FileText, Star } from 'lucide-react'
 import Link from 'next/link'
+import { getServerSession } from 'next-auth'
 
 import {
   Card,
+  CardDescription,
   CardHeader,
-  CardTitle,
-  CardDescription
+  CardTitle
 } from '@/components/ui/card'
+import { authOptions } from '@/lib/auth'
+import { CUSTOMER_ROLES } from '@/types/rbac'
 
-export default function Home() {
+export default async function Home() {
+  const session = await getServerSession(authOptions)
+  const roles = session?.user?.roles ?? []
+  const isCustomer = roles.some((r) => CUSTOMER_ROLES.includes(r))
+
+  const docsHref = isCustomer ? '/customer/documents' : '/documents'
+  const docsTitle = isCustomer ? 'My Documents' : 'Documents'
+  const docsDescription = isCustomer
+    ? 'View and complete your assigned documents'
+    : 'Access all your documents'
+
   return (
     <div className='grid gap-4'>
       <h1 className='text-3xl font-bold'>Document Portal</h1>
       <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
-        <Link href='/documents'>
+        <Link href={docsHref}>
           <Card className='hover:bg-accent transition-colors cursor-pointer'>
             <CardHeader>
               <div className='flex items-center gap-2'>
                 <FileText className='h-6 w-6' />
-                <CardTitle>Documents</CardTitle>
+                <CardTitle>{docsTitle}</CardTitle>
               </div>
-              <CardDescription>Access all your documents</CardDescription>
+              <CardDescription>{docsDescription}</CardDescription>
             </CardHeader>
           </Card>
         </Link>

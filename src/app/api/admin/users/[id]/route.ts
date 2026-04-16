@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
-import { getUserByEmail, updateUser, deleteUser } from '@/lib/user-database'
+import { getUserById, updateUser, deleteUser } from '@/lib/user-database'
 import { ADMIN_ROLES } from '@/types/rbac'
 
 // Middleware to check admin permissions
@@ -30,7 +30,7 @@ export async function GET(
   try {
     const { id: userId } = await params
 
-    const user = await getUserByEmail(userId)
+    const user = await getUserById(userId)
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -71,9 +71,15 @@ export async function PATCH(
     const { id: userId } = await params
     const updates = await request.json()
 
-    const userUpdates: Partial<{ displayName: string; role: string }> = {}
+    const userUpdates: Partial<{
+      displayName: string
+      role: string
+      customerCompanyId: string | null
+    }> = {}
     if (updates.displayName) userUpdates.displayName = updates.displayName
     if (updates.role) userUpdates.role = updates.role
+    if (updates.customerCompanyId !== undefined)
+      userUpdates.customerCompanyId = updates.customerCompanyId
 
     const success = await updateUser(userId, userUpdates)
 

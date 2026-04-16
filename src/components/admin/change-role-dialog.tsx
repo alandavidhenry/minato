@@ -22,51 +22,84 @@ import {
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
 
+interface Company {
+  id: string
+  name: string
+}
+
 interface ChangeRoleDialogProps {
   readonly userId: string
   readonly userName: string
   readonly currentRole: string
+  readonly currentCustomerCompanyId: string | null
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
   readonly onRoleChanged: () => void
 }
 
+const CUSTOMER_ROLES = ['Customer Admin', 'Customer User']
+
 export function ChangeRoleDialog({
   userId,
   userName,
   currentRole,
+  currentCustomerCompanyId,
   open,
   onOpenChange,
   onRoleChanged
 }: ChangeRoleDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedRole, setSelectedRole] = useState(currentRole)
+  const [selectedCompanyId, setSelectedCompanyId] = useState(
+    currentCustomerCompanyId ?? ''
+  )
+  const [companies, setCompanies] = useState<Company[]>([])
 
-  // Reset selected role when dialog opens
   useEffect(() => {
     if (open) {
       setSelectedRole(currentRole)
+      setSelectedCompanyId(currentCustomerCompanyId ?? '')
+      fetch('/api/admin/companies')
+        .then((r) => r.json())
+        .then((data) => setCompanies(data.companies ?? []))
+        .catch(() => setCompanies([]))
     }
-  }, [open, currentRole])
+  }, [open, currentRole, currentCustomerCompanyId])
 
-  // Handle role change
+  const isCustomerRole = CUSTOMER_ROLES.includes(selectedRole)
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    // No change, just close the dialog
-    if (selectedRole === currentRole) {
+    const roleUnchanged = selectedRole === currentRole
+    const companyUnchanged =
+      selectedCompanyId === (currentCustomerCompanyId ?? '')
+
+    if (roleUnchanged && companyUnchanged) {
       onOpenChange(false)
+      return
+    }
+
+    if (isCustomerRole && !selectedCompanyId) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select a company for customer users',
+        variant: 'destructive'
+      })
       return
     }
 
     setIsLoading(true)
 
     try {
-      // Update the user's role
       const response = await fetch(`/api/admin/users/${userId}/role`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: selectedRole })
+        body: JSON.stringify({
+          role: selectedRole,
+          ...(isCustomerRole && { customerCompanyId: selectedCompanyId }),
+          ...(!isCustomerRole && { customerCompanyId: null })
+        })
       })
 
       if (!response.ok) {
@@ -79,11 +112,9 @@ export function ChangeRoleDialog({
         description: `User role changed to ${selectedRole}`
       })
 
-      // Call success callback
       onRoleChanged()
       onOpenChange(false)
     } catch (error) {
-      console.error('Error changing role:', error)
       toast({
         title: 'Error',
         description:
@@ -119,7 +150,10 @@ export function ChangeRoleDialog({
               <Label htmlFor='newRole'>New Role</Label>
               <Select
                 value={selectedRole}
-                onValueChange={setSelectedRole}
+                onValueChange={(value) => {
+                  setSelectedRole(value)
+                  if (!CUSTOMER_ROLES.includes(value)) setSelectedCompanyId('')
+                }}
                 disabled={isLoading}
               >
                 <SelectTrigger id='newRole'>
@@ -134,6 +168,28 @@ export function ChangeRoleDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {isCustomerRole && (
+              <div className='grid gap-2'>
+                <Label htmlFor='company'>Company</Label>
+                <Select
+                  value={selectedCompanyId}
+                  onValueChange={setSelectedCompanyId}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger id='company'>
+                    <SelectValue placeholder='Select a company' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companies.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {(selectedRole === 'Platform Admin' ||
               selectedRole === 'Tenant Admin') && (
@@ -155,10 +211,7 @@ export function ChangeRoleDialog({
             >
               Cancel
             </Button>
-            <Button
-              type='submit'
-              disabled={isLoading || selectedRole === currentRole}
-            >
+            <Button type='submit' disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className='mr-2 h-4 w-4 animate-spin' />

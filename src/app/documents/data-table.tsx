@@ -280,10 +280,14 @@ export function DataTable<TData, TValue>({
                         <span className='text-muted-foreground'>Size:</span>{' '}
                         {row.getValue('size')}
                       </div>
-                      <div>
-                        <span className='text-muted-foreground'>Type:</span>{' '}
-                        {row.getValue('type')}
-                      </div>
+                      {row
+                        .getVisibleCells()
+                        .some((c) => c.column.id === 'type') && (
+                        <div>
+                          <span className='text-muted-foreground'>Type:</span>{' '}
+                          {row.getValue('type')}
+                        </div>
+                      )}
                     </div>
 
                     <div className='flex justify-between items-center'>

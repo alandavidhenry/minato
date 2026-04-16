@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { POST as completeAssignment } from '../customer/assignments/[id]/complete/route'
 import { GET as downloadAssignment } from '../customer/assignments/[id]/download/route'
+import { GET as getAssignment } from '../customer/assignments/[id]/route'
 import { GET as listAssignments } from '../customer/assignments/route'
+import { GET as downloadCompletion } from '../customer/completions/[id]/download/route'
 import { GET as listCompletions } from '../customer/completions/route'
 
 // ---------------------------------------------------------------------------
@@ -17,13 +19,17 @@ const { mockGetServerSession } = vi.hoisted(() => ({
 }))
 vi.mock('next-auth', () => ({ getServerSession: mockGetServerSession }))
 
-const { mockGetForCompany, mockGetById } = vi.hoisted(() => ({
-  mockGetForCompany: vi.fn(),
-  mockGetById: vi.fn()
-}))
+const { mockGetForCompany, mockGetById, mockGetWithTemplate } = vi.hoisted(
+  () => ({
+    mockGetForCompany: vi.fn(),
+    mockGetById: vi.fn(),
+    mockGetWithTemplate: vi.fn()
+  })
+)
 vi.mock('@/lib/assignments', () => ({
   getAssignmentsForCompany: mockGetForCompany,
-  getAssignmentById: mockGetById
+  getAssignmentById: mockGetById,
+  getAssignmentWithTemplate: mockGetWithTemplate
 }))
 
 const { mockGetTemplateById } = vi.hoisted(() => ({
@@ -40,13 +46,53 @@ vi.mock('@/lib/file-system', () => ({
   getFileManager: () => ({ generateDownloadUrl: mockGenerateDownloadUrl })
 }))
 
-const { mockCreateCompletion, mockGetForUser } = vi.hoisted(() => ({
+const {
+  mockCreateCompletion,
+  mockGetForUser,
+  mockUpdateBlobPath,
+  mockGetCompletionById
+} = vi.hoisted(() => ({
   mockCreateCompletion: vi.fn(),
-  mockGetForUser: vi.fn()
+  mockGetForUser: vi.fn(),
+  mockUpdateBlobPath: vi.fn(),
+  mockGetCompletionById: vi.fn()
 }))
 vi.mock('@/lib/completion-records', () => ({
   createCompletionRecord: mockCreateCompletion,
-  getCompletionsForUser: mockGetForUser
+  getCompletionsForUser: mockGetForUser,
+  updateCompletionBlobPath: mockUpdateBlobPath,
+  getCompletionById: mockGetCompletionById
+}))
+
+// Mock customer-companies to avoid DB calls in complete route
+const { mockGetCompanyById } = vi.hoisted(() => ({
+  mockGetCompanyById: vi.fn()
+}))
+vi.mock('@/lib/customer-companies', () => ({
+  getCustomerCompanyById: mockGetCompanyById
+}))
+
+// Mock PDF generation and blob upload in the complete route
+vi.mock('@/lib/pdf/completion-pdf', () => ({
+  generateCompletionPDF: vi.fn().mockResolvedValue(Buffer.from('pdf'))
+}))
+vi.mock('@azure/storage-blob', () => ({
+  BlobServiceClient: {
+    fromConnectionString: () => ({
+      getContainerClient: () => ({
+        getBlockBlobClient: () => ({
+          uploadData: vi.fn().mockResolvedValue(undefined)
+        })
+      })
+    })
+  }
+}))
+
+const { mockGenerateSasToken } = vi.hoisted(() => ({
+  mockGenerateSasToken: vi.fn()
+}))
+vi.mock('@/lib/storage', () => ({
+  generateSasToken: mockGenerateSasToken
 }))
 
 // ---------------------------------------------------------------------------
@@ -76,7 +122,47 @@ const BASE_ASSIGNMENT = {
     id: 'template_123',
     title: 'Farmyard Safety Checklist',
     description: null,
-    blobPath: null
+    blobPath: null,
+    formSchema: null
+  }
+}
+
+const BASE_ASSIGNMENT_WITH_SCHEMA = {
+  ...BASE_ASSIGNMENT,
+  template: {
+    ...BASE_ASSIGNMENT.template,
+    formSchema: [
+      {
+        id: 'q1',
+        label: 'Are fire exits clear?',
+        type: 'checkbox',
+        required: true
+      },
+      { id: 'q2', label: 'Supervisor name', type: 'text', required: true }
+    ]
+  }
+}
+
+// Schema with a conditional field: q2 is only shown (and required) when q1 is No (false)
+const ASSIGNMENT_WITH_CONDITIONAL_SCHEMA = {
+  ...BASE_ASSIGNMENT,
+  template: {
+    ...BASE_ASSIGNMENT.template,
+    formSchema: [
+      {
+        id: 'q1',
+        label: 'Are fire exits clear?',
+        type: 'checkbox',
+        required: false
+      },
+      {
+        id: 'q2',
+        label: 'Describe what is blocking exits',
+        type: 'text',
+        required: true,
+        condition: { fieldId: 'q1', value: false }
+      }
+    ]
   }
 }
 
@@ -114,10 +200,15 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockGetForCompany.mockResolvedValue([])
   mockGetById.mockResolvedValue(null)
+  mockGetWithTemplate.mockResolvedValue(null)
   mockCreateCompletion.mockResolvedValue(BASE_COMPLETION)
   mockGetForUser.mockResolvedValue([])
   mockGetTemplateById.mockResolvedValue(null)
   mockGenerateDownloadUrl.mockResolvedValue(null)
+  mockUpdateBlobPath.mockResolvedValue(true)
+  mockGetCompletionById.mockResolvedValue(null)
+  mockGetCompanyById.mockResolvedValue({ id: 'company_123', name: 'Acme Farm' })
+  mockGenerateSasToken.mockResolvedValue('https://blob.example.com/sas-url')
 })
 
 // ---------------------------------------------------------------------------
@@ -155,6 +246,68 @@ describe('GET /api/customer/assignments', () => {
 })
 
 // ---------------------------------------------------------------------------
+// GET /api/customer/assignments/[id]
+// ---------------------------------------------------------------------------
+
+describe('GET /api/customer/assignments/[id]', () => {
+  it('returns 403 when not logged in', async () => {
+    mockGetServerSession.mockResolvedValue(null)
+    const req = new NextRequest(
+      'http://localhost/api/customer/assignments/assignment_123'
+    )
+    const res = await getAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(403)
+  })
+
+  it('returns 403 for admin role', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = new NextRequest(
+      'http://localhost/api/customer/assignments/assignment_123'
+    )
+    const res = await getAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(403)
+  })
+
+  it('returns 404 when assignment not found', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(null)
+    const req = new NextRequest(
+      'http://localhost/api/customer/assignments/missing'
+    )
+    const res = await getAssignment(req, params('missing'))
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 404 when assignment belongs to a different company', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue({
+      ...BASE_ASSIGNMENT,
+      customerCompanyId: 'other_company'
+    })
+    const req = new NextRequest(
+      'http://localhost/api/customer/assignments/assignment_123'
+    )
+    const res = await getAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 200 with assignment including formSchema', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT_WITH_SCHEMA)
+    const req = new NextRequest(
+      'http://localhost/api/customer/assignments/assignment_123'
+    )
+    const res = await getAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.assignment.template.formSchema).toHaveLength(2)
+    expect(body.assignment.template.formSchema[0].label).toBe(
+      'Are fire exits clear?'
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
 // POST /api/customer/assignments/[id]/complete
 // ---------------------------------------------------------------------------
 
@@ -170,7 +323,7 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
 
   it('returns 404 when assignment not found', async () => {
     mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
-    mockGetById.mockResolvedValue(null)
+    mockGetWithTemplate.mockResolvedValue(null)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/missing/complete'
     )
@@ -180,7 +333,7 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
 
   it('returns 404 when assignment belongs to a different company', async () => {
     mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
-    mockGetById.mockResolvedValue({
+    mockGetWithTemplate.mockResolvedValue({
       ...BASE_ASSIGNMENT,
       customerCompanyId: 'other_company'
     })
@@ -191,9 +344,75 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     expect(res.status).toBe(404)
   })
 
-  it('returns 200 with completion record', async () => {
+  it('returns 400 when required fields are missing', async () => {
     mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
-    mockGetById.mockResolvedValue(BASE_ASSIGNMENT)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT_WITH_SCHEMA)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { formData: {} }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/required fields missing/i)
+    expect(body.error).toMatch(/Are fire exits clear\?/)
+    expect(body.error).toMatch(/Supervisor name/)
+  })
+
+  it('returns 400 when required checkbox is not checked', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT_WITH_SCHEMA)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { formData: { q1: false, q2: 'Jane' } }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/Are fire exits clear\?/)
+  })
+
+  it('returns 200 with completion record when all required fields provided', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT_WITH_SCHEMA)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { formData: { q1: true, q2: 'Jane Smith' } }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.completion.assignmentId).toBe('assignment_123')
+    expect(body.completion.signedById).toBe('user_123')
+  })
+
+  it('skips required validation for a field whose condition is not met', async () => {
+    // q1 = true (Yes, exits are clear) → q2 condition (value: false) not met → q2 hidden → valid
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(ASSIGNMENT_WITH_CONDITIONAL_SCHEMA)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { formData: { q1: true } }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(200)
+  })
+
+  it('enforces required validation for a field whose condition is met', async () => {
+    // q1 = false (No, exits are blocked) → q2 condition (value: false) met → q2 visible and required
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(ASSIGNMENT_WITH_CONDITIONAL_SCHEMA)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { formData: { q1: false } }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/Describe what is blocking exits/)
+  })
+
+  it('returns 200 for template with no form schema', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete'
     )
@@ -245,6 +464,7 @@ describe('GET /api/customer/assignments/[id]/download', () => {
     title: 'Farmyard Safety Checklist',
     description: null,
     blobPath: 'templates/farmyard-safety.pdf',
+    formSchema: null,
     tenantId: null,
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z'
@@ -308,6 +528,87 @@ describe('GET /api/customer/assignments/[id]/download', () => {
       'http://localhost/api/customer/assignments/assignment_123/download'
     )
     const res = await downloadAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(200)
+    expect((await res.json()).url).toBe('https://blob.example.com/sas-url')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// GET /api/customer/completions/[id]/download
+// ---------------------------------------------------------------------------
+
+describe('GET /api/customer/completions/[id]/download', () => {
+  const BASE_COMPLETION_WITH_PDF = {
+    id: 'record_123',
+    assignmentId: 'assignment_123',
+    signedById: 'user_123',
+    signedAt: '2024-01-01T00:00:00.000Z',
+    blobPath: 'completions/record_123.pdf',
+    formData: null
+  }
+
+  it('returns 403 when not logged in', async () => {
+    mockGetServerSession.mockResolvedValue(null)
+    const req = new NextRequest(
+      'http://localhost/api/customer/completions/record_123/download'
+    )
+    const res = await downloadCompletion(req, params('record_123'))
+    expect(res.status).toBe(403)
+  })
+
+  it('returns 403 for admin role', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = new NextRequest(
+      'http://localhost/api/customer/completions/record_123/download'
+    )
+    const res = await downloadCompletion(req, params('record_123'))
+    expect(res.status).toBe(403)
+  })
+
+  it('returns 404 when completion not found', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetCompletionById.mockResolvedValue(null)
+    const req = new NextRequest(
+      'http://localhost/api/customer/completions/missing/download'
+    )
+    const res = await downloadCompletion(req, params('missing'))
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 404 when completion belongs to a different user', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetCompletionById.mockResolvedValue({
+      ...BASE_COMPLETION_WITH_PDF,
+      signedById: 'other_user'
+    })
+    const req = new NextRequest(
+      'http://localhost/api/customer/completions/record_123/download'
+    )
+    const res = await downloadCompletion(req, params('record_123'))
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 404 when completion has no PDF', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetCompletionById.mockResolvedValue({
+      ...BASE_COMPLETION_WITH_PDF,
+      blobPath: null
+    })
+    const req = new NextRequest(
+      'http://localhost/api/customer/completions/record_123/download'
+    )
+    const res = await downloadCompletion(req, params('record_123'))
+    expect(res.status).toBe(404)
+    expect((await res.json()).error).toMatch(/pdf not available/i)
+  })
+
+  it('returns 200 with download URL', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetCompletionById.mockResolvedValue(BASE_COMPLETION_WITH_PDF)
+    const req = new NextRequest(
+      'http://localhost/api/customer/completions/record_123/download'
+    )
+    const res = await downloadCompletion(req, params('record_123'))
     expect(res.status).toBe(200)
     expect((await res.json()).url).toBe('https://blob.example.com/sas-url')
   })

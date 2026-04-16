@@ -39,16 +39,16 @@ export function parseFileName(fileName: string): {
     ? fileNameWithoutPath.substring(0, fileNameWithoutPath.lastIndexOf('.'))
     : fileNameWithoutPath
 
-  const versionMatch = /(.+)_v_(.+)$/.exec(nameWithoutExtension)
+  const vIndex = nameWithoutExtension.lastIndexOf('_v_')
 
-  if (versionMatch) {
+  if (vIndex !== -1) {
     const folderPath = fileName.includes('/')
       ? fileName.substring(0, fileName.lastIndexOf('/') + 1)
       : ''
 
     return {
-      baseName: folderPath + versionMatch[1],
-      versionId: versionMatch[2],
+      baseName: folderPath + nameWithoutExtension.substring(0, vIndex),
+      versionId: nameWithoutExtension.substring(vIndex + 3),
       extension
     }
   }

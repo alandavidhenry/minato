@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getCustomerCompanyById } from '@/lib/customer-companies'
 import { getFileManager } from '@/lib/file-system'
+import { groupDocumentsByVersion } from '@/lib/version-manager'
 import { CUSTOMER_ROLES } from '@/types/rbac'
 
 export async function GET(request: NextRequest) {
@@ -45,8 +46,44 @@ export async function GET(request: NextRequest) {
 
   try {
     const fileManager = getFileManager()
-    const items = await fileManager.listContent(fullPath)
-    return NextResponse.json({ items })
+    const rawItems = await fileManager.listContent(fullPath)
+
+    const folders = rawItems
+      .filter((i) => i.isFolder)
+      .map((i) => ({
+        name: i.name,
+        isFolder: true,
+        uploadedAt: i.uploadedAt,
+        hasVersions: false
+      }))
+
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING!
+    const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME!
+    const grouped = await groupDocumentsByVersion(
+      containerName,
+      connectionString,
+      fullPath
+    )
+
+    const prefix = `${fullPath}/`
+    const files = grouped.map((doc) => {
+      const blobName = doc.latestVersion.fileName
+      const relativeName = blobName.startsWith(prefix)
+        ? blobName.slice(prefix.length)
+        : blobName
+      return {
+        name: relativeName,
+        isFolder: false,
+        size: doc.latestVersion.size,
+        uploadedAt: doc.latestVersion.uploadedAt.toLocaleDateString(),
+        hasVersions: doc.versions.length > 1,
+        versionNumber: doc.latestVersion.versionNumber,
+        totalVersions: doc.versions.length,
+        originalName: doc.originalName
+      }
+    })
+
+    return NextResponse.json({ items: [...folders, ...files] })
   } catch (error) {
     console.error('Error listing customer files:', error)
     return NextResponse.json(

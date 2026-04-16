@@ -29,6 +29,7 @@ interface User {
   jobTitle?: string
   department?: string
   role: string
+  customerCompanyId: string | null
 }
 
 // Define the valid badge variant types

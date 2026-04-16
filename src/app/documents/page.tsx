@@ -13,6 +13,11 @@ import { DataTable } from './data-table'
 
 export const dynamic = 'force-dynamic'
 
+// Folders managed by the system API — not user-created company folders.
+// Hide these from the root browser so admins don't accidentally browse or
+// modify programmatically-stored blobs (completion PDFs, template files).
+const SYSTEM_FOLDERS = new Set(['completions', 'templates'])
+
 export default async function DocumentsPage({
   searchParams
 }: {
@@ -34,7 +39,11 @@ export default async function DocumentsPage({
   }
 
   // Fetch documents from Azure Storage for the current path
-  const documents = await listBlobs(false, path)
+  const allDocuments = await listBlobs(false, path)
+  // At root, hide system-managed folders that aren't user company folders
+  const documents = isRoot
+    ? allDocuments.filter((d) => !d.isFolder || !SYSTEM_FOLDERS.has(d.name))
+    : allDocuments
 
   // At root, compute total size for each company folder
   if (isRoot) {

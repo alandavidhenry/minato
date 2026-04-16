@@ -36,6 +36,7 @@ interface User {
   jobTitle?: string
   department?: string
   role: string
+  customerCompanyId: string | null
 }
 
 interface UserActionsDropdownProps {
@@ -185,6 +186,7 @@ export function UserActionsDropdown({
           userId={user.id}
           userName={user.displayName}
           currentRole={userRole}
+          currentCustomerCompanyId={user.customerCompanyId}
           open={showChangeRoleDialog}
           onOpenChange={setShowChangeRoleDialog}
           onRoleChanged={onUserUpdated}

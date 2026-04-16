@@ -21,6 +21,18 @@ export interface CompletionRecordWithTemplate extends CompletionRecordData {
   }
 }
 
+export interface CompletionRecordForAdmin {
+  id: string
+  signedAt: string
+  blobPath: string | null
+  signer: { id: string; displayName: string; email: string }
+  assignment: {
+    id: string
+    template: { id: string; title: string }
+    customerCompany: { id: string; name: string }
+  }
+}
+
 type PrismaCompletionRecord = {
   id: string
   assignmentId: string
@@ -39,6 +51,18 @@ type PrismaCompletionRecordWithTemplate = PrismaCompletionRecord & {
       title: string
       description: string | null
     }
+  }
+}
+
+type PrismaCompletionRecordForAdmin = {
+  id: string
+  signedAt: Date
+  blobPath: string | null
+  signedBy: { id: string; displayName: string; email: string }
+  assignment: {
+    id: string
+    template: { id: string; title: string }
+    customerCompany: { id: string; name: string }
   }
 }
 
@@ -64,6 +88,18 @@ function toCompletionRecordWithTemplate(
   }
 }
 
+function toCompletionRecordForAdmin(
+  record: PrismaCompletionRecordForAdmin
+): CompletionRecordForAdmin {
+  return {
+    id: record.id,
+    signedAt: record.signedAt.toISOString(),
+    blobPath: record.blobPath,
+    signer: record.signedBy,
+    assignment: record.assignment
+  }
+}
+
 export async function createCompletionRecord({
   assignmentId,
   signedById,
@@ -84,6 +120,35 @@ export async function createCompletionRecord({
     return toCompletionRecordData(record)
   } catch (error) {
     console.error('Error creating completion record:', error)
+    return null
+  }
+}
+
+export async function updateCompletionBlobPath(
+  id: string,
+  blobPath: string
+): Promise<boolean> {
+  try {
+    await prisma.completionRecord.update({
+      where: { id },
+      data: { blobPath }
+    })
+    return true
+  } catch (error) {
+    console.error('Error updating completion blob path:', error)
+    return false
+  }
+}
+
+export async function getCompletionById(
+  id: string
+): Promise<CompletionRecordData | null> {
+  try {
+    const record = await prisma.completionRecord.findUnique({ where: { id } })
+    if (!record) return null
+    return toCompletionRecordData(record)
+  } catch (error) {
+    console.error('Error getting completion record:', error)
     return null
   }
 }
@@ -123,6 +188,29 @@ export async function getCompletionsForUser(
     return records.map(toCompletionRecordWithTemplate)
   } catch (error) {
     console.error('Error getting completions for user:', error)
+    return []
+  }
+}
+
+export async function getAllCompletionsForAdmin(): Promise<
+  CompletionRecordForAdmin[]
+> {
+  try {
+    const records = await prisma.completionRecord.findMany({
+      include: {
+        signedBy: { select: { id: true, displayName: true, email: true } },
+        assignment: {
+          include: {
+            template: { select: { id: true, title: true } },
+            customerCompany: { select: { id: true, name: true } }
+          }
+        }
+      },
+      orderBy: { signedAt: 'desc' }
+    })
+    return records.map(toCompletionRecordForAdmin)
+  } catch (error) {
+    console.error('Error getting all completions:', error)
     return []
   }
 }
