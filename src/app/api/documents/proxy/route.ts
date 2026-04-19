@@ -17,9 +17,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'URL is required' }, { status: 400 })
   }
 
+  let parsedUrl: URL
+  try {
+    parsedUrl = new URL(url)
+  } catch {
+    return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 })
+  }
+
+  const allowedHost = process.env.AZURE_STORAGE_PROXY_HOST
+  if (!allowedHost) {
+    console.error('AZURE_STORAGE_PROXY_HOST is not configured')
+    return NextResponse.json(
+      { error: 'Document proxy is not properly configured' },
+      { status: 500 }
+    )
+  }
+
+  if (parsedUrl.hostname !== allowedHost || parsedUrl.protocol !== 'https:') {
+    return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
+  }
+
   try {
     // Fetch the document from Azure Storage
-    const response = await fetch(url)
+    const response = await fetch(parsedUrl.toString())
 
     if (!response.ok) {
       // Log the view activity
@@ -27,7 +47,7 @@ export async function GET(request: NextRequest) {
         await logActivity({
           userId: session.user.id,
           userName: session.user.name ?? session.user.email ?? 'Unknown user',
-          fileName: new URL(url).pathname.split('/').pop() ?? 'Unknown file',
+          fileName: parsedUrl.pathname.split('/').pop() ?? 'Unknown file',
           activityType: ActivityType.VIEW,
           ipAddress:
             request.headers.get('x-forwarded-for') ??
