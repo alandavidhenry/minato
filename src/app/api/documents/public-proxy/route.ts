@@ -28,10 +28,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Check if the URL has a SAS token
-  if (
-    !parsedUrl.searchParams.has('sv') ||
-    !parsedUrl.searchParams.has('sig')
-  ) {
+  if (!parsedUrl.searchParams.has('sv') || !parsedUrl.searchParams.has('sig')) {
     return NextResponse.json(
       { error: 'URL does not contain a valid SAS token' },
       { status: 400 }
