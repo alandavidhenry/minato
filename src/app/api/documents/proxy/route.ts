@@ -26,18 +26,33 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  let parsedUrl: URL
+  let requestedPathWithQuery: string
   try {
-    parsedUrl = new URL(url)
+    // Backward compatibility: if a full URL is provided, only allow the configured host.
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      const parsedUrl = new URL(url)
+      if (parsedUrl.protocol !== 'https:' || parsedUrl.hostname !== allowedHost) {
+        return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
+      }
+      if (parsedUrl.username || parsedUrl.password) {
+        return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
+      }
+      requestedPathWithQuery = `${parsedUrl.pathname}${parsedUrl.search}`
+    } else {
+      // Preferred mode: relative path/query only.
+      if (!url.startsWith('/')) {
+        return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
+      }
+      requestedPathWithQuery = url
+    }
   } catch {
     return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 })
   }
 
-  if (parsedUrl.hostname !== allowedHost || parsedUrl.protocol !== 'https:') {
-    return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
-  }
+  const trustedBaseUrl = new URL(`https://${allowedHost}`)
+  const targetUrl = new URL(requestedPathWithQuery, trustedBaseUrl)
 
-  const decodedPath = decodeURIComponent(parsedUrl.pathname)
+  const decodedPath = decodeURIComponent(targetUrl.pathname)
   if (
     decodedPath.includes('..') ||
     decodedPath.includes('\\') ||
@@ -45,9 +60,6 @@ export async function GET(request: NextRequest) {
   ) {
     return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
   }
-
-  const trustedBaseUrl = new URL(`https://${allowedHost}`)
-  const targetUrl = new URL(decodedPath + parsedUrl.search, trustedBaseUrl)
 
   try {
     // Fetch the document from Azure Storage
