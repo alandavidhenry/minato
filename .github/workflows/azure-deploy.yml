@@ -17,6 +17,9 @@ on:
       DATABASE_URL:
         required: true
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     name: Deploy to Azure App Service

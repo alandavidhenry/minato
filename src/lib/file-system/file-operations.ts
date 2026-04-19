@@ -265,7 +265,11 @@ export async function moveFile(
     }
   } catch (error) {
     console.error(
-      `Error moving file from ${sourcePath} to ${targetPath}:`,
+      'Error moving file from',
+      sourcePath,
+      'to',
+      targetPath,
+      ':',
       error
     )
     return {

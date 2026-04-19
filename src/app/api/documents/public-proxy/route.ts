@@ -8,25 +8,39 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'URL is required' }, { status: 400 })
   }
 
+  // Validate URL syntax before entering the try block
+  let parsedUrl: URL
   try {
-    // Validate that the URL is from our Azure storage (basic security check)
-    const urlObj = new URL(url)
+    parsedUrl = new URL(url)
+  } catch {
+    return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
+  }
 
-    // Check if the URL is from our Azure blob storage
-    if (!urlObj.hostname.includes('.blob.core.windows.net')) {
-      return NextResponse.json({ error: 'Invalid URL domain' }, { status: 400 })
-    }
+  // Enforce https and an exact Azure Blob Storage hostname suffix to prevent SSRF.
+  // .includes() alone can be bypassed (e.g. evil.com?.blob.core.windows.net).
+  const allowedHost = process.env.AZURE_STORAGE_PROXY_HOST
+  const validHost = allowedHost
+    ? parsedUrl.hostname === allowedHost
+    : parsedUrl.hostname.endsWith('.blob.core.windows.net')
 
-    // Check if the URL has a SAS token
-    if (!urlObj.search.includes('sv=') || !urlObj.search.includes('sig=')) {
-      return NextResponse.json(
-        { error: 'URL does not contain a valid SAS token' },
-        { status: 400 }
-      )
-    }
+  if (parsedUrl.protocol !== 'https:' || !validHost) {
+    return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
+  }
 
+  // Check if the URL has a SAS token
+  if (
+    !parsedUrl.searchParams.has('sv') ||
+    !parsedUrl.searchParams.has('sig')
+  ) {
+    return NextResponse.json(
+      { error: 'URL does not contain a valid SAS token' },
+      { status: 400 }
+    )
+  }
+
+  try {
     // Fetch the document from Azure Storage
-    const response = await fetch(url)
+    const response = await fetch(parsedUrl.toString())
 
     if (!response.ok) {
       return NextResponse.json(
