@@ -240,7 +240,10 @@ export default function CompanyDetailPage() {
         onCompanySaved={() => {
           fetchData()
           setShowEditDialog(false)
-          toast({ title: 'Success', description: 'Company updated successfully.' })
+          toast({
+            title: 'Success',
+            description: 'Company updated successfully.'
+          })
         }}
       />
     </div>

@@ -180,7 +180,9 @@ export default function CompaniesPage() {
 
       <EditCompanyDialog
         open={editingCompany !== null}
-        onOpenChange={(open) => { if (!open) setEditingCompany(null) }}
+        onOpenChange={(open) => {
+          if (!open) setEditingCompany(null)
+        }}
         company={editingCompany}
         onCompanySaved={handleCompanySaved}
       />
