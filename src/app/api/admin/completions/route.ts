@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
-import { getAllCompletionsForAdmin } from '@/lib/completion-records'
+import { getCompaniesWithCompletions } from '@/lib/completion-records'
 import { ADMIN_ROLES } from '@/types/rbac'
 
 export async function GET() {
@@ -18,10 +18,10 @@ export async function GET() {
   }
 
   try {
-    const completions = await getAllCompletionsForAdmin()
-    return NextResponse.json({ completions })
+    const companies = await getCompaniesWithCompletions()
+    return NextResponse.json({ companies })
   } catch (error) {
-    console.error('Error fetching completions:', error)
+    console.error('Error fetching companies with completions:', error)
     return NextResponse.json(
       { error: 'Failed to fetch completions' },
       { status: 500 }

@@ -158,110 +158,123 @@ export default function CustomerDocumentsPage() {
     )
   }
 
+  const pendingAssignments = assignments.filter((a) => !isCompleted(a.id))
+  const completedAssignments = assignments.filter((a) => isCompleted(a.id))
+
+  function renderCard(assignment: Assignment) {
+    const completed = isCompleted(assignment.id)
+    const completedDate = lastCompletedAt(assignment.id)
+    const completion = getCompletion(assignment.id)
+    const hasForm =
+      assignment.template.formSchema &&
+      assignment.template.formSchema.length > 0
+
+    return (
+      <Card key={assignment.id}>
+        <CardHeader className='pb-2'>
+          <div className='flex items-start justify-between gap-2'>
+            <CardTitle className='text-base'>
+              {assignment.template.title}
+            </CardTitle>
+            <Badge variant={completed ? 'default' : 'secondary'}>
+              {completed ? (
+                <>
+                  <CheckCircle2 className='mr-1 h-3 w-3' />
+                  Complete
+                </>
+              ) : (
+                <>
+                  <Clock className='mr-1 h-3 w-3' />
+                  Pending
+                </>
+              )}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className='space-y-3'>
+          {assignment.template.description && (
+            <p className='text-sm text-muted-foreground'>
+              {assignment.template.description}
+            </p>
+          )}
+
+          {completed && completedDate && (
+            <p className='text-xs text-muted-foreground'>
+              Last completed: {completedDate}
+            </p>
+          )}
+
+          <div className='flex gap-2 flex-wrap'>
+            {assignment.template.blobPath && (
+              <Button
+                size='sm'
+                variant='outline'
+                disabled={downloading === assignment.id}
+                onClick={() => handleDownload(assignment.id)}
+              >
+                <Download className='mr-1 h-3 w-3' />
+                {downloading === assignment.id ? 'Preparing...' : 'Template'}
+              </Button>
+            )}
+
+            {completion?.blobPath && (
+              <Button
+                size='sm'
+                variant='outline'
+                disabled={downloadingPdf === completion.id}
+                onClick={() => handleDownloadPdf(completion.id)}
+              >
+                <Download className='mr-1 h-3 w-3' />
+                {downloadingPdf === completion.id ? 'Preparing...' : 'Your PDF'}
+              </Button>
+            )}
+
+            <Button
+              size='sm'
+              variant={completed ? 'outline' : 'default'}
+              onClick={() =>
+                router.push(`/customer/documents/${assignment.id}/complete`)
+              }
+              className='flex-1'
+            >
+              {hasForm ? (
+                <>
+                  <FileText className='mr-1 h-3 w-3' />
+                  {completed ? 'Re-complete' : 'Fill In & Complete'}
+                </>
+              ) : completed ? (
+                'Re-complete'
+              ) : (
+                'Mark Complete'
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
-    <div className='space-y-6 p-6'>
+    <div className='space-y-8 p-6'>
       <h1 className='text-3xl font-bold'>My Documents</h1>
 
-      <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
-        {assignments.map((assignment) => {
-          const completed = isCompleted(assignment.id)
-          const completedDate = lastCompletedAt(assignment.id)
-          const completion = getCompletion(assignment.id)
-          const hasForm =
-            assignment.template.formSchema &&
-            assignment.template.formSchema.length > 0
+      {pendingAssignments.length > 0 && (
+        <section className='space-y-4'>
+          <h2 className='text-xl font-semibold'>Pending</h2>
+          <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
+            {pendingAssignments.map(renderCard)}
+          </div>
+        </section>
+      )}
 
-          return (
-            <Card key={assignment.id}>
-              <CardHeader className='pb-2'>
-                <div className='flex items-start justify-between gap-2'>
-                  <CardTitle className='text-base'>
-                    {assignment.template.title}
-                  </CardTitle>
-                  <Badge variant={completed ? 'default' : 'secondary'}>
-                    {completed ? (
-                      <>
-                        <CheckCircle2 className='mr-1 h-3 w-3' />
-                        Complete
-                      </>
-                    ) : (
-                      <>
-                        <Clock className='mr-1 h-3 w-3' />
-                        Pending
-                      </>
-                    )}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className='space-y-3'>
-                {assignment.template.description && (
-                  <p className='text-sm text-muted-foreground'>
-                    {assignment.template.description}
-                  </p>
-                )}
-
-                {completed && completedDate && (
-                  <p className='text-xs text-muted-foreground'>
-                    Last completed: {completedDate}
-                  </p>
-                )}
-
-                <div className='flex gap-2 flex-wrap'>
-                  {assignment.template.blobPath && (
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      disabled={downloading === assignment.id}
-                      onClick={() => handleDownload(assignment.id)}
-                    >
-                      <Download className='mr-1 h-3 w-3' />
-                      {downloading === assignment.id
-                        ? 'Preparing...'
-                        : 'Template'}
-                    </Button>
-                  )}
-
-                  {completion?.blobPath && (
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      disabled={downloadingPdf === completion.id}
-                      onClick={() => handleDownloadPdf(completion.id)}
-                    >
-                      <Download className='mr-1 h-3 w-3' />
-                      {downloadingPdf === completion.id
-                        ? 'Preparing...'
-                        : 'Your PDF'}
-                    </Button>
-                  )}
-
-                  <Button
-                    size='sm'
-                    variant={completed ? 'outline' : 'default'}
-                    onClick={() =>
-                      router.push(
-                        `/customer/documents/${assignment.id}/complete`
-                      )
-                    }
-                    className='flex-1'
-                  >
-                    {hasForm ? (
-                      <>
-                        <FileText className='mr-1 h-3 w-3' />
-                        {completed ? 'Re-complete' : 'Fill In & Complete'}
-                      </>
-                    ) : completed ? (
-                      'Re-complete'
-                    ) : (
-                      'Mark Complete'
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
+      {completedAssignments.length > 0 && (
+        <section className='space-y-4'>
+          <h2 className='text-xl font-semibold'>Complete</h2>
+          <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
+            {completedAssignments.map(renderCard)}
+          </div>
+        </section>
+      )}
     </div>
   )
 }

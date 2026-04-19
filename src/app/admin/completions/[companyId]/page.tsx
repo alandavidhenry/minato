@@ -1,0 +1,139 @@
+// src/app/admin/completions/[companyId]/page.tsx
+'use client'
+
+import { ArrowLeft, FileText } from 'lucide-react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
+
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table'
+import { toast } from '@/components/ui/use-toast'
+
+interface CompletionGroup {
+  assignmentId: string
+  template: { id: string; title: string }
+  completionCount: number
+  lastCompletedAt: string
+}
+
+export default function CompanyCompletionsPage() {
+  const { companyId } = useParams<{ companyId: string }>()
+  const [groups, setGroups] = useState<CompletionGroup[]>([])
+  const [companyName, setCompanyName] = useState<string>('')
+  const [isLoading, setIsLoading] = useState(true)
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const [companyRes, groupsRes] = await Promise.all([
+        fetch(`/api/admin/companies/${companyId}`),
+        fetch(`/api/admin/companies/${companyId}/completions`)
+      ])
+      if (!companyRes.ok) throw new Error('Company not found')
+      if (!groupsRes.ok) throw new Error('Failed to load completions')
+      const [companyData, groupsData] = await Promise.all([
+        companyRes.json(),
+        groupsRes.json()
+      ])
+      setCompanyName(companyData.company.name)
+      setGroups(groupsData.groups)
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to load completions.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }, [companyId])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  function renderRows() {
+    if (isLoading) {
+      return (
+        <TableRow>
+          <TableCell colSpan={3} className='h-24 text-center'>
+            Loading...
+          </TableCell>
+        </TableRow>
+      )
+    }
+
+    if (groups.length === 0) {
+      return (
+        <TableRow>
+          <TableCell colSpan={3} className='h-24 text-center'>
+            No completions for this company.
+          </TableCell>
+        </TableRow>
+      )
+    }
+
+    return groups.map((group) => (
+      <TableRow
+        key={group.assignmentId}
+        className='cursor-pointer hover:bg-muted/50'
+      >
+        <TableCell>
+          <Link
+            href={`/admin/completions/${companyId}/${group.assignmentId}`}
+            className='flex items-center gap-2 font-medium'
+          >
+            <FileText className='h-4 w-4 text-muted-foreground' />
+            {group.template.title}
+          </Link>
+        </TableCell>
+        <TableCell>
+          <Badge variant='secondary'>{group.completionCount}</Badge>
+        </TableCell>
+        <TableCell className='text-muted-foreground'>
+          {new Date(group.lastCompletedAt).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          })}
+        </TableCell>
+      </TableRow>
+    ))
+  }
+
+  return (
+    <div className='space-y-6'>
+      <div className='flex items-center gap-4'>
+        <Link
+          href='/admin/completions'
+          className='flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'
+        >
+          <ArrowLeft className='h-4 w-4' />
+          Completions
+        </Link>
+        <h1 className='text-3xl font-bold'>{companyName || '...'}</h1>
+      </div>
+
+      <div className='rounded-md border'>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Template</TableHead>
+              <TableHead>Completions</TableHead>
+              <TableHead>Last completed</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>{renderRows()}</TableBody>
+        </Table>
+      </div>
+    </div>
+  )
+}

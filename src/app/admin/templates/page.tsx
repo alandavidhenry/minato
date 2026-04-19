@@ -98,7 +98,7 @@ export default function TemplatesPage() {
     if (isLoading) {
       return (
         <TableRow>
-          <TableCell colSpan={4} className='h-24 text-center'>
+          <TableCell colSpan={3} className='h-24 text-center'>
             Loading templates...
           </TableCell>
         </TableRow>
@@ -108,7 +108,7 @@ export default function TemplatesPage() {
     if (templates.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={4} className='h-24 text-center'>
+          <TableCell colSpan={3} className='h-24 text-center'>
             No templates yet. Create your first document template.
           </TableCell>
         </TableRow>
@@ -121,35 +121,31 @@ export default function TemplatesPage() {
         <TableCell className='text-muted-foreground'>
           {template.description ?? '—'}
         </TableCell>
-        <TableCell className='text-muted-foreground'>
-          {template.formSchema && template.formSchema.length > 0
-            ? `${template.formSchema.length} field${template.formSchema.length === 1 ? '' : 's'}`
-            : '—'}
-        </TableCell>
-        <TableCell className='text-right'>
-          <Button
-            variant='ghost'
-            size='sm'
-            onClick={() => setViewingTemplate(template)}
-            className='mr-1'
-          >
-            <Eye className='h-4 w-4' />
-          </Button>
-          <Button
-            variant='ghost'
-            size='sm'
-            onClick={() => setEditingTemplate(template)}
-            className='mr-1'
-          >
-            <Pencil className='h-4 w-4' />
-          </Button>
-          <Button
-            variant='ghost'
-            size='sm'
-            onClick={() => handleDelete(template.id, template.title)}
-          >
-            <Trash2 className='h-4 w-4' />
-          </Button>
+
+        <TableCell>
+          <div className='flex flex-col items-end gap-1 min-[520px]:flex-row min-[520px]:justify-end'>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={() => setViewingTemplate(template)}
+            >
+              <Eye className='h-4 w-4' />
+            </Button>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={() => setEditingTemplate(template)}
+            >
+              <Pencil className='h-4 w-4' />
+            </Button>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={() => handleDelete(template.id, template.title)}
+            >
+              <Trash2 className='h-4 w-4' />
+            </Button>
+          </div>
         </TableCell>
       </TableRow>
     ))
@@ -171,7 +167,7 @@ export default function TemplatesPage() {
             <TableRow>
               <TableHead>Title</TableHead>
               <TableHead>Description</TableHead>
-              <TableHead>Form Fields</TableHead>
+
               <TableHead className='text-right'>Actions</TableHead>
             </TableRow>
           </TableHeader>

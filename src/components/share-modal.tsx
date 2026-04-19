@@ -20,12 +20,15 @@ interface ShareModalProps {
   readonly fileName: string
   readonly onClose: () => void
   readonly onShareGenerated: (url: string) => void
+  /** Override the default share URL generator. Receives expiration days, returns the share URL. */
+  readonly getShareUrl?: (expirationDays: number) => Promise<string>
 }
 
 export function ShareModal({
   fileName,
   onClose,
-  onShareGenerated
+  onShareGenerated,
+  getShareUrl
 }: ShareModalProps) {
   const [isVisible, setIsVisible] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
@@ -36,17 +39,22 @@ export function ShareModal({
     setIsLoading(true)
 
     try {
-      // First get the document share URL
-      const shareResponse = await fetch(
-        `/api/documents/share?name=${encodeURIComponent(fileName)}&expirationDays=${expirationDays}`
-      )
+      // Use custom generator if provided, otherwise call the documents share API
+      let shareUrl: string
+      if (getShareUrl) {
+        shareUrl = await getShareUrl(expirationDays)
+      } else {
+        const shareResponse = await fetch(
+          `/api/documents/share?name=${encodeURIComponent(fileName)}&expirationDays=${expirationDays}`
+        )
 
-      if (!shareResponse.ok) {
-        const errorData = await shareResponse.json()
-        throw new Error(errorData.error || 'Share link generation failed')
+        if (!shareResponse.ok) {
+          const errorData = await shareResponse.json()
+          throw new Error(errorData.error || 'Share link generation failed')
+        }
+
+        shareUrl = (await shareResponse.json()).shareUrl
       }
-
-      const { shareUrl } = await shareResponse.json()
 
       // Then shorten the URL
       const shortenResponse = await fetch('/api/shorturl/create', {
