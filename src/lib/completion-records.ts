@@ -153,6 +153,135 @@ export async function getCompletionById(
   }
 }
 
+export interface CompanyWithCompletionCount {
+  id: string
+  name: string
+  completionCount: number
+}
+
+export interface CompletionGroupForAdmin {
+  assignmentId: string
+  template: { id: string; title: string }
+  completionCount: number
+  lastCompletedAt: string
+}
+
+export interface CompletionRecordForAssignment {
+  id: string
+  signedAt: string
+  blobPath: string | null
+  signer: { id: string; displayName: string; email: string }
+}
+
+type PrismaAssignmentWithCompletionGroup = {
+  id: string
+  template: { id: string; title: string }
+  _count: { completions: number }
+  completions: { signedAt: Date }[]
+}
+
+type PrismaCompletionRecordForAssignment = {
+  id: string
+  signedAt: Date
+  blobPath: string | null
+  signedBy: { id: string; displayName: string; email: string }
+}
+
+export async function getCompaniesWithCompletions(): Promise<
+  CompanyWithCompletionCount[]
+> {
+  try {
+    const companies = await prisma.customerCompany.findMany({
+      where: {
+        assignments: { some: { completions: { some: {} } } }
+      },
+      include: {
+        assignments: {
+          where: { completions: { some: {} } },
+          include: { _count: { select: { completions: true } } }
+        }
+      },
+      orderBy: { name: 'asc' }
+    })
+    return companies.map((c) => ({
+      id: c.id,
+      name: c.name,
+      completionCount: c.assignments.reduce(
+        (sum, a) => sum + a._count.completions,
+        0
+      )
+    }))
+  } catch (error) {
+    console.error('Error getting companies with completions:', error)
+    return []
+  }
+}
+
+export async function getCompletionGroupsByCompany(
+  companyId: string
+): Promise<CompletionGroupForAdmin[]> {
+  try {
+    const assignments = (await prisma.assignment.findMany({
+      where: {
+        customerCompanyId: companyId,
+        completions: { some: {} }
+      },
+      include: {
+        template: { select: { id: true, title: true } },
+        completions: {
+          select: { signedAt: true },
+          orderBy: { signedAt: 'desc' },
+          take: 1
+        },
+        _count: { select: { completions: true } }
+      },
+      orderBy: { createdAt: 'asc' }
+    })) as PrismaAssignmentWithCompletionGroup[]
+    return assignments.map((a) => ({
+      assignmentId: a.id,
+      template: a.template,
+      completionCount: a._count.completions,
+      lastCompletedAt: a.completions[0].signedAt.toISOString()
+    }))
+  } catch (error) {
+    console.error('Error getting completion groups by company:', error)
+    return []
+  }
+}
+
+export async function getCompletionsForAssignmentForAdmin(
+  assignmentId: string
+): Promise<CompletionRecordForAssignment[]> {
+  try {
+    const records = (await prisma.completionRecord.findMany({
+      where: { assignmentId },
+      include: {
+        signedBy: { select: { id: true, displayName: true, email: true } }
+      },
+      orderBy: { signedAt: 'desc' }
+    })) as PrismaCompletionRecordForAssignment[]
+    return records.map((r) => ({
+      id: r.id,
+      signedAt: r.signedAt.toISOString(),
+      blobPath: r.blobPath,
+      signer: r.signedBy
+    }))
+  } catch (error) {
+    console.error('Error getting completions for assignment (admin):', error)
+    return []
+  }
+}
+
+export async function deleteCompletionRecord(id: string): Promise<boolean> {
+  try {
+    await prisma.completionRecord.delete({ where: { id } })
+    return true
+  } catch (error) {
+    console.error('Error deleting completion record:', error)
+    return false
+  }
+}
+
 export async function getCompletionsForAssignment(
   assignmentId: string
 ): Promise<CompletionRecordData[]> {

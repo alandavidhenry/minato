@@ -198,6 +198,22 @@ describe('DELETE /api/admin/companies/[id]/assignments/[assignmentId]', () => {
     expect(res.status).toBe(404)
   })
 
+  it('returns 409 when assignment has existing completions', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetById.mockResolvedValue(BASE_ASSIGNMENT)
+    mockDelete.mockResolvedValue(false)
+    const req = new NextRequest(
+      'http://localhost/api/admin/companies/company_123/assignments/assignment_123',
+      { method: 'DELETE' }
+    )
+    const res = await removeAssignment(
+      req,
+      assignmentParams('company_123', 'assignment_123')
+    )
+    expect(res.status).toBe(409)
+    expect((await res.json()).error).toMatch(/completion/)
+  })
+
   it('returns 200 on success', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
     mockGetById.mockResolvedValue(BASE_ASSIGNMENT)

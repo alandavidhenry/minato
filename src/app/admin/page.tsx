@@ -6,10 +6,10 @@ import { useEffect, useState } from 'react'
 
 import { RecentActivity } from '@/components/admin/recent-activity'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ADMIN_ROLES, type UserRole } from '@/types/rbac'
 
-// Types to improve readability and type safety
 interface UserData {
-  appRoleAssignments?: Array<{ appRoleId: string }>
+  role: UserRole
 }
 
 interface Stats {
@@ -17,15 +17,6 @@ interface Stats {
   totalDocuments: number
   adminUsers: number
   totalCompanies: number
-}
-
-// Function extracted outside to avoid deep nesting
-const isAdminUser = (user: UserData): boolean => {
-  if (!user.appRoleAssignments) return false
-
-  return user.appRoleAssignments.some(
-    (role) => role.appRoleId === process.env.NEXT_PUBLIC_AZURE_AD_ADMIN_ROLE_ID
-  )
 }
 
 export default function AdminDashboardPage() {
@@ -46,7 +37,9 @@ export default function AdminDashboardPage() {
       if (usersResponse.ok) {
         const data = await usersResponse.json()
         // Using the extracted function to count admin users
-        const adminCount = data.users.filter(isAdminUser).length
+        const adminCount = data.users.filter((u: UserData) =>
+          ADMIN_ROLES.includes(u.role)
+        ).length
 
         setStats((prev) => ({
           ...prev,

@@ -1,7 +1,7 @@
 // src/app/customer/layout.tsx
 'use client'
 
-import { Files, FileText } from 'lucide-react'
+import { FileCheck, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -21,9 +21,9 @@ export default function CustomerLayout({
       icon: <FileText className='h-5 w-5' />
     },
     {
-      name: 'My Files',
-      href: '/customer/files',
-      icon: <Files className='h-5 w-5' />
+      name: 'Completed Forms',
+      href: '/customer/completions',
+      icon: <FileCheck className='h-5 w-5' />
     }
   ]
 

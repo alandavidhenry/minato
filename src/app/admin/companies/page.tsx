@@ -1,11 +1,12 @@
 // src/app/admin/companies/page.tsx
 'use client'
 
-import { Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { CreateCompanyDialog } from '@/components/admin/create-company-dialog'
+import { EditCompanyDialog } from '@/components/admin/edit-company-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -28,6 +29,7 @@ export default function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null)
 
   useEffect(() => {
     fetchCompanies()
@@ -87,6 +89,12 @@ export default function CompaniesPage() {
     toast({ title: 'Success', description: 'Company created successfully.' })
   }
 
+  function handleCompanySaved() {
+    fetchCompanies()
+    setEditingCompany(null)
+    toast({ title: 'Success', description: 'Company updated successfully.' })
+  }
+
   function renderRows() {
     if (isLoading) {
       return (
@@ -122,6 +130,13 @@ export default function CompaniesPage() {
           {new Date(company.createdAt).toLocaleDateString()}
         </TableCell>
         <TableCell className='text-right'>
+          <Button
+            variant='ghost'
+            size='sm'
+            onClick={() => setEditingCompany(company)}
+          >
+            <Pencil className='h-4 w-4' />
+          </Button>
           <Button
             variant='ghost'
             size='sm'
@@ -161,6 +176,15 @@ export default function CompaniesPage() {
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         onCompanyCreated={handleCompanyCreated}
+      />
+
+      <EditCompanyDialog
+        open={editingCompany !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingCompany(null)
+        }}
+        company={editingCompany}
+        onCompanySaved={handleCompanySaved}
       />
     </div>
   )

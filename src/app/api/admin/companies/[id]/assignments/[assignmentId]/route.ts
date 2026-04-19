@@ -38,8 +38,8 @@ export async function DELETE(
 
     if (!success) {
       return NextResponse.json(
-        { error: 'Failed to delete assignment' },
-        { status: 500 }
+        { error: 'Cannot delete assignment with existing completions' },
+        { status: 409 }
       )
     }
 

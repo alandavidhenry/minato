@@ -1,12 +1,13 @@
 // src/app/admin/companies/[id]/page.tsx
 'use client'
 
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { AssignTemplateDialog } from '@/components/admin/assign-template-dialog'
+import { EditCompanyDialog } from '@/components/admin/edit-company-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -42,12 +43,9 @@ export default function CompanyDetailPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showAssignDialog, setShowAssignDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
 
-  useEffect(() => {
-    fetchData()
-  }, [id])
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
       const [companyRes, assignmentsRes] = await Promise.all([
@@ -74,7 +72,11 @@ export default function CompanyDetailPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [id])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   async function handleRemove(assignmentId: string, templateTitle: string) {
     if (
@@ -148,6 +150,13 @@ export default function CompanyDetailPage() {
           Back
         </Link>
         <h1 className='text-3xl font-bold'>{company.name}</h1>
+        <Button
+          variant='ghost'
+          size='sm'
+          onClick={() => setShowEditDialog(true)}
+        >
+          <Pencil className='h-4 w-4' />
+        </Button>
       </div>
 
       <div>
@@ -222,6 +231,20 @@ export default function CompanyDetailPage() {
         companyId={id}
         onAssigned={handleAssigned}
         assignedTemplateIds={assignments.map((a) => a.templateId)}
+      />
+
+      <EditCompanyDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        company={company}
+        onCompanySaved={() => {
+          fetchData()
+          setShowEditDialog(false)
+          toast({
+            title: 'Success',
+            description: 'Company updated successfully.'
+          })
+        }}
       />
     </div>
   )

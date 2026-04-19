@@ -11,6 +11,17 @@ interface SasTokenOptions {
   contentDisposition?: string
 }
 
+export async function deleteBlob(
+  containerName: string,
+  blobName: string
+): Promise<void> {
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING!
+  const blobServiceClient =
+    BlobServiceClient.fromConnectionString(connectionString)
+  const containerClient = blobServiceClient.getContainerClient(containerName)
+  await containerClient.getBlobClient(blobName).deleteIfExists()
+}
+
 export async function generateSasToken(
   containerName: string,
   blobName: string,
