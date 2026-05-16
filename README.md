@@ -2,6 +2,66 @@
 
 A document management portal built with Next.js 16 App Router, Azure Blob Storage, and Azure Table Storage. Supports file browsing, upload, versioning, sharing, document scanning, and role-based access control.
 
+## How It Works
+
+The platform manages the distribution, acknowledgement, and sign-off of Health & Safety documents. It ensures the right people receive the right documents, confirms they have read and understood them, and provides a full audit trail.
+
+```mermaid
+flowchart TD
+    A([Client Administrator]) -->|Uploads document| B[Document indexed\nRef · Name · Date · Version]
+    B --> C[Administrator adds\n2–3 comprehension questions]
+    C --> D[Document assigned to staff\nby job role or individual]
+    D --> E{Does employee\nhave email?}
+    E -->|Yes| F[Notification sent\nto employee]
+    E -->|No| G[Reminder sent to\nline manager instead]
+    F --> H[Employee reads document\nand answers questions]
+    G --> H
+    H -->|Correct answers| I[Employee digitally\nsigns off document]
+    H -->|Incorrect answers| H
+    I --> J[Sign-offs collated]
+    J --> K[Report: completed vs overdue\nReminder notifications sent to overdue]
+    B2[Updated document uploaded] -->|New version| B
+    K -.->|Document revised| B2
+```
+
+### Workflow Steps
+
+**1 — Upload a Document**
+
+The Client Administrator uploads a document (e.g. a Policy Document) in the required format. The system automatically indexes it with a document reference number, name, issue date, and version number.
+
+**2 — Add Comprehension Questions**
+
+The Client Administrator sets 2–3 questions about the document content. Users must answer these correctly before they can sign off, confirming they have read and understood the document.
+
+**3 — Assign to Relevant Staff**
+
+The Client Administrator assigns the document to the relevant employees. Assignment can be based on job role, so that (for example) only Engineers receive engineering-specific documents, avoiding manual selection each time.
+
+**4 — Distribution**
+
+The document is distributed to assigned users. Employees with an email address receive a notification and complete the sign-off via their email login. Employees without an email address can sign off using a name-entry option instead, and reminders are sent to their line manager rather than directly to them.
+
+**5 — Read, Answer, and Sign**
+
+The user reads the document, answers the comprehension questions correctly, and digitally signs it off.
+
+**6 — Tracking and Reporting**
+
+The platform collates all sign-offs and produces a report showing who has completed the sign-off and who is overdue. Automated reminder notifications can be configured to chase outstanding sign-offs.
+
+**7 — Document Updates**
+
+When a document is revised, the Client Administrator uploads the new version. The system repeats from step 1, adding the new version to the index while retaining all previous version records.
+
+### Administrator Responsibilities
+
+The Client Administrator is responsible for:
+- Uploading and managing documents
+- Maintaining the employee list (name, email if applicable, job role)
+- Assigning documents to the correct job roles or individuals
+- Configuring reminder notifications
+
 ## Tech Stack
 
 - **Framework:** Next.js 16 (App Router, standalone Docker output)
