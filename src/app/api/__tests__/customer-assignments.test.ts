@@ -143,6 +143,52 @@ const BASE_ASSIGNMENT_WITH_SCHEMA = {
   }
 }
 
+// Assignment whose template has comprehension questions (answers stripped for client)
+const ASSIGNMENT_WITH_QUESTIONS = {
+  ...BASE_ASSIGNMENT,
+  template: {
+    ...BASE_ASSIGNMENT.template,
+    questions: [
+      {
+        id: 'cq1',
+        question: 'What is the evacuation procedure?',
+        options: ['evacuate', 'stay put', 'call a colleague']
+      },
+      {
+        id: 'cq2',
+        question: 'Where is the fire extinguisher located?',
+        options: ['Near the main entrance', 'In the car park', 'In the kitchen']
+      }
+    ]
+  }
+}
+
+// Full template returned by getDocumentTemplateById — includes correct answers
+const TEMPLATE_WITH_QUESTIONS = {
+  id: 'template_123',
+  title: 'Farmyard Safety Checklist',
+  description: null,
+  blobPath: null,
+  formSchema: null,
+  questions: [
+    {
+      id: 'cq1',
+      question: 'What is the evacuation procedure?',
+      options: ['evacuate', 'stay put', 'call a colleague'],
+      answer: 'evacuate'
+    },
+    {
+      id: 'cq2',
+      question: 'Where is the fire extinguisher located?',
+      options: ['Near the main entrance', 'In the car park', 'In the kitchen'],
+      answer: 'Near the main entrance'
+    }
+  ],
+  tenantId: null,
+  createdAt: '2024-01-01T00:00:00.000Z',
+  updatedAt: '2024-01-01T00:00:00.000Z'
+}
+
 // Schema with a conditional field: q2 is only shown (and required) when q1 is No (false)
 const ASSIGNMENT_WITH_CONDITIONAL_SCHEMA = {
   ...BASE_ASSIGNMENT,
@@ -421,6 +467,60 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     const body = await res.json()
     expect(body.completion.assignmentId).toBe('assignment_123')
     expect(body.completion.signedById).toBe('user_123')
+  })
+
+  it('returns 400 with failedQuestionIds when no answers provided for questions', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(ASSIGNMENT_WITH_QUESTIONS)
+    mockGetTemplateById.mockResolvedValue(TEMPLATE_WITH_QUESTIONS)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { formData: {} }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.failedQuestionIds).toContain('cq1')
+    expect(body.failedQuestionIds).toContain('cq2')
+  })
+
+  it('returns 400 with failedQuestionIds when answers are wrong', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(ASSIGNMENT_WITH_QUESTIONS)
+    mockGetTemplateById.mockResolvedValue(TEMPLATE_WITH_QUESTIONS)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      {
+        formData: {},
+        answers: [
+          { id: 'cq1', answer: 'wrong answer' },
+          { id: 'cq2', answer: 'Near the main entrance' }
+        ]
+      }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.failedQuestionIds).toContain('cq1')
+    expect(body.failedQuestionIds).not.toContain('cq2')
+  })
+
+  it('returns 200 when all comprehension answers are correct (case-insensitive)', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(ASSIGNMENT_WITH_QUESTIONS)
+    mockGetTemplateById.mockResolvedValue(TEMPLATE_WITH_QUESTIONS)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      {
+        formData: {},
+        answers: [
+          { id: 'cq1', answer: '  Evacuate  ' }, // extra whitespace + different case
+          { id: 'cq2', answer: 'near the main entrance' }
+        ]
+      }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(200)
   })
 })
 

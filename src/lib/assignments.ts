@@ -1,3 +1,4 @@
+import type { ComprehensionQuestionForClient } from '@/types/comprehension-question'
 import type { FormSchema } from '@/types/form-schema'
 
 import prisma from './prisma'
@@ -16,6 +17,7 @@ export interface AssignmentWithTemplate extends AssignmentData {
     description: string | null
     blobPath: string | null
     formSchema: FormSchema | null
+    questions: ComprehensionQuestionForClient[] | null
   }
 }
 
@@ -33,6 +35,7 @@ type PrismaAssignmentWithTemplate = PrismaAssignment & {
     description: string | null
     blobPath: string | null
     formSchema: unknown
+    questions: unknown
   }
 }
 
@@ -48,11 +51,24 @@ function toAssignmentData(a: PrismaAssignment): AssignmentData {
 function toAssignmentWithTemplate(
   a: PrismaAssignmentWithTemplate
 ): AssignmentWithTemplate {
+  const rawQuestions = a.template.questions as
+    | Array<{ id: string; question: string; options: string[]; answer: string }>
+    | null
+    | undefined
+  const questions: ComprehensionQuestionForClient[] | null = rawQuestions
+    ? rawQuestions.map(({ id, question, options }) => ({
+        id,
+        question,
+        options: options ?? []
+      }))
+    : null
+
   return {
     ...toAssignmentData(a),
     template: {
       ...a.template,
-      formSchema: (a.template.formSchema as FormSchema | null) ?? null
+      formSchema: (a.template.formSchema as FormSchema | null) ?? null,
+      questions
     }
   }
 }
@@ -101,7 +117,8 @@ export async function getAssignmentWithTemplate(
             title: true,
             description: true,
             blobPath: true,
-            formSchema: true
+            formSchema: true,
+            questions: true
           }
         }
       }
@@ -143,7 +160,8 @@ export async function getAssignmentsForCompany(
             title: true,
             description: true,
             blobPath: true,
-            formSchema: true
+            formSchema: true,
+            questions: true
           }
         }
       },

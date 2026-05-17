@@ -1,4 +1,5 @@
 import type { Prisma } from '@/generated/prisma/client'
+import type { ComprehensionQuestion } from '@/types/comprehension-question'
 import type { FormSchema } from '@/types/form-schema'
 
 import prisma from './prisma'
@@ -9,6 +10,7 @@ export interface DocumentTemplateData {
   description: string | null
   blobPath: string | null
   formSchema: FormSchema | null
+  questions: ComprehensionQuestion[] | null
   tenantId: string | null
   createdAt: string
   updatedAt: string
@@ -20,6 +22,7 @@ type PrismaDocumentTemplate = {
   description: string | null
   blobPath: string | null
   formSchema: unknown
+  questions: unknown
   tenantId: string | null
   createdAt: Date
   updatedAt: Date
@@ -34,6 +37,7 @@ function toDocumentTemplateData(
     description: template.description,
     blobPath: template.blobPath,
     formSchema: (template.formSchema as FormSchema | null) ?? null,
+    questions: (template.questions as ComprehensionQuestion[] | null) ?? null,
     tenantId: template.tenantId,
     createdAt: template.createdAt.toISOString(),
     updatedAt: template.updatedAt.toISOString()
@@ -41,11 +45,11 @@ function toDocumentTemplateData(
 }
 
 function toJsonValue(
-  value: FormSchema | null | undefined
+  value: unknown
 ): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue | undefined {
   if (value === undefined) return undefined
   if (value === null) return 'DbNull'
-  return value as unknown as Prisma.InputJsonValue
+  return value as Prisma.InputJsonValue
 }
 
 export async function createDocumentTemplate({
@@ -53,12 +57,14 @@ export async function createDocumentTemplate({
   description,
   blobPath,
   formSchema,
+  questions,
   tenantId
 }: {
   title: string
   description?: string
   blobPath?: string
   formSchema?: FormSchema
+  questions?: ComprehensionQuestion[]
   tenantId?: string
 }): Promise<DocumentTemplateData | null> {
   try {
@@ -68,6 +74,7 @@ export async function createDocumentTemplate({
         description,
         blobPath,
         formSchema: toJsonValue(formSchema),
+        questions: toJsonValue(questions),
         tenantId
       }
     })
@@ -112,6 +119,7 @@ export async function updateDocumentTemplate(
     description?: string
     blobPath?: string
     formSchema?: FormSchema | null
+    questions?: ComprehensionQuestion[] | null
   }
 ): Promise<boolean> {
   try {
@@ -125,6 +133,9 @@ export async function updateDocumentTemplate(
         ...(updates.blobPath !== undefined && { blobPath: updates.blobPath }),
         ...('formSchema' in updates && {
           formSchema: toJsonValue(updates.formSchema)
+        }),
+        ...('questions' in updates && {
+          questions: toJsonValue(updates.questions)
         })
       }
     })

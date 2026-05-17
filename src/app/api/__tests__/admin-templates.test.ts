@@ -212,6 +212,25 @@ describe('PATCH /api/admin/templates/[id]', () => {
       formSchema: schema
     })
   })
+
+  it('returns 200 when saving comprehension questions', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const questions = [
+      {
+        id: 'cq1',
+        question: 'What should you do in a fire?',
+        answer: 'Evacuate immediately'
+      }
+    ]
+    const req = jsonRequest(
+      'http://localhost/api/admin/templates/template_123',
+      'PATCH',
+      { questions }
+    )
+    const res = await updateTemplate(req, params('template_123'))
+    expect(res.status).toBe(200)
+    expect(mockUpdate).toHaveBeenCalledWith('template_123', { questions })
+  })
 })
 
 // ---------------------------------------------------------------------------
