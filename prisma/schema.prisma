@@ -95,6 +95,7 @@ model DocumentTemplate {
   description String?
   blobPath    String? // path in Azure Blob Storage; null for form-only templates
   formSchema  Json? // array of FormField; null means no form fields defined
+  questions   Json? // array of ComprehensionQuestion; null means no questions defined
   tenantId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

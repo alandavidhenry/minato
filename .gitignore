@@ -58,6 +58,10 @@ crash.*.log
 
 # Azurite
 AzuriteConfig/
+__azurite_db_*.json
+
+# Claude Code
+.claude/
 
 # Others
 github_pat.txt

@@ -10,8 +10,10 @@ import {
   updateCompletionBlobPath
 } from '@/lib/completion-records'
 import { getCustomerCompanyById } from '@/lib/customer-companies'
+import { getDocumentTemplateById } from '@/lib/document-templates'
 import { generateCompletionPDF } from '@/lib/pdf/completion-pdf'
 import { generateVersionId } from '@/lib/version-manager'
+import type { ComprehensionQuestion } from '@/types/comprehension-question'
 import type { FormField } from '@/types/form-schema'
 import { CUSTOMER_ROLES } from '@/types/rbac'
 
@@ -91,6 +93,36 @@ export async function POST(
 
     const body = await request.json().catch(() => ({}))
     const formData: Record<string, unknown> = body.formData ?? {}
+    const submittedAnswers: { id: string; answer: string }[] =
+      body.answers ?? []
+
+    // Validate comprehension answers — fetch full template to get correct answers
+    const templateRecord = await getDocumentTemplateById(assignment.templateId)
+    const questions =
+      (templateRecord?.questions as ComprehensionQuestion[] | null) ?? []
+
+    if (questions.length > 0) {
+      const failedQuestionIds = questions
+        .filter((q) => {
+          const submitted = submittedAnswers.find((a) => a.id === q.id)
+          if (!submitted) return true
+          return (
+            submitted.answer.trim().toLowerCase() !==
+            q.answer.trim().toLowerCase()
+          )
+        })
+        .map((q) => q.id)
+
+      if (failedQuestionIds.length > 0) {
+        return NextResponse.json(
+          {
+            error: 'Incorrect answers to comprehension questions.',
+            failedQuestionIds
+          },
+          { status: 400 }
+        )
+      }
+    }
 
     // Validate required fields defined in the template's form schema,
     // skipping fields whose condition is not met (they were hidden from the customer)

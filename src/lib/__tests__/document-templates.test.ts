@@ -27,6 +27,8 @@ const BASE_TEMPLATE = {
   title: 'Farmyard Safety Checklist',
   description: 'Annual farmyard safety review',
   blobPath: null,
+  formSchema: null,
+  questions: null,
   tenantId: null,
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
   updatedAt: new Date('2024-01-01T00:00:00.000Z')
@@ -104,6 +106,36 @@ describe('updateDocumentTemplate', () => {
     expect(mockPrisma.documentTemplate.update).toHaveBeenCalledWith({
       where: { id: 'template_123' },
       data: { title: 'Updated Title' }
+    })
+  })
+
+  it('saves questions when provided', async () => {
+    const questions = [
+      {
+        id: 'cq1',
+        question: 'What is the evacuation route?',
+        options: ['Side exit', 'Main entrance', 'Roof hatch'],
+        answer: 'Side exit'
+      }
+    ]
+    mockPrisma.documentTemplate.update.mockResolvedValue(BASE_TEMPLATE)
+
+    await updateDocumentTemplate('template_123', { questions })
+
+    expect(mockPrisma.documentTemplate.update).toHaveBeenCalledWith({
+      where: { id: 'template_123' },
+      data: { questions }
+    })
+  })
+
+  it('sets questions to DbNull when explicitly nulled', async () => {
+    mockPrisma.documentTemplate.update.mockResolvedValue(BASE_TEMPLATE)
+
+    await updateDocumentTemplate('template_123', { questions: null })
+
+    expect(mockPrisma.documentTemplate.update).toHaveBeenCalledWith({
+      where: { id: 'template_123' },
+      data: { questions: 'DbNull' }
     })
   })
 

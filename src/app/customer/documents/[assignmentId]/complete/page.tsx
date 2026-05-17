@@ -8,8 +8,11 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/use-toast'
+import type { ComprehensionQuestionForClient } from '@/types/comprehension-question'
 import type { FormField, FormSchema } from '@/types/form-schema'
 
 function isFieldVisible(
@@ -25,6 +28,7 @@ interface AssignmentTemplate {
   title: string
   description: string | null
   formSchema: FormSchema | null
+  questions: ComprehensionQuestionForClient[] | null
 }
 
 interface Assignment {
@@ -41,6 +45,8 @@ export default function CompleteDocumentPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formValues, setFormValues] = useState<Record<string, unknown>>({})
+  const [answerValues, setAnswerValues] = useState<Record<string, string>>({})
+  const [failedQuestionIds, setFailedQuestionIds] = useState<string[]>([])
 
   useEffect(() => {
     async function fetchAssignment() {
@@ -68,6 +74,11 @@ export default function CompleteDocumentPage() {
     setFormValues((prev) => ({ ...prev, [fieldId]: value }))
   }
 
+  function setAnswer(questionId: string, value: string) {
+    setAnswerValues((prev) => ({ ...prev, [questionId]: value }))
+    setFailedQuestionIds((prev) => prev.filter((id) => id !== questionId))
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setIsSubmitting(true)
@@ -80,18 +91,34 @@ export default function CompleteDocumentPage() {
           .map((f) => [f.id, formValues[f.id]])
       )
 
+      const comprehensionQuestions = assignment?.template.questions ?? []
+      const answers = comprehensionQuestions.map((q) => ({
+        id: q.id,
+        answer: answerValues[q.id] ?? ''
+      }))
+
       const res = await fetch(
         `/api/customer/assignments/${assignmentId}/complete`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ formData: visibleFormData })
+          body: JSON.stringify({ formData: visibleFormData, answers })
         }
       )
 
       if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || 'Failed to submit')
+        const errorBody = await res.json()
+        if (errorBody.failedQuestionIds) {
+          setFailedQuestionIds(errorBody.failedQuestionIds)
+          toast({
+            title: 'Incorrect answers',
+            description:
+              'Please review your answers to the comprehension questions and try again.',
+            variant: 'destructive'
+          })
+          return
+        }
+        throw new Error(errorBody.error || 'Failed to submit')
       }
 
       toast({ title: 'Submitted', description: 'Document marked as complete.' })
@@ -119,6 +146,8 @@ export default function CompleteDocumentPage() {
   if (!assignment) return null
 
   const fields: FormField[] = assignment.template.formSchema ?? []
+  const comprehensionQuestions: ComprehensionQuestionForClient[] =
+    assignment.template.questions ?? []
 
   return (
     <div className='max-w-2xl mx-auto space-y-6 p-6'>
@@ -190,6 +219,58 @@ export default function CompleteDocumentPage() {
                 </div>
               ))}
           </div>
+        )}
+
+        {comprehensionQuestions.length > 0 && (
+          <>
+            <Separator />
+            <div className='space-y-4'>
+              <div>
+                <h2 className='text-lg font-semibold'>Comprehension Check</h2>
+                <p className='text-sm text-muted-foreground'>
+                  Answer the following questions to confirm you have read and
+                  understood this document.
+                </p>
+              </div>
+              {comprehensionQuestions.map((q, index) => {
+                const failed = failedQuestionIds.includes(q.id)
+                return (
+                  <div key={q.id} className='grid gap-2'>
+                    <Label className={failed ? 'text-destructive' : undefined}>
+                      {index + 1}. {q.question}
+                      <span className='ml-1 text-destructive'>*</span>
+                    </Label>
+                    <RadioGroup
+                      value={answerValues[q.id] ?? ''}
+                      onValueChange={(value) => setAnswer(q.id, value)}
+                      disabled={isSubmitting}
+                      className='gap-2'
+                    >
+                      {q.options.map((option) => (
+                        <div key={option} className='flex items-center gap-2'>
+                          <RadioGroupItem
+                            value={option}
+                            id={`cq-${q.id}-${option}`}
+                          />
+                          <Label
+                            htmlFor={`cq-${q.id}-${option}`}
+                            className='cursor-pointer font-normal'
+                          >
+                            {option}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                    {failed && (
+                      <p className='text-xs text-destructive'>
+                        Incorrect answer — please try again.
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </>
         )}
 
         <div className='flex gap-3'>
