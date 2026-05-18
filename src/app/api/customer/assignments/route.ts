@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-import { getAssignmentsForCompany } from '@/lib/assignments'
+import { getAssignmentsForUser } from '@/lib/assignments'
 import { authOptions } from '@/lib/auth'
 import { CUSTOMER_ROLES } from '@/types/rbac'
 
@@ -14,9 +14,10 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 403 })
   }
 
+  const userId = session?.user?.id
   const customerCompanyId = session?.user?.customerCompanyId
 
-  if (!customerCompanyId) {
+  if (!customerCompanyId || !userId) {
     return NextResponse.json(
       { error: 'No company associated with this account.' },
       { status: 403 }
@@ -24,7 +25,7 @@ export async function GET() {
   }
 
   try {
-    const assignments = await getAssignmentsForCompany(customerCompanyId)
+    const assignments = await getAssignmentsForUser(userId, customerCompanyId)
     return NextResponse.json({ assignments })
   } catch (error) {
     console.error('Error fetching assignments:', error)

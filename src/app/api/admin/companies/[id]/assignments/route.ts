@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth'
 import {
   createAssignment,
   getAssignmentByTemplateAndCompany,
+  getAssignmentByTemplateAndUser,
   getAssignmentsForCompany
 } from '@/lib/assignments'
 import { authOptions } from '@/lib/auth'
@@ -53,7 +54,11 @@ export async function POST(
 
   try {
     const { id: customerCompanyId } = await params
-    const { templateId } = await request.json()
+    const body = await request.json()
+    const { templateId, userId } = body as {
+      templateId?: string
+      userId?: string
+    }
 
     if (!templateId) {
       return NextResponse.json(
@@ -62,19 +67,34 @@ export async function POST(
       )
     }
 
-    const existing = await getAssignmentByTemplateAndCompany(
-      templateId,
-      customerCompanyId
-    )
-
-    if (existing) {
-      return NextResponse.json(
-        { error: 'Template is already assigned to this company' },
-        { status: 409 }
+    if (userId) {
+      // Individual assignment: check for duplicate per user
+      const existing = await getAssignmentByTemplateAndUser(templateId, userId)
+      if (existing) {
+        return NextResponse.json(
+          { error: 'Template is already assigned to this user' },
+          { status: 409 }
+        )
+      }
+    } else {
+      // Company-wide assignment: check for duplicate per company
+      const existing = await getAssignmentByTemplateAndCompany(
+        templateId,
+        customerCompanyId
       )
+      if (existing) {
+        return NextResponse.json(
+          { error: 'Template is already assigned to this company' },
+          { status: 409 }
+        )
+      }
     }
 
-    const assignment = await createAssignment({ templateId, customerCompanyId })
+    const assignment = await createAssignment({
+      templateId,
+      customerCompanyId,
+      userId
+    })
 
     if (!assignment) {
       return NextResponse.json(

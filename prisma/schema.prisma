@@ -49,6 +49,7 @@ model User {
   customerCompany CustomerCompany? @relation(fields: [customerCompanyId], references: [id])
   passwordReset   PasswordReset?
   completions     CompletionRecord[]
+  userAssignments Assignment[]     @relation("UserAssignment")
 }
 
 // ---------------------------------------------------------------------------
@@ -104,19 +105,23 @@ model DocumentTemplate {
   assignments Assignment[]
 }
 
-// Links a DocumentTemplate to a CustomerCompany.
-// A template can only be assigned once per company.
+// Links a DocumentTemplate to a CustomerCompany (company-wide) or to a specific
+// User within a company (individual). userId = null means all users in the company
+// can see it; userId set means only that user sees it.
+// Uniqueness is enforced via two partial indexes in the database migration:
+//   - (templateId, customerCompanyId) WHERE userId IS NULL  (one company-wide assignment per template)
+//   - (templateId, userId) WHERE userId IS NOT NULL          (one individual assignment per user per template)
 model Assignment {
   id                String   @id @default(cuid())
   templateId        String
   customerCompanyId String
+  userId            String?  // null = company-wide; set = individual user
   createdAt         DateTime @default(now())
 
   template        DocumentTemplate @relation(fields: [templateId], references: [id])
   customerCompany CustomerCompany  @relation(fields: [customerCompanyId], references: [id])
+  user            User?            @relation("UserAssignment", fields: [userId], references: [id])
   completions     CompletionRecord[]
-
-  @@unique([templateId, customerCompanyId])
 }
 
 // A customer user's signed completion of an assigned document.

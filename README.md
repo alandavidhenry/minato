@@ -77,7 +77,18 @@ The Client Administrator is responsible for:
 ### Prerequisites
 
 - Node.js 22+
-- [Azurite](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite) (Azure Storage emulator)
+- Azurite (Azure Storage emulator) — choose one:
+  - **VS Code extension** (recommended): install [Azurite](https://marketplace.visualstudio.com/items?itemName=Azurite.azurite) from the VS Code marketplace, then use the command palette (`Ctrl+Shift+P` → "Azurite: Start")
+  - **npx** (no install): `npx azurite --silent` (run from the project root)
+  - **Global npm**: `npm install -g azurite` then `azurite --silent`
+  - **Docker**: `docker run -p 10000:10000 -p 10001:10001 -p 10002:10002 mcr.microsoft.com/azure-storage/azurite`
+
+  Azurite writes `__azurite_db_*.json` state files to wherever it is started — these are gitignored if you run it from the project root.
+
+  Set `AZURE_STORAGE_CONNECTION_STRING` to the Azurite default connection string:
+  ```
+  DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;
+  ```
 
 ### Setup
 
@@ -109,7 +120,7 @@ The Client Administrator is responsible for:
    node scripts/seed-admin.js <password> "Display Name"
    ```
 
-5. Start Azurite, then run the dev server:
+5. Start Azurite (see Prerequisites above), then run the dev server:
    ```bash
    npm run dev
    ```
