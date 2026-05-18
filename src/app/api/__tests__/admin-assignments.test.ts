@@ -22,12 +22,14 @@ const {
   mockGetForCompany,
   mockCreate,
   mockGetByTemplateAndCompany,
+  mockGetByTemplateAndUser,
   mockGetById,
   mockDelete
 } = vi.hoisted(() => ({
   mockGetForCompany: vi.fn(),
   mockCreate: vi.fn(),
   mockGetByTemplateAndCompany: vi.fn(),
+  mockGetByTemplateAndUser: vi.fn(),
   mockGetById: vi.fn(),
   mockDelete: vi.fn()
 }))
@@ -36,6 +38,7 @@ vi.mock('@/lib/assignments', () => ({
   getAssignmentsForCompany: mockGetForCompany,
   createAssignment: mockCreate,
   getAssignmentByTemplateAndCompany: mockGetByTemplateAndCompany,
+  getAssignmentByTemplateAndUser: mockGetByTemplateAndUser,
   getAssignmentById: mockGetById,
   deleteAssignment: mockDelete
 }))
@@ -50,6 +53,7 @@ const BASE_ASSIGNMENT = {
   id: 'assignment_123',
   templateId: 'template_123',
   customerCompanyId: 'company_123',
+  userId: null,
   createdAt: '2024-01-01T00:00:00.000Z',
   template: {
     id: 'template_123',
@@ -57,6 +61,12 @@ const BASE_ASSIGNMENT = {
     description: null,
     blobPath: null
   }
+}
+
+const USER_ASSIGNMENT = {
+  ...BASE_ASSIGNMENT,
+  id: 'assignment_456',
+  userId: 'user_123'
 }
 
 function jsonRequest(url: string, method: string, body?: unknown): NextRequest {
@@ -80,6 +90,7 @@ beforeEach(() => {
   mockGetForCompany.mockResolvedValue([])
   mockCreate.mockResolvedValue(BASE_ASSIGNMENT)
   mockGetByTemplateAndCompany.mockResolvedValue(null)
+  mockGetByTemplateAndUser.mockResolvedValue(null)
   mockGetById.mockResolvedValue(null)
   mockDelete.mockResolvedValue(true)
 })
@@ -113,10 +124,10 @@ describe('GET /api/admin/companies/[id]/assignments', () => {
 })
 
 // ---------------------------------------------------------------------------
-// POST /api/admin/companies/[id]/assignments
+// POST /api/admin/companies/[id]/assignments — company-wide
 // ---------------------------------------------------------------------------
 
-describe('POST /api/admin/companies/[id]/assignments', () => {
+describe('POST /api/admin/companies/[id]/assignments (company-wide)', () => {
   it('returns 403 when not admin', async () => {
     mockGetServerSession.mockResolvedValue(null)
     const req = jsonRequest(
@@ -140,7 +151,7 @@ describe('POST /api/admin/companies/[id]/assignments', () => {
     expect((await res.json()).error).toMatch(/templateId/i)
   })
 
-  it('returns 409 when already assigned', async () => {
+  it('returns 409 when already assigned to company', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
     mockGetByTemplateAndCompany.mockResolvedValue(BASE_ASSIGNMENT)
     const req = jsonRequest(
@@ -153,7 +164,7 @@ describe('POST /api/admin/companies/[id]/assignments', () => {
     expect((await res.json()).error).toMatch(/already assigned/i)
   })
 
-  it('returns 200 with new assignment', async () => {
+  it('returns 200 with new company-wide assignment', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
     const req = jsonRequest(
       'http://localhost/api/admin/companies/company_123/assignments',
@@ -162,7 +173,57 @@ describe('POST /api/admin/companies/[id]/assignments', () => {
     )
     const res = await createAssignment(req, companyParams('company_123'))
     expect(res.status).toBe(200)
-    expect((await res.json()).assignment.templateId).toBe('template_123')
+    const body = await res.json()
+    expect(body.assignment.templateId).toBe('template_123')
+    expect(body.assignment.userId).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/companies/[id]/assignments — individual user
+// ---------------------------------------------------------------------------
+
+describe('POST /api/admin/companies/[id]/assignments (individual user)', () => {
+  it('returns 409 when template already assigned to that user', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetByTemplateAndUser.mockResolvedValue(USER_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123', userId: 'user_123' }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(409)
+    expect((await res.json()).error).toMatch(/already assigned to this user/i)
+  })
+
+  it('returns 200 with new user-level assignment', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockCreate.mockResolvedValue(USER_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123', userId: 'user_123' }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.assignment.userId).toBe('user_123')
+  })
+
+  it('does not check company-level duplicate when userId is provided', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    // Even if a company-wide assignment exists, a user-level one is allowed
+    mockGetByTemplateAndCompany.mockResolvedValue(BASE_ASSIGNMENT)
+    mockCreate.mockResolvedValue(USER_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123', userId: 'user_123' }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    expect(mockGetByTemplateAndCompany).not.toHaveBeenCalled()
   })
 })
 

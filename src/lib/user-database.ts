@@ -114,6 +114,21 @@ export async function getAllUsers(): Promise<UserData[]> {
   }
 }
 
+export async function getUsersByCompany(
+  customerCompanyId: string
+): Promise<UserData[]> {
+  try {
+    const users = await prisma.user.findMany({
+      where: { customerCompanyId },
+      orderBy: { displayName: 'asc' }
+    })
+    return users.map(toUserData)
+  } catch (error) {
+    console.error('Error getting users by company:', error)
+    return []
+  }
+}
+
 export async function updateUser(
   id: string,
   updates: Partial<Omit<UserData, 'id' | 'email' | 'passwordHash'>>

@@ -19,15 +19,14 @@ const { mockGetServerSession } = vi.hoisted(() => ({
 }))
 vi.mock('next-auth', () => ({ getServerSession: mockGetServerSession }))
 
-const { mockGetForCompany, mockGetById, mockGetWithTemplate } = vi.hoisted(
-  () => ({
-    mockGetForCompany: vi.fn(),
+const { mockGetAssignmentsForUser, mockGetById, mockGetWithTemplate } =
+  vi.hoisted(() => ({
+    mockGetAssignmentsForUser: vi.fn(),
     mockGetById: vi.fn(),
     mockGetWithTemplate: vi.fn()
-  })
-)
+  }))
 vi.mock('@/lib/assignments', () => ({
-  getAssignmentsForCompany: mockGetForCompany,
+  getAssignmentsForUser: mockGetAssignmentsForUser,
   getAssignmentById: mockGetById,
   getAssignmentWithTemplate: mockGetWithTemplate
 }))
@@ -117,6 +116,7 @@ const BASE_ASSIGNMENT = {
   id: 'assignment_123',
   templateId: 'template_123',
   customerCompanyId: 'company_123',
+  userId: null,
   createdAt: '2024-01-01T00:00:00.000Z',
   template: {
     id: 'template_123',
@@ -198,7 +198,7 @@ function jsonRequest(url: string, body?: unknown): NextRequest {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockGetForCompany.mockResolvedValue([])
+  mockGetAssignmentsForUser.mockResolvedValue([])
   mockGetById.mockResolvedValue(null)
   mockGetWithTemplate.mockResolvedValue(null)
   mockCreateCompletion.mockResolvedValue(BASE_COMPLETION)
@@ -234,9 +234,9 @@ describe('GET /api/customer/assignments', () => {
     expect(res.status).toBe(403)
   })
 
-  it('returns 200 with assignments for the company', async () => {
+  it('returns 200 with assignments for the user (company-wide + individual)', async () => {
     mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
-    mockGetForCompany.mockResolvedValue([BASE_ASSIGNMENT])
+    mockGetAssignmentsForUser.mockResolvedValue([BASE_ASSIGNMENT])
     const res = await listAssignments()
     expect(res.status).toBe(200)
     const body = await res.json()

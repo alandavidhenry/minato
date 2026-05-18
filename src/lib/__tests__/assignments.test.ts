@@ -5,7 +5,10 @@ import {
   deleteAssignment,
   getAssignmentById,
   getAssignmentByTemplateAndCompany,
-  getAssignmentsForCompany
+  getAssignmentByTemplateAndUser,
+  getAssignmentsForCompany,
+  getAssignmentsForUser,
+  getAssignmentsForUserOnly
 } from '../assignments'
 
 const { mockPrisma } = vi.hoisted(() => ({
@@ -13,6 +16,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     assignment: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
       delete: vi.fn()
     }
@@ -25,7 +29,16 @@ const BASE_ASSIGNMENT = {
   id: 'assignment_123',
   templateId: 'template_123',
   customerCompanyId: 'company_123',
+  userId: null,
   createdAt: new Date('2024-01-01T00:00:00.000Z')
+}
+
+const USER_ASSIGNMENT = {
+  id: 'assignment_456',
+  templateId: 'template_456',
+  customerCompanyId: 'company_123',
+  userId: 'user_123',
+  createdAt: new Date('2024-01-02T00:00:00.000Z')
 }
 
 const BASE_ASSIGNMENT_WITH_TEMPLATE = {
@@ -34,7 +47,19 @@ const BASE_ASSIGNMENT_WITH_TEMPLATE = {
     id: 'template_123',
     title: 'Farmyard Safety Checklist',
     description: 'Annual farmyard safety review',
-    blobPath: null
+    blobPath: null,
+    formSchema: null
+  }
+}
+
+const USER_ASSIGNMENT_WITH_TEMPLATE = {
+  ...USER_ASSIGNMENT,
+  template: {
+    id: 'template_456',
+    title: 'Power Tools Checklist',
+    description: null,
+    blobPath: null,
+    formSchema: null
   }
 }
 
@@ -43,7 +68,7 @@ beforeEach(() => {
 })
 
 describe('createAssignment', () => {
-  it('creates and returns the new assignment', async () => {
+  it('creates a company-wide assignment (no userId)', async () => {
     mockPrisma.assignment.create.mockResolvedValue(BASE_ASSIGNMENT)
 
     const result = await createAssignment({
@@ -54,7 +79,20 @@ describe('createAssignment', () => {
     expect(result).not.toBeNull()
     expect(result?.templateId).toBe('template_123')
     expect(result?.customerCompanyId).toBe('company_123')
+    expect(result?.userId).toBeNull()
     expect(result?.createdAt).toBe('2024-01-01T00:00:00.000Z')
+  })
+
+  it('creates a user-level assignment with userId', async () => {
+    mockPrisma.assignment.create.mockResolvedValue(USER_ASSIGNMENT)
+
+    const result = await createAssignment({
+      templateId: 'template_456',
+      customerCompanyId: 'company_123',
+      userId: 'user_123'
+    })
+
+    expect(result?.userId).toBe('user_123')
   })
 
   it('returns null on error', async () => {
@@ -82,8 +120,8 @@ describe('getAssignmentById', () => {
 })
 
 describe('getAssignmentByTemplateAndCompany', () => {
-  it('returns assignment when found', async () => {
-    mockPrisma.assignment.findUnique.mockResolvedValue(BASE_ASSIGNMENT)
+  it('returns company-wide assignment when found', async () => {
+    mockPrisma.assignment.findFirst.mockResolvedValue(BASE_ASSIGNMENT)
 
     const result = await getAssignmentByTemplateAndCompany(
       'template_123',
@@ -91,26 +129,47 @@ describe('getAssignmentByTemplateAndCompany', () => {
     )
 
     expect(result?.id).toBe('assignment_123')
-    expect(mockPrisma.assignment.findUnique).toHaveBeenCalledWith({
+    expect(result?.userId).toBeNull()
+    expect(mockPrisma.assignment.findFirst).toHaveBeenCalledWith({
       where: {
-        templateId_customerCompanyId: {
-          templateId: 'template_123',
-          customerCompanyId: 'company_123'
-        }
+        templateId: 'template_123',
+        customerCompanyId: 'company_123',
+        userId: null
       }
     })
   })
 
   it('returns null when not found', async () => {
-    mockPrisma.assignment.findUnique.mockResolvedValue(null)
+    mockPrisma.assignment.findFirst.mockResolvedValue(null)
     expect(
       await getAssignmentByTemplateAndCompany('template_123', 'company_123')
     ).toBeNull()
   })
 })
 
+describe('getAssignmentByTemplateAndUser', () => {
+  it('returns user assignment when found', async () => {
+    mockPrisma.assignment.findFirst.mockResolvedValue(USER_ASSIGNMENT)
+
+    const result = await getAssignmentByTemplateAndUser(
+      'template_456',
+      'user_123'
+    )
+
+    expect(result?.id).toBe('assignment_456')
+    expect(result?.userId).toBe('user_123')
+  })
+
+  it('returns null when not found', async () => {
+    mockPrisma.assignment.findFirst.mockResolvedValue(null)
+    expect(
+      await getAssignmentByTemplateAndUser('template_456', 'user_123')
+    ).toBeNull()
+  })
+})
+
 describe('getAssignmentsForCompany', () => {
-  it('returns assignments with template info', async () => {
+  it('returns company-wide assignments with template info', async () => {
     mockPrisma.assignment.findMany.mockResolvedValue([
       BASE_ASSIGNMENT_WITH_TEMPLATE
     ])
@@ -120,11 +179,63 @@ describe('getAssignmentsForCompany', () => {
     expect(result).toHaveLength(1)
     expect(result[0].template.title).toBe('Farmyard Safety Checklist')
     expect(result[0].customerCompanyId).toBe('company_123')
+    expect(result[0].userId).toBeNull()
   })
 
   it('returns empty array on error', async () => {
     mockPrisma.assignment.findMany.mockRejectedValue(new Error('db error'))
     expect(await getAssignmentsForCompany('company_123')).toEqual([])
+  })
+})
+
+describe('getAssignmentsForUserOnly', () => {
+  it('returns individual assignments for the user', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([
+      USER_ASSIGNMENT_WITH_TEMPLATE
+    ])
+
+    const result = await getAssignmentsForUserOnly('user_123')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].template.title).toBe('Power Tools Checklist')
+    expect(result[0].userId).toBe('user_123')
+  })
+})
+
+describe('getAssignmentsForUser', () => {
+  it('returns company-wide and individual assignments combined', async () => {
+    // Promise.all order in getAssignmentsForUser: [companyWide, individual]
+    mockPrisma.assignment.findMany
+      .mockResolvedValueOnce([BASE_ASSIGNMENT_WITH_TEMPLATE]) // company-wide
+      .mockResolvedValueOnce([USER_ASSIGNMENT_WITH_TEMPLATE]) // individual
+
+    const result = await getAssignmentsForUser('user_123', 'company_123')
+
+    expect(result).toHaveLength(2)
+  })
+
+  it('deduplicates by templateId, individual assignment wins', async () => {
+    const overlap = {
+      ...USER_ASSIGNMENT_WITH_TEMPLATE,
+      templateId: 'template_123', // same template as company-wide
+      template: {
+        ...USER_ASSIGNMENT_WITH_TEMPLATE.template,
+        id: 'template_123'
+      }
+    }
+    mockPrisma.assignment.findMany
+      .mockResolvedValueOnce([BASE_ASSIGNMENT_WITH_TEMPLATE]) // company-wide
+      .mockResolvedValueOnce([overlap]) // individual (same template)
+
+    const result = await getAssignmentsForUser('user_123', 'company_123')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('assignment_456') // the individual one wins
+  })
+
+  it('returns empty array on error', async () => {
+    mockPrisma.assignment.findMany.mockRejectedValue(new Error('db error'))
+    expect(await getAssignmentsForUser('user_123', 'company_123')).toEqual([])
   })
 })
 

@@ -26,6 +26,7 @@ All of Steps 1–8 are now complete:
 - ✅ Customer can download their signed PDF from `/customer/documents`
 - ✅ Admin completions view at `/admin/completions` with per-record PDF download
 - ✅ Customer users must be linked to a company at creation time (or via role change); `Create User` and `Change Role` dialogs now include a company selector for customer roles
+- ✅ Individual-level assignment — `Assignment.userId` nullable field; `userId = null` = company-wide (all users see it), `userId` set = only that user sees it; two partial unique indexes enforce uniqueness; admin can assign to individual users from the company detail page; customer sees company-wide + individual combined (deduplicated)
 
 **Remaining for the completion flow:**
 - Signature pad (canvas) — `react-signature-canvas`, embed drawn signature into PDF (Step 8)
@@ -77,7 +78,7 @@ User                — belongs to a Tenant; has a Role; customer-role users als
 PasswordReset       — one token per user; expires after 1 hour
 CustomerCompany     — a client business; belongs to a Tenant
 DocumentTemplate    — a reusable H&S document; belongs to a Tenant; blobPath nullable (form-only templates)
-Assignment          — links a DocumentTemplate to a CustomerCompany; unique per [templateId, customerCompanyId]
+Assignment          — links a DocumentTemplate to a CustomerCompany (company-wide, userId=null) or to a specific User (individual, userId set); partial unique indexes enforce uniqueness per scope
 CompletionRecord    — a customer user's signed completion; blobPath nullable until PDF generation is built; formData Json? for Document Intelligence
 ```
 
