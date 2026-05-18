@@ -8,6 +8,84 @@ The platform may eventually be marketed to other H&S companies or to businesses 
 
 ---
 
+## Workflow Implementation Plan
+
+This section maps Simon's stated workflow (see README "How It Works") to the current implementation, identifies gaps, and prioritises remaining work.
+
+### Status summary
+
+| Step | Feature | Status |
+|---|---|---|
+| 1 | Document upload + indexing (ref, name, date, version) | ✅ Done (blob storage + template record) |
+| 2 | Comprehension questions per document | ✅ Done — admin builder + server-side validation + customer answer form |
+| 3 | Job role-based assignment to individuals | ⬜ Partial — assigned to company only |
+| 4a | Email notification on assignment | ⬜ Not started |
+| 4b | No-email worker name-entry sign-off | ⬜ Not started |
+| 4c | Line manager reminder for no-email workers | ⬜ Not started |
+| 5 | Read + answer questions + digital sign-off | ⬜ Partial — sign-off done, questions done, signature pad not yet |
+| 6a | Completed vs overdue report | ⬜ Partial — completions list exists, no overdue tracking |
+| 6b | Automated reminder notifications for overdue | ⬜ Not started |
+| 7/8 | New document version triggers new assignment cycle | ⬜ Not started |
+
+### Priority order and detail
+
+#### P1 — Comprehension questions ✅ Done
+Admin defines 2–3 multiple-choice questions per template via the Edit Template dialog — each question has a set of options and one marked as correct. Options are shown to customers as radio buttons; the correct answer is stored server-side only. On the customer completion page, questions appear as a "Comprehension Check" section; answers are validated server-side on submission (exact string match against the correct option). Wrong answers return HTTP 400 with `failedQuestionIds`; the UI highlights failed questions and lets the customer re-select and resubmit.
+
+Key files: `src/types/comprehension-question.ts`, `src/lib/document-templates.ts` (`questions` field), `src/lib/assignments.ts` (strips answers before returning to client), `src/app/api/customer/assignments/[id]/complete/route.ts` (validates answers), `src/components/admin/edit-template-dialog.tsx` (question builder), `src/app/customer/documents/[assignmentId]/complete/page.tsx` (answer form).
+
+#### P2 — Individual-level assignment and overdue tracking
+Currently `Assignment` links a template to a `CustomerCompany`. Simon needs to know which individuals within a company have signed — and who is overdue.
+
+- Add `due_date` to `Assignment` (nullable; set when template is assigned to a company)
+- The `CompletionRecord` already captures `userId` — use this to cross-reference assigned users vs completers
+- Build an "overdue" query: users in the assigned company who have no `CompletionRecord` for this assignment and the due date has passed
+- Admin completions view should show a per-assignment breakdown: completed (name, date) vs outstanding
+
+#### P3 — Job role-based assignment
+Simon wants documents to be filtered by employee job role (e.g. Engineers only see engineering docs). This reduces admin overhead when assigning documents to large companies.
+
+- Add `jobRole` field to `User` (nullable string or enum — confirm with Simon whether roles are fixed or freeform)
+- Add `targetJobRoles` JSON field to `Assignment` (array of job role strings; empty = all users in company)
+- Customer documents page filters assignments by the signed-in user's job role
+- Admin assignment UI allows selecting which job roles the document applies to
+
+#### P4 — Email notifications on assignment
+When a document is assigned, relevant users should receive an email with a link to complete it.
+
+- Reuse the existing Azure Communication Services email infrastructure
+- Trigger email on assignment creation (or batch on a schedule if many users)
+- Email contains: document name, due date, direct link to the completion page
+- Requires the assignment to know which individual users are in scope (P2 + P3 prerequisite)
+
+#### P5 — Automated reminder notifications
+Chase overdue sign-offs automatically.
+
+- Configurable reminder schedule per assignment (e.g. 3 days before due, 1 day before, day of, then weekly)
+- For users with email: send directly
+- For users without email: send to line manager (see P6)
+- Implementation options: Azure Functions timer trigger (simplest for Azure stack), or a Next.js cron via Vercel/custom scheduler
+
+#### P6 — No-email worker support and line manager routing
+Some workers have no email address. Simon's spec: they use a name-entry field to sign off, and reminders go to their line manager.
+
+- Allow a `User` to have no email (currently email is required for auth)
+- Two sign-off modes: authenticated (email login) and name-entry (no account required — name captured at completion time)
+- Add `lineManagerId` (nullable FK to another `User`) or `lineManagerEmail` (nullable string) to `User`
+- For no-email users, all email notifications route to their line manager instead
+- The `CompletionRecord` stores either `userId` (authenticated) or `signerName` (name-entry), not both
+
+#### P7 — Document version cycle
+When Simon uploads a new version of a document, the new version should trigger a fresh assignment + completion cycle.
+
+- `DocumentTemplate` already has a version concept (blobPath versioning)
+- Make version explicit: add `version` integer to `DocumentTemplate`, auto-incremented on update
+- When a new version is published, create new `Assignment` records (linked to new template version) for all previously assigned companies
+- Old `CompletionRecord`s remain attached to their original template version — do not invalidate historical sign-offs
+- Admin report shows completion status per version, per company
+
+---
+
 ## Document Model
 
 ### Current state (as of 2026-04)

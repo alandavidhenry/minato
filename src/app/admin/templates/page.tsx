@@ -17,6 +17,7 @@ import {
   TableRow
 } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
+import type { ComprehensionQuestion } from '@/types/comprehension-question'
 import type { FormField } from '@/types/form-schema'
 
 interface Template {
@@ -24,6 +25,7 @@ interface Template {
   title: string
   description: string | null
   formSchema: FormField[] | null
+  questions: ComprehensionQuestion[] | null
   blobPath: string | null
   createdAt: string
 }
