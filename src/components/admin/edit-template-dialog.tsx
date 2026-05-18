@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ import {
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/ui/use-toast'
+import type { ComprehensionQuestion } from '@/types/comprehension-question'
 import type { FormField, FormFieldType } from '@/types/form-schema'
 
 function isCheckboxField(f: FormField) {
@@ -35,6 +37,7 @@ interface Template {
   title: string
   description: string | null
   formSchema: FormField[] | null
+  questions: ComprehensionQuestion[] | null
 }
 
 interface EditTemplateDialogProps {
@@ -65,12 +68,14 @@ export function EditTemplateDialog({
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [fields, setFields] = useState<FormField[]>([])
+  const [questions, setQuestions] = useState<ComprehensionQuestion[]>([])
 
   useEffect(() => {
     if (template) {
       setTitle(template.title)
       setDescription(template.description ?? '')
       setFields(template.formSchema ?? [])
+      setQuestions(template.questions ?? [])
     }
   }, [template])
 
@@ -130,6 +135,60 @@ export function EditTemplateDialog({
     )
   }
 
+  function addQuestion() {
+    setQuestions((prev) => [
+      ...prev,
+      { id: generateId(), question: '', options: ['', ''], answer: '' }
+    ])
+  }
+
+  function addOption(questionId: string) {
+    setQuestions((prev) =>
+      prev.map((q) =>
+        q.id === questionId ? { ...q, options: [...q.options, ''] } : q
+      )
+    )
+  }
+
+  function updateOption(
+    questionId: string,
+    optionIndex: number,
+    value: string
+  ) {
+    setQuestions((prev) =>
+      prev.map((q) => {
+        if (q.id !== questionId) return q
+        const updatedOptions = q.options.map((o, i) =>
+          i === optionIndex ? value : o
+        )
+        // If the previously-correct option text was changed, update answer too
+        const answer = q.answer === q.options[optionIndex] ? value : q.answer
+        return { ...q, options: updatedOptions, answer }
+      })
+    )
+  }
+
+  function removeOption(questionId: string, optionIndex: number) {
+    setQuestions((prev) =>
+      prev.map((q) => {
+        if (q.id !== questionId) return q
+        const updatedOptions = q.options.filter((_, i) => i !== optionIndex)
+        const answer = q.answer === q.options[optionIndex] ? '' : q.answer
+        return { ...q, options: updatedOptions, answer }
+      })
+    )
+  }
+
+  function removeQuestion(id: string) {
+    setQuestions((prev) => prev.filter((q) => q.id !== id))
+  }
+
+  function updateQuestion(id: string, changes: Partial<ComprehensionQuestion>) {
+    setQuestions((prev) =>
+      prev.map((q) => (q.id === id ? { ...q, ...changes } : q))
+    )
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
 
@@ -152,6 +211,43 @@ export function EditTemplateDialog({
       return
     }
 
+    for (const q of questions) {
+      if (!q.question.trim()) {
+        toast({
+          title: 'Validation Error',
+          description: 'All comprehension questions must have question text',
+          variant: 'destructive'
+        })
+        return
+      }
+      if (q.options.length < 2) {
+        toast({
+          title: 'Validation Error',
+          description:
+            'Each comprehension question must have at least 2 options',
+          variant: 'destructive'
+        })
+        return
+      }
+      if (q.options.some((o) => !o.trim())) {
+        toast({
+          title: 'Validation Error',
+          description: 'All answer options must have text',
+          variant: 'destructive'
+        })
+        return
+      }
+      if (!q.answer || !q.options.includes(q.answer)) {
+        toast({
+          title: 'Validation Error',
+          description:
+            'Please select the correct answer for each comprehension question',
+          variant: 'destructive'
+        })
+        return
+      }
+    }
+
     setIsLoading(true)
 
     try {
@@ -161,7 +257,8 @@ export function EditTemplateDialog({
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim() || null,
-          formSchema: fields.length > 0 ? fields : null
+          formSchema: fields.length > 0 ? fields : null,
+          questions: questions.length > 0 ? questions : null
         })
       })
 
@@ -244,7 +341,7 @@ export function EditTemplateDialog({
                 </p>
               )}
 
-              {fields.map((field, index) => (
+              {fields.map((field, index, arr) => (
                 <div
                   key={field.id}
                   className='rounded-md border p-3 grid gap-3'
@@ -268,7 +365,7 @@ export function EditTemplateDialog({
                         variant='ghost'
                         size='sm'
                         onClick={() => moveField(field.id, 'down')}
-                        disabled={isLoading || index === fields.length - 1}
+                        disabled={isLoading || index === arr.length - 1}
                       >
                         <ChevronDown className='h-3 w-3' />
                       </Button>
@@ -409,6 +506,130 @@ export function EditTemplateDialog({
                       </div>
                     </div>
                   )}
+                </div>
+              ))}
+            </div>
+
+            <Separator />
+
+            <div className='grid gap-3'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <Label>Comprehension Questions</Label>
+                  <p className='text-xs text-muted-foreground mt-0.5'>
+                    Customers must answer these correctly before signing.
+                  </p>
+                </div>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={addQuestion}
+                  disabled={isLoading}
+                >
+                  <Plus className='mr-1 h-3 w-3' />
+                  Add Question
+                </Button>
+              </div>
+
+              {questions.length === 0 && (
+                <p className='text-sm text-muted-foreground'>
+                  No comprehension questions. Add questions customers must
+                  answer correctly before they can sign off.
+                </p>
+              )}
+
+              {questions.map((q, index) => (
+                <div key={q.id} className='rounded-md border p-3 grid gap-3'>
+                  <div className='flex items-center justify-between'>
+                    <span className='text-sm font-medium text-muted-foreground'>
+                      Question {index + 1}
+                    </span>
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => removeQuestion(q.id)}
+                      disabled={isLoading}
+                    >
+                      <Trash2 className='h-3 w-3' />
+                    </Button>
+                  </div>
+
+                  <div className='grid gap-2'>
+                    <Label htmlFor={`question-${q.id}`}>Question</Label>
+                    <Input
+                      id={`question-${q.id}`}
+                      value={q.question}
+                      onChange={(e) =>
+                        updateQuestion(q.id, { question: e.target.value })
+                      }
+                      placeholder='e.g. What should you do if you discover a fire?'
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <div className='grid gap-2'>
+                    <div className='flex items-center justify-between'>
+                      <Label>
+                        Answer Options{' '}
+                        <span className='text-muted-foreground font-normal'>
+                          — select the correct one
+                        </span>
+                      </Label>
+                      <Button
+                        type='button'
+                        variant='ghost'
+                        size='sm'
+                        onClick={() => addOption(q.id)}
+                        disabled={isLoading}
+                      >
+                        <Plus className='mr-1 h-3 w-3' />
+                        Add Option
+                      </Button>
+                    </div>
+                    <RadioGroup
+                      value={q.answer}
+                      onValueChange={(value) =>
+                        updateQuestion(q.id, { answer: value })
+                      }
+                      disabled={isLoading}
+                    >
+                      {q.options.map((option, optIdx) => (
+                        <div key={optIdx} className='flex items-center gap-2'>
+                          <RadioGroupItem
+                            value={option}
+                            id={`opt-${q.id}-${optIdx}`}
+                            disabled={!option.trim() || isLoading}
+                          />
+                          <Input
+                            value={option}
+                            onChange={(e) =>
+                              updateOption(q.id, optIdx, e.target.value)
+                            }
+                            placeholder={`Option ${optIdx + 1}`}
+                            disabled={isLoading}
+                            className='flex-1 h-8 text-sm'
+                          />
+                          {q.options.length > 2 && (
+                            <Button
+                              type='button'
+                              variant='ghost'
+                              size='sm'
+                              onClick={() => removeOption(q.id, optIdx)}
+                              disabled={isLoading}
+                            >
+                              <Trash2 className='h-3 w-3' />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </RadioGroup>
+                    <p className='text-xs text-muted-foreground'>
+                      The selected option is the correct answer — not shown to
+                      customers.
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
