@@ -1,7 +1,7 @@
 // src/app/admin/completions/[companyId]/page.tsx
 'use client'
 
-import { ArrowLeft, FileText } from 'lucide-react'
+import { AlertCircle, ArrowLeft, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -21,7 +21,10 @@ interface CompletionGroup {
   assignmentId: string
   template: { id: string; title: string }
   completionCount: number
-  lastCompletedAt: string
+  lastCompletedAt: string | null
+  dueDate: string | null
+  isOverdue: boolean
+  outstandingCount: number
 }
 
 export default function CompanyCompletionsPage() {
@@ -38,7 +41,7 @@ export default function CompanyCompletionsPage() {
         fetch(`/api/admin/companies/${companyId}/completions`)
       ])
       if (!companyRes.ok) throw new Error('Company not found')
-      if (!groupsRes.ok) throw new Error('Failed to load completions')
+      if (!groupsRes.ok) throw new Error('Failed to load assignments')
       const [companyData, groupsData] = await Promise.all([
         companyRes.json(),
         groupsRes.json()
@@ -48,7 +51,7 @@ export default function CompanyCompletionsPage() {
     } catch {
       toast({
         title: 'Error',
-        description: 'Failed to load completions.',
+        description: 'Failed to load data.',
         variant: 'destructive'
       })
     } finally {
@@ -64,7 +67,7 @@ export default function CompanyCompletionsPage() {
     if (isLoading) {
       return (
         <TableRow>
-          <TableCell colSpan={3} className='h-24 text-center'>
+          <TableCell colSpan={5} className='h-24 text-center'>
             Loading...
           </TableCell>
         </TableRow>
@@ -74,8 +77,8 @@ export default function CompanyCompletionsPage() {
     if (groups.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={3} className='h-24 text-center'>
-            No completions for this company.
+          <TableCell colSpan={5} className='h-24 text-center'>
+            No templates assigned to this company.
           </TableCell>
         </TableRow>
       )
@@ -96,14 +99,43 @@ export default function CompanyCompletionsPage() {
           </Link>
         </TableCell>
         <TableCell>
+          <div className='flex items-center gap-2'>
+            {group.isOverdue && (
+              <Badge variant='destructive' className='gap-1'>
+                <AlertCircle className='h-3 w-3' />
+                Overdue
+              </Badge>
+            )}
+            {group.outstandingCount > 0 && !group.isOverdue && (
+              <Badge variant='secondary'>
+                {group.outstandingCount} outstanding
+              </Badge>
+            )}
+            {group.outstandingCount === 0 && group.completionCount > 0 && (
+              <Badge variant='default'>Complete</Badge>
+            )}
+          </div>
+        </TableCell>
+        <TableCell>
           <Badge variant='secondary'>{group.completionCount}</Badge>
         </TableCell>
         <TableCell className='text-muted-foreground'>
-          {new Date(group.lastCompletedAt).toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-          })}
+          {group.dueDate
+            ? new Date(group.dueDate).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+              })
+            : '—'}
+        </TableCell>
+        <TableCell className='text-muted-foreground'>
+          {group.lastCompletedAt
+            ? new Date(group.lastCompletedAt).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+              })
+            : '—'}
         </TableCell>
       </TableRow>
     ))
@@ -127,7 +159,9 @@ export default function CompanyCompletionsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Template</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Completions</TableHead>
+              <TableHead>Due date</TableHead>
               <TableHead>Last completed</TableHead>
             </TableRow>
           </TableHeader>

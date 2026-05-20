@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -45,6 +46,7 @@ export function AssignTemplateDialog({
 }: AssignTemplateDialogProps) {
   const [templates, setTemplates] = useState<Template[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const [dueDate, setDueDate] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isFetching, setIsFetching] = useState(false)
 
@@ -52,6 +54,7 @@ export function AssignTemplateDialog({
     if (open) {
       fetchTemplates()
       setSelectedTemplateId('')
+      setDueDate('')
     }
   }, [open])
 
@@ -90,7 +93,10 @@ export function AssignTemplateDialog({
       const res = await fetch(`/api/admin/companies/${companyId}/assignments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ templateId: selectedTemplateId })
+        body: JSON.stringify({
+          templateId: selectedTemplateId,
+          dueDate: dueDate || undefined
+        })
       })
 
       if (!res.ok) {
@@ -128,6 +134,16 @@ export function AssignTemplateDialog({
           </DialogHeader>
 
           <div className='grid gap-4 py-4'>
+            <div className='grid gap-2'>
+              <Label htmlFor='due-date'>Due date (optional)</Label>
+              <Input
+                id='due-date'
+                type='date'
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
             <div className='grid gap-2'>
               <Label htmlFor='template'>Template</Label>
               {isFetching ? (

@@ -83,7 +83,10 @@ export function NavBar() {
           <div className='hidden md:flex md:items-center md:space-x-2'>
             <ThemeToggle />
             {session ? (
-              <Button variant='outline' onClick={() => signOut()}>
+              <Button
+                variant='outline'
+                onClick={() => signOut({ callbackUrl: '/' })}
+              >
                 Sign Out
               </Button>
             ) : (
@@ -129,7 +132,7 @@ export function NavBar() {
                 <Button
                   variant='outline'
                   className='w-full'
-                  onClick={() => signOut()}
+                  onClick={() => signOut({ callbackUrl: '/' })}
                 >
                   Sign Out
                 </Button>

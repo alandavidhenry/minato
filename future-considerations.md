@@ -18,12 +18,12 @@ This section maps Simon's stated workflow (see README "How It Works") to the cur
 |---|---|---|
 | 1 | Document upload + indexing (ref, name, date, version) | ✅ Done (blob storage + template record) |
 | 2 | Comprehension questions per document | ✅ Done — admin builder + server-side validation + customer answer form |
-| 3 | Job role-based assignment to individuals | ⬜ Partial — assigned to company only |
+| 3 | Job role-based assignment to individuals | ✅ Done — individual-level assignment (userId nullable), company-wide stays as before |
 | 4a | Email notification on assignment | ⬜ Not started |
 | 4b | No-email worker name-entry sign-off | ⬜ Not started |
 | 4c | Line manager reminder for no-email workers | ⬜ Not started |
 | 5 | Read + answer questions + digital sign-off | ⬜ Partial — sign-off done, questions done, signature pad not yet |
-| 6a | Completed vs overdue report | ⬜ Partial — completions list exists, no overdue tracking |
+| 6a | Completed vs overdue report | ✅ Done — `dueDate` on assignments; admin completions view shows per-assignment breakdown (completed vs outstanding) with overdue badge |
 | 6b | Automated reminder notifications for overdue | ⬜ Not started |
 | 7/8 | New document version triggers new assignment cycle | ⬜ Not started |
 
@@ -34,13 +34,13 @@ Admin defines 2–3 multiple-choice questions per template via the Edit Template
 
 Key files: `src/types/comprehension-question.ts`, `src/lib/document-templates.ts` (`questions` field), `src/lib/assignments.ts` (strips answers before returning to client), `src/app/api/customer/assignments/[id]/complete/route.ts` (validates answers), `src/components/admin/edit-template-dialog.tsx` (question builder), `src/app/customer/documents/[assignmentId]/complete/page.tsx` (answer form).
 
-#### P2 — Individual-level assignment and overdue tracking
-Currently `Assignment` links a template to a `CustomerCompany`. Simon needs to know which individuals within a company have signed — and who is overdue.
+#### P2 — Individual-level assignment and overdue tracking ✅ Done
 
-- Add `due_date` to `Assignment` (nullable; set when template is assigned to a company)
-- The `CompletionRecord` already captures `userId` — use this to cross-reference assigned users vs completers
-- Build an "overdue" query: users in the assigned company who have no `CompletionRecord` for this assignment and the due date has passed
-- Admin completions view should show a per-assignment breakdown: completed (name, date) vs outstanding
+- ✅ `dueDate DateTime?` on `Assignment`; set via admin assign dialogs (both company-wide and individual)
+- ✅ `getAssignmentStatusSummary` in `src/lib/completion-records.ts` — returns completed users, outstanding users, isOverdue
+- ✅ Admin completions view (`/admin/completions/[companyId]/[assignmentId]`) shows completed + outstanding sections with overdue badge
+- ✅ Company completions list (`/admin/completions/[companyId]`) now shows ALL assignments (not just those with completions), with status/overdue/outstanding count columns and due date
+- ✅ Company detail page shows due date column in both assignment tables
 
 #### P3 — Job role-based assignment
 Simon wants documents to be filtered by employee job role (e.g. Engineers only see engineering docs). This reduces admin overhead when assigning documents to large companies.

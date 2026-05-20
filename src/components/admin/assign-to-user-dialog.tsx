@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -50,6 +51,7 @@ export function AssignToUserDialog({
   const [users, setUsers] = useState<CompanyUser[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [selectedUserId, setSelectedUserId] = useState('')
+  const [dueDate, setDueDate] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isFetching, setIsFetching] = useState(false)
 
@@ -58,6 +60,7 @@ export function AssignToUserDialog({
       fetchData()
       setSelectedTemplateId('')
       setSelectedUserId('')
+      setDueDate('')
     }
     // fetchData is stable (declared in component body, no deps); open is the trigger
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -108,7 +111,8 @@ export function AssignToUserDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           templateId: selectedTemplateId,
-          userId: selectedUserId
+          userId: selectedUserId,
+          dueDate: dueDate || undefined
         })
       })
 
@@ -154,6 +158,17 @@ export function AssignToUserDialog({
               </p>
             ) : (
               <>
+                <div className='grid gap-2'>
+                  <Label htmlFor='due-date'>Due date (optional)</Label>
+                  <Input
+                    id='due-date'
+                    type='date'
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+
                 <div className='grid gap-2'>
                   <Label htmlFor='user'>User</Label>
                   <Select

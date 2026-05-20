@@ -19,7 +19,7 @@ import { PasswordInput } from '@/components/ui/password-input'
 
 function SignInContent() {
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') ?? '/documents'
+  const callbackUrl = searchParams.get('callbackUrl') ?? '/'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)

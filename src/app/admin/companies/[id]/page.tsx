@@ -31,6 +31,7 @@ interface Assignment {
   id: string
   templateId: string
   userId: string | null
+  dueDate: string | null
   createdAt: string
   template: {
     id: string
@@ -246,6 +247,7 @@ export default function CompanyDetailPage() {
                 <TableHead>Template</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Has File</TableHead>
+                <TableHead>Due date</TableHead>
                 <TableHead>Assigned</TableHead>
                 <TableHead className='text-right'>Actions</TableHead>
               </TableRow>
@@ -253,7 +255,7 @@ export default function CompanyDetailPage() {
             <TableBody>
               {assignments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className='h-24 text-center'>
+                  <TableCell colSpan={6} className='h-24 text-center'>
                     No templates assigned yet. Click &quot;Assign Template&quot;
                     to get started.
                   </TableCell>
@@ -275,6 +277,15 @@ export default function CompanyDetailPage() {
                           No
                         </span>
                       )}
+                    </TableCell>
+                    <TableCell className='text-muted-foreground'>
+                      {a.dueDate
+                        ? new Date(a.dueDate).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                          })
+                        : '—'}
                     </TableCell>
                     <TableCell className='text-muted-foreground'>
                       {new Date(a.createdAt).toLocaleDateString()}
@@ -350,6 +361,7 @@ export default function CompanyDetailPage() {
                       <TableHead>Template</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Has File</TableHead>
+                      <TableHead>Due date</TableHead>
                       <TableHead>Assigned</TableHead>
                       <TableHead className='text-right'>Actions</TableHead>
                     </TableRow>
@@ -371,6 +383,15 @@ export default function CompanyDetailPage() {
                               No
                             </span>
                           )}
+                        </TableCell>
+                        <TableCell className='text-muted-foreground'>
+                          {a.dueDate
+                            ? new Date(a.dueDate).toLocaleDateString('en-GB', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric'
+                              })
+                            : '—'}
                         </TableCell>
                         <TableCell className='text-muted-foreground'>
                           {new Date(a.createdAt).toLocaleDateString()}
