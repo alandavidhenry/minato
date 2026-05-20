@@ -8,12 +8,14 @@ declare module 'next-auth' {
       id: string
       roles: UserRole[]
       customerCompanyId: string | null
+      jobRole: string | null
     } & DefaultSession['user']
   }
 
   interface User {
     roles: UserRole[]
     customerCompanyId: string | null
+    jobRole: string | null
   }
 }
 
@@ -22,5 +24,6 @@ declare module 'next-auth/jwt' {
     id: string
     roles: UserRole[]
     customerCompanyId: string | null
+    jobRole: string | null
   }
 }

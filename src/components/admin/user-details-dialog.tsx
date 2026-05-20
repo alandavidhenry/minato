@@ -24,8 +24,7 @@ interface User {
   accountEnabled: boolean
   appRoleAssignments?: AppRoleAssignment[]
   createdDateTime?: string
-  jobTitle?: string
-  department?: string
+  jobRole?: string | null
 }
 
 interface AppRoleAssignment {
@@ -52,8 +51,7 @@ export function UserDetailsDialog({
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
     displayName: user.displayName,
-    jobTitle: user.jobTitle ?? '',
-    department: user.department ?? ''
+    jobRole: user.jobRole ?? ''
   })
 
   // Handle form input changes
@@ -89,8 +87,7 @@ export function UserDetailsDialog({
         },
         body: JSON.stringify({
           displayName: formData.displayName,
-          jobTitle: formData.jobTitle,
-          department: formData.department
+          jobRole: formData.jobRole || null
         })
       })
 
@@ -157,27 +154,14 @@ export function UserDetailsDialog({
             </div>
 
             <div className='grid gap-2'>
-              <Label htmlFor='jobTitle'>Job Title</Label>
+              <Label htmlFor='jobRole'>Job Role</Label>
               <Input
-                id='jobTitle'
-                value={formData.jobTitle}
+                id='jobRole'
+                value={formData.jobRole}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  handleChange('jobTitle', e.target.value)
+                  handleChange('jobRole', e.target.value)
                 }
-                placeholder='Not specified'
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className='grid gap-2'>
-              <Label htmlFor='department'>Department</Label>
-              <Input
-                id='department'
-                value={formData.department}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  handleChange('department', e.target.value)
-                }
-                placeholder='Not specified'
+                placeholder='e.g. Site Manager'
                 disabled={isLoading}
               />
             </div>

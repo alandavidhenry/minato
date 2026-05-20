@@ -50,6 +50,7 @@ export function CreateUserDialog({
     email: '',
     password: '',
     role: 'Customer User',
+    jobRole: '',
     customerCompanyId: ''
   })
 
@@ -126,6 +127,7 @@ export function CreateUserDialog({
           email: formData.email,
           password: formData.password,
           role: formData.role,
+          jobRole: isCustomerRole ? formData.jobRole || undefined : undefined,
           customerCompanyId: isCustomerRole
             ? formData.customerCompanyId
             : undefined
@@ -143,6 +145,7 @@ export function CreateUserDialog({
         email: '',
         password: '',
         role: 'Customer User',
+        jobRole: '',
         customerCompanyId: ''
       })
     } catch (error) {
@@ -242,6 +245,21 @@ export function CreateUserDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {isCustomerRole && (
+              <div className='grid gap-2'>
+                <Label htmlFor='jobRole'>Job Role (optional)</Label>
+                <Input
+                  id='jobRole'
+                  value={formData.jobRole}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    handleChange('jobRole', e.target.value)
+                  }
+                  placeholder='e.g. Site Manager'
+                  disabled={isLoading}
+                />
+              </div>
+            )}
 
             {isCustomerRole && (
               <div className='grid gap-2'>

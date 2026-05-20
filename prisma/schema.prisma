@@ -41,6 +41,7 @@ model User {
   displayName       String
   passwordHash      String
   role              String   @default("Customer User")
+  jobRole           String?  // freeform job role string used for assignment filtering
   createdAt         DateTime @default(now())
   tenantId          String? // null = default single-tenant; required when multi-tenancy is enforced
   customerCompanyId String? // null for consultancy staff; required for customer-role users
@@ -117,6 +118,7 @@ model Assignment {
   customerCompanyId String
   userId            String?   // null = company-wide; set = individual user
   dueDate           DateTime? // optional deadline; null = no due date
+  targetJobRoles    Json?     // string[] of job roles that can see this assignment; null = visible to all
   createdAt         DateTime  @default(now())
 
   template        DocumentTemplate @relation(fields: [templateId], references: [id])

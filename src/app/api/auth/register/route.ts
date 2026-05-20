@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
       password: data.password,
       displayName: data.displayName,
       role: data.role || 'Customer User',
+      jobRole: data.jobRole || undefined,
       customerCompanyId: data.customerCompanyId || undefined
     })
 

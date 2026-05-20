@@ -55,6 +55,7 @@ const BASE_ASSIGNMENT = {
   customerCompanyId: 'company_123',
   userId: null,
   dueDate: null,
+  targetJobRoles: null,
   createdAt: '2024-01-01T00:00:00.000Z',
   template: {
     id: 'template_123',
@@ -199,6 +200,34 @@ describe('POST /api/admin/companies/[id]/assignments (company-wide)', () => {
     expect((await res.json()).assignment.dueDate).toBe(
       '2024-06-01T00:00:00.000Z'
     )
+  })
+
+  it('passes targetJobRoles to createAssignment when provided', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const withRoles = {
+      ...BASE_ASSIGNMENT,
+      targetJobRoles: ['Site Manager', 'Supervisor']
+    }
+    mockCreate.mockResolvedValue(withRoles)
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      {
+        templateId: 'template_123',
+        targetJobRoles: ['Site Manager', 'Supervisor']
+      }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetJobRoles: ['Site Manager', 'Supervisor']
+      })
+    )
+    expect((await res.json()).assignment.targetJobRoles).toEqual([
+      'Site Manager',
+      'Supervisor'
+    ])
   })
 })
 

@@ -102,14 +102,25 @@ const CUSTOMER_SESSION = {
   user: {
     id: 'user_123',
     roles: ['Customer User'],
-    customerCompanyId: 'company_123'
+    customerCompanyId: 'company_123',
+    jobRole: null
   }
 }
 const NO_COMPANY_SESSION = {
-  user: { id: 'user_123', roles: ['Customer User'], customerCompanyId: null }
+  user: {
+    id: 'user_123',
+    roles: ['Customer User'],
+    customerCompanyId: null,
+    jobRole: null
+  }
 }
 const ADMIN_SESSION = {
-  user: { id: 'admin_123', roles: ['Tenant Admin'], customerCompanyId: null }
+  user: {
+    id: 'admin_123',
+    roles: ['Tenant Admin'],
+    customerCompanyId: null,
+    jobRole: null
+  }
 }
 
 const BASE_ASSIGNMENT = {
@@ -288,6 +299,23 @@ describe('GET /api/customer/assignments', () => {
     const body = await res.json()
     expect(body.assignments).toHaveLength(1)
     expect(body.assignments[0].template.title).toBe('Farmyard Safety Checklist')
+  })
+
+  it('passes jobRole from session to getAssignmentsForUser', async () => {
+    const sessionWithJobRole = {
+      user: {
+        ...CUSTOMER_SESSION.user,
+        jobRole: 'Site Manager'
+      }
+    }
+    mockGetServerSession.mockResolvedValue(sessionWithJobRole)
+    mockGetAssignmentsForUser.mockResolvedValue([])
+    await listAssignments()
+    expect(mockGetAssignmentsForUser).toHaveBeenCalledWith(
+      'user_123',
+      'company_123',
+      'Site Manager'
+    )
   })
 })
 

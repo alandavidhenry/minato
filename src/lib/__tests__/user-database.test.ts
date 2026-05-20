@@ -37,6 +37,7 @@ const BASE_USER = {
   displayName: 'Alice',
   passwordHash: '$hashed',
   role: 'Customer',
+  jobRole: null,
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
   tenantId: null,
   customerCompanyId: null
@@ -183,6 +184,21 @@ describe('updateUser', () => {
     expect(mockPrisma.user.update).toHaveBeenCalledWith({
       where: { id: 'cuid_abc123' },
       data: { displayName: 'Bob' }
+    })
+  })
+
+  it('updates jobRole when provided', async () => {
+    mockPrisma.user.update.mockResolvedValue({
+      ...BASE_USER,
+      jobRole: 'Site Manager'
+    })
+
+    const result = await updateUser('cuid_abc123', { jobRole: 'Site Manager' })
+
+    expect(result).toBe(true)
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'cuid_abc123' },
+      data: { jobRole: 'Site Manager' }
     })
   })
 

@@ -30,6 +30,8 @@ const BASE_ASSIGNMENT = {
   templateId: 'template_123',
   customerCompanyId: 'company_123',
   userId: null,
+  dueDate: null,
+  targetJobRoles: null,
   createdAt: new Date('2024-01-01T00:00:00.000Z')
 }
 
@@ -38,6 +40,8 @@ const USER_ASSIGNMENT = {
   templateId: 'template_456',
   customerCompanyId: 'company_123',
   userId: 'user_123',
+  dueDate: null,
+  targetJobRoles: null,
   createdAt: new Date('2024-01-02T00:00:00.000Z')
 }
 
@@ -48,7 +52,8 @@ const BASE_ASSIGNMENT_WITH_TEMPLATE = {
     title: 'Farmyard Safety Checklist',
     description: 'Annual farmyard safety review',
     blobPath: null,
-    formSchema: null
+    formSchema: null,
+    questions: null
   }
 }
 
@@ -59,7 +64,8 @@ const USER_ASSIGNMENT_WITH_TEMPLATE = {
     title: 'Power Tools Checklist',
     description: null,
     blobPath: null,
-    formSchema: null
+    formSchema: null,
+    questions: null
   }
 }
 
@@ -231,6 +237,72 @@ describe('getAssignmentsForUser', () => {
 
     expect(result).toHaveLength(1)
     expect(result[0].id).toBe('assignment_456') // the individual one wins
+  })
+
+  it('filters out company-wide assignments whose targetJobRoles excludes the user', async () => {
+    const restricted = {
+      ...BASE_ASSIGNMENT_WITH_TEMPLATE,
+      targetJobRoles: ['Site Manager', 'Supervisor']
+    }
+    mockPrisma.assignment.findMany
+      .mockResolvedValueOnce([restricted]) // company-wide with targetJobRoles
+      .mockResolvedValueOnce([]) // no individual assignments
+
+    // User has jobRole 'Labourer' — not in targetJobRoles
+    const result = await getAssignmentsForUser(
+      'user_123',
+      'company_123',
+      'Labourer'
+    )
+
+    expect(result).toHaveLength(0)
+  })
+
+  it('includes company-wide assignment when user job role matches targetJobRoles', async () => {
+    const restricted = {
+      ...BASE_ASSIGNMENT_WITH_TEMPLATE,
+      targetJobRoles: ['Site Manager', 'Supervisor']
+    }
+    mockPrisma.assignment.findMany
+      .mockResolvedValueOnce([restricted])
+      .mockResolvedValueOnce([])
+
+    const result = await getAssignmentsForUser(
+      'user_123',
+      'company_123',
+      'Site Manager'
+    )
+
+    expect(result).toHaveLength(1)
+  })
+
+  it('includes company-wide assignment when targetJobRoles is null (visible to all)', async () => {
+    mockPrisma.assignment.findMany
+      .mockResolvedValueOnce([BASE_ASSIGNMENT_WITH_TEMPLATE]) // targetJobRoles: null
+      .mockResolvedValueOnce([])
+
+    const result = await getAssignmentsForUser(
+      'user_123',
+      'company_123',
+      'Labourer'
+    )
+
+    expect(result).toHaveLength(1)
+  })
+
+  it('includes restricted company-wide assignment when user has no job role', async () => {
+    const restricted = {
+      ...BASE_ASSIGNMENT_WITH_TEMPLATE,
+      targetJobRoles: ['Site Manager']
+    }
+    mockPrisma.assignment.findMany
+      .mockResolvedValueOnce([restricted])
+      .mockResolvedValueOnce([])
+
+    // userJobRole = null → sees everything
+    const result = await getAssignmentsForUser('user_123', 'company_123', null)
+
+    expect(result).toHaveLength(1)
   })
 
   it('returns empty array on error', async () => {

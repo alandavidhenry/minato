@@ -8,6 +8,7 @@ export interface UserData {
   displayName: string
   passwordHash: string
   role: string
+  jobRole: string | null
   createdAt: string
   customerCompanyId: string | null
 }
@@ -18,6 +19,7 @@ type PrismaUser = {
   displayName: string
   passwordHash: string
   role: string
+  jobRole: string | null
   createdAt: Date
   customerCompanyId: string | null
 }
@@ -29,6 +31,7 @@ function toUserData(user: PrismaUser): UserData {
     displayName: user.displayName,
     passwordHash: user.passwordHash,
     role: user.role,
+    jobRole: user.jobRole,
     createdAt: user.createdAt.toISOString(),
     customerCompanyId: user.customerCompanyId
   }
@@ -39,12 +42,14 @@ export async function createUser({
   password,
   displayName,
   role = 'Customer User',
+  jobRole,
   customerCompanyId
 }: {
   email: string
   password: string
   displayName: string
   role?: string
+  jobRole?: string
   customerCompanyId?: string
 }): Promise<UserData | null> {
   try {
@@ -54,7 +59,14 @@ export async function createUser({
     const passwordHash = await bcrypt.hash(password, 10)
 
     const user = await prisma.user.create({
-      data: { email, displayName, passwordHash, role, customerCompanyId }
+      data: {
+        email,
+        displayName,
+        passwordHash,
+        role,
+        jobRole: jobRole ?? null,
+        customerCompanyId
+      }
     })
 
     return toUserData(user)
@@ -141,6 +153,7 @@ export async function updateUser(
           displayName: updates.displayName
         }),
         ...(updates.role !== undefined && { role: updates.role }),
+        ...(updates.jobRole !== undefined && { jobRole: updates.jobRole }),
         ...(updates.customerCompanyId !== undefined && {
           customerCompanyId: updates.customerCompanyId
         })

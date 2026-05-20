@@ -29,7 +29,8 @@ export const authOptions: NextAuthOptions = {
             name: user.displayName,
             email: user.email,
             roles: [user.role as UserRole],
-            customerCompanyId: user.customerCompanyId
+            customerCompanyId: user.customerCompanyId,
+            jobRole: user.jobRole
           }
         }
 
@@ -44,14 +45,16 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id
         token.roles = user.roles
         token.customerCompanyId = user.customerCompanyId
+        token.jobRole = user.jobRole
       } else if (token.id) {
         // Subsequent requests — refresh mutable fields from the database so
-        // changes made by admins (role, company assignment) are reflected
-        // without requiring the user to sign out and back in.
+        // changes made by admins (role, company assignment, job role) are
+        // reflected without requiring the user to sign out and back in.
         const dbUser = await getUserById(token.id)
         if (dbUser) {
           token.roles = [dbUser.role as UserRole]
           token.customerCompanyId = dbUser.customerCompanyId
+          token.jobRole = dbUser.jobRole
         }
       }
       return token
@@ -60,6 +63,7 @@ export const authOptions: NextAuthOptions = {
       session.user.id = token.id
       session.user.roles = token.roles
       session.user.customerCompanyId = token.customerCompanyId
+      session.user.jobRole = token.jobRole
       return session
     }
   },

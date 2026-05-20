@@ -32,6 +32,7 @@ interface Assignment {
   templateId: string
   userId: string | null
   dueDate: string | null
+  targetJobRoles: string[] | null
   createdAt: string
   template: {
     id: string
@@ -247,6 +248,7 @@ export default function CompanyDetailPage() {
                 <TableHead>Template</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Has File</TableHead>
+                <TableHead>Job Roles</TableHead>
                 <TableHead>Due date</TableHead>
                 <TableHead>Assigned</TableHead>
                 <TableHead className='text-right'>Actions</TableHead>
@@ -255,7 +257,7 @@ export default function CompanyDetailPage() {
             <TableBody>
               {assignments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className='h-24 text-center'>
+                  <TableCell colSpan={7} className='h-24 text-center'>
                     No templates assigned yet. Click &quot;Assign Template&quot;
                     to get started.
                   </TableCell>
@@ -277,6 +279,11 @@ export default function CompanyDetailPage() {
                           No
                         </span>
                       )}
+                    </TableCell>
+                    <TableCell className='text-muted-foreground'>
+                      {a.targetJobRoles && a.targetJobRoles.length > 0
+                        ? a.targetJobRoles.join(', ')
+                        : '—'}
                     </TableCell>
                     <TableCell className='text-muted-foreground'>
                       {a.dueDate
