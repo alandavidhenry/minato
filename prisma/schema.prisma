@@ -112,11 +112,12 @@ model DocumentTemplate {
 //   - (templateId, customerCompanyId) WHERE userId IS NULL  (one company-wide assignment per template)
 //   - (templateId, userId) WHERE userId IS NOT NULL          (one individual assignment per user per template)
 model Assignment {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   templateId        String
   customerCompanyId String
-  userId            String?  // null = company-wide; set = individual user
-  createdAt         DateTime @default(now())
+  userId            String?   // null = company-wide; set = individual user
+  dueDate           DateTime? // optional deadline; null = no due date
+  createdAt         DateTime  @default(now())
 
   template        DocumentTemplate @relation(fields: [templateId], references: [id])
   customerCompany CustomerCompany  @relation(fields: [customerCompanyId], references: [id])

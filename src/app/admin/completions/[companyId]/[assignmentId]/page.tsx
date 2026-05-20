@@ -1,7 +1,14 @@
 // src/app/admin/completions/[companyId]/[assignmentId]/page.tsx
 'use client'
 
-import { ArrowLeft, CheckCircle2, Download, Trash2 } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  Download,
+  Trash2
+} from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -26,14 +33,25 @@ interface Completion {
   signer: { id: string; displayName: string; email: string }
 }
 
+interface OutstandingUser {
+  id: string
+  displayName: string
+  email: string
+}
+
 export default function AssignmentCompletionsPage() {
   const { companyId, assignmentId } = useParams<{
     companyId: string
     assignmentId: string
   }>()
   const [completions, setCompletions] = useState<Completion[]>([])
+  const [outstandingUsers, setOutstandingUsers] = useState<OutstandingUser[]>(
+    []
+  )
   const [templateTitle, setTemplateTitle] = useState<string>('')
   const [companyName, setCompanyName] = useState<string>('')
+  const [dueDate, setDueDate] = useState<string | null>(null)
+  const [isOverdue, setIsOverdue] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [downloading, setDownloading] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -51,26 +69,17 @@ export default function AssignmentCompletionsPage() {
         )
       ])
       if (!companyRes.ok) throw new Error('Company not found')
-      if (!completionsRes.ok) throw new Error('Failed to load completions')
+      if (!completionsRes.ok) throw new Error('Failed to load data')
       const [companyData, completionsData] = await Promise.all([
         companyRes.json(),
         completionsRes.json()
       ])
       setCompanyName(companyData.company.name)
       setCompletions(completionsData.completions)
-      if (completionsData.completions.length > 0) {
-        const groupsRes = await fetch(
-          `/api/admin/companies/${companyId}/completions`
-        )
-        if (groupsRes.ok) {
-          const groupsData = await groupsRes.json()
-          const group = groupsData.groups.find(
-            (g: { assignmentId: string; template: { title: string } }) =>
-              g.assignmentId === assignmentId
-          )
-          if (group) setTemplateTitle(group.template.title)
-        }
-      }
+      setOutstandingUsers(completionsData.outstandingUsers ?? [])
+      setTemplateTitle(completionsData.templateTitle ?? '')
+      setDueDate(completionsData.dueDate ?? null)
+      setIsOverdue(completionsData.isOverdue ?? false)
     } catch {
       toast({
         title: 'Error',
@@ -201,7 +210,7 @@ export default function AssignmentCompletionsPage() {
     completions.length > 0 && selected.size === completions.length
   const someChecked = selected.size > 0 && selected.size < completions.length
 
-  function renderRows() {
+  function renderCompletionRows() {
     if (isLoading) {
       return (
         <TableRow>
@@ -215,8 +224,11 @@ export default function AssignmentCompletionsPage() {
     if (completions.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={5} className='h-24 text-center'>
-            No completions.
+          <TableCell
+            colSpan={5}
+            className='h-12 text-center text-muted-foreground'
+          >
+            No completions yet.
           </TableCell>
         </TableRow>
       )
@@ -296,6 +308,31 @@ export default function AssignmentCompletionsPage() {
           {companyName || 'Back'}
         </Link>
         <h1 className='text-3xl font-bold'>{templateTitle || '...'}</h1>
+        {dueDate && (
+          <div className='flex items-center gap-2'>
+            {isOverdue ? (
+              <Badge variant='destructive' className='gap-1'>
+                <AlertCircle className='h-3 w-3' />
+                Overdue —{' '}
+                {new Date(dueDate).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric'
+                })}
+              </Badge>
+            ) : (
+              <Badge variant='secondary' className='gap-1'>
+                <Clock className='h-3 w-3' />
+                Due{' '}
+                {new Date(dueDate).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric'
+                })}
+              </Badge>
+            )}
+          </div>
+        )}
       </div>
 
       {selected.size > 0 && (
@@ -315,26 +352,65 @@ export default function AssignmentCompletionsPage() {
         </div>
       )}
 
-      <div className='rounded-md border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className='w-10'>
-                <Checkbox
-                  checked={someChecked ? 'indeterminate' : allChecked}
-                  onCheckedChange={toggleAll}
-                  aria-label='Select all'
-                />
-              </TableHead>
-              <TableHead>Completed by</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>PDF</TableHead>
-              <TableHead className='text-right'>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>{renderRows()}</TableBody>
-        </Table>
+      {/* Completed */}
+      <div>
+        <h2 className='text-lg font-semibold mb-3'>Completed</h2>
+        <div className='rounded-md border'>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className='w-10'>
+                  <Checkbox
+                    checked={someChecked ? 'indeterminate' : allChecked}
+                    onCheckedChange={toggleAll}
+                    aria-label='Select all'
+                  />
+                </TableHead>
+                <TableHead>Completed by</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>PDF</TableHead>
+                <TableHead className='text-right'>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>{renderCompletionRows()}</TableBody>
+          </Table>
+        </div>
       </div>
+
+      {/* Outstanding */}
+      {!isLoading && outstandingUsers.length > 0 && (
+        <div>
+          <h2 className='text-lg font-semibold mb-3'>
+            Outstanding
+            {isOverdue && (
+              <Badge variant='destructive' className='ml-2 gap-1 align-middle'>
+                <AlertCircle className='h-3 w-3' />
+                Overdue
+              </Badge>
+            )}
+          </h2>
+          <div className='rounded-md border'>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {outstandingUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>{user.displayName}</TableCell>
+                    <TableCell className='text-muted-foreground'>
+                      {user.email}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

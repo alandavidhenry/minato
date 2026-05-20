@@ -54,6 +54,7 @@ const BASE_ASSIGNMENT = {
   templateId: 'template_123',
   customerCompanyId: 'company_123',
   userId: null,
+  dueDate: null,
   createdAt: '2024-01-01T00:00:00.000Z',
   template: {
     id: 'template_123',
@@ -176,6 +177,28 @@ describe('POST /api/admin/companies/[id]/assignments (company-wide)', () => {
     const body = await res.json()
     expect(body.assignment.templateId).toBe('template_123')
     expect(body.assignment.userId).toBeNull()
+  })
+
+  it('passes dueDate to createAssignment when provided', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const withDueDate = {
+      ...BASE_ASSIGNMENT,
+      dueDate: '2024-06-01T00:00:00.000Z'
+    }
+    mockCreate.mockResolvedValue(withDueDate)
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123', dueDate: '2024-06-01' }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ dueDate: '2024-06-01' })
+    )
+    expect((await res.json()).assignment.dueDate).toBe(
+      '2024-06-01T00:00:00.000Z'
+    )
   })
 })
 

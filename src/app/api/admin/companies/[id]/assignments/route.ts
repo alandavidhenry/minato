@@ -55,9 +55,10 @@ export async function POST(
   try {
     const { id: customerCompanyId } = await params
     const body = await request.json()
-    const { templateId, userId } = body as {
+    const { templateId, userId, dueDate } = body as {
       templateId?: string
       userId?: string
+      dueDate?: string
     }
 
     if (!templateId) {
@@ -93,7 +94,8 @@ export async function POST(
     const assignment = await createAssignment({
       templateId,
       customerCompanyId,
-      userId
+      userId,
+      dueDate
     })
 
     if (!assignment) {

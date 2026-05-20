@@ -163,7 +163,18 @@ export interface CompletionGroupForAdmin {
   assignmentId: string
   template: { id: string; title: string }
   completionCount: number
-  lastCompletedAt: string
+  lastCompletedAt: string | null
+  dueDate: string | null
+  isOverdue: boolean
+  outstandingCount: number
+}
+
+export interface AssignmentStatusSummary {
+  templateTitle: string
+  dueDate: string | null
+  isOverdue: boolean
+  completedRecords: CompletionRecordForAssignment[]
+  outstandingUsers: { id: string; displayName: string; email: string }[]
 }
 
 export interface CompletionRecordForAssignment {
@@ -175,6 +186,8 @@ export interface CompletionRecordForAssignment {
 
 type PrismaAssignmentWithCompletionGroup = {
   id: string
+  userId: string | null
+  dueDate: Date | null
   template: { id: string; title: string }
   _count: { completions: number }
   completions: { signedAt: Date }[]
@@ -221,28 +234,39 @@ export async function getCompletionGroupsByCompany(
   companyId: string
 ): Promise<CompletionGroupForAdmin[]> {
   try {
-    const assignments = (await prisma.assignment.findMany({
-      where: {
-        customerCompanyId: companyId,
-        completions: { some: {} }
-      },
-      include: {
-        template: { select: { id: true, title: true } },
-        completions: {
-          select: { signedAt: true },
-          orderBy: { signedAt: 'desc' },
-          take: 1
+    const [assignments, companyUserCount] = await Promise.all([
+      prisma.assignment.findMany({
+        where: { customerCompanyId: companyId },
+        include: {
+          template: { select: { id: true, title: true } },
+          completions: {
+            select: { signedAt: true },
+            orderBy: { signedAt: 'desc' },
+            take: 1
+          },
+          _count: { select: { completions: true } }
         },
-        _count: { select: { completions: true } }
-      },
-      orderBy: { createdAt: 'asc' }
-    })) as PrismaAssignmentWithCompletionGroup[]
-    return assignments.map((a) => ({
-      assignmentId: a.id,
-      template: a.template,
-      completionCount: a._count.completions,
-      lastCompletedAt: a.completions[0].signedAt.toISOString()
-    }))
+        orderBy: { createdAt: 'asc' }
+      }),
+      prisma.user.count({ where: { customerCompanyId: companyId } })
+    ])
+
+    const now = new Date()
+    return (assignments as PrismaAssignmentWithCompletionGroup[]).map((a) => {
+      const completionCount = a._count.completions
+      const expectedCount = a.userId ? 1 : companyUserCount
+      const outstandingCount = Math.max(0, expectedCount - completionCount)
+      const isOverdue = !!(a.dueDate && a.dueDate < now && outstandingCount > 0)
+      return {
+        assignmentId: a.id,
+        template: a.template,
+        completionCount,
+        lastCompletedAt: a.completions[0]?.signedAt.toISOString() ?? null,
+        dueDate: a.dueDate ? a.dueDate.toISOString() : null,
+        isOverdue,
+        outstandingCount
+      }
+    })
   } catch (error) {
     console.error('Error getting completion groups by company:', error)
     return []
@@ -294,6 +318,75 @@ export async function getCompletionsForAssignment(
   } catch (error) {
     console.error('Error getting completions for assignment:', error)
     return []
+  }
+}
+
+export async function getAssignmentStatusSummary(
+  assignmentId: string
+): Promise<AssignmentStatusSummary | null> {
+  try {
+    const assignment = await prisma.assignment.findUnique({
+      where: { id: assignmentId },
+      select: {
+        userId: true,
+        customerCompanyId: true,
+        dueDate: true,
+        template: { select: { title: true } }
+      }
+    })
+    if (!assignment) return null
+
+    const completionRecords = (await prisma.completionRecord.findMany({
+      where: { assignmentId },
+      include: {
+        signedBy: { select: { id: true, displayName: true, email: true } }
+      },
+      orderBy: { signedAt: 'desc' }
+    })) as PrismaCompletionRecordForAssignment[]
+
+    const completedUserIds = new Set(
+      completionRecords.map((r) => r.signedBy.id)
+    )
+
+    let expectedUsers: { id: string; displayName: string; email: string }[]
+    if (assignment.userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: assignment.userId },
+        select: { id: true, displayName: true, email: true }
+      })
+      expectedUsers = user ? [user] : []
+    } else {
+      expectedUsers = await prisma.user.findMany({
+        where: { customerCompanyId: assignment.customerCompanyId },
+        select: { id: true, displayName: true, email: true },
+        orderBy: { displayName: 'asc' }
+      })
+    }
+
+    const outstandingUsers = expectedUsers.filter(
+      (u) => !completedUserIds.has(u.id)
+    )
+    const isOverdue = !!(
+      assignment.dueDate &&
+      assignment.dueDate < new Date() &&
+      outstandingUsers.length > 0
+    )
+
+    return {
+      templateTitle: assignment.template.title,
+      dueDate: assignment.dueDate ? assignment.dueDate.toISOString() : null,
+      isOverdue,
+      completedRecords: completionRecords.map((r) => ({
+        id: r.id,
+        signedAt: r.signedAt.toISOString(),
+        blobPath: r.blobPath,
+        signer: r.signedBy
+      })),
+      outstandingUsers
+    }
+  } catch (error) {
+    console.error('Error getting assignment status summary:', error)
+    return null
   }
 }
 

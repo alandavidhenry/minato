@@ -21,20 +21,20 @@ vi.mock('next-auth', () => ({ getServerSession: mockGetServerSession }))
 const {
   mockGetCompanies,
   mockGetGroups,
-  mockGetAssignmentCompletions,
+  mockGetAssignmentStatusSummary,
   mockGetById,
   mockDelete
 } = vi.hoisted(() => ({
   mockGetCompanies: vi.fn(),
   mockGetGroups: vi.fn(),
-  mockGetAssignmentCompletions: vi.fn(),
+  mockGetAssignmentStatusSummary: vi.fn(),
   mockGetById: vi.fn(),
   mockDelete: vi.fn()
 }))
 vi.mock('@/lib/completion-records', () => ({
   getCompaniesWithCompletions: mockGetCompanies,
   getCompletionGroupsByCompany: mockGetGroups,
-  getCompletionsForAssignmentForAdmin: mockGetAssignmentCompletions,
+  getAssignmentStatusSummary: mockGetAssignmentStatusSummary,
   getCompletionById: mockGetById,
   deleteCompletionRecord: mockDelete
 }))
@@ -65,7 +65,29 @@ const BASE_GROUP = {
   assignmentId: 'assignment_123',
   template: { id: 'template_123', title: 'Farmyard Safety Checklist' },
   completionCount: 2,
-  lastCompletedAt: '2024-01-01T00:00:00.000Z'
+  lastCompletedAt: '2024-01-01T00:00:00.000Z',
+  dueDate: null,
+  isOverdue: false,
+  outstandingCount: 0
+}
+
+const BASE_STATUS_SUMMARY = {
+  templateTitle: 'Farmyard Safety Checklist',
+  dueDate: null,
+  isOverdue: false,
+  completedRecords: [
+    {
+      id: 'record_123',
+      signedAt: '2024-01-01T00:00:00.000Z',
+      blobPath: 'completions/record_123.pdf',
+      signer: {
+        id: 'user_123',
+        displayName: 'Jane Smith',
+        email: 'jane@example.com'
+      }
+    }
+  ],
+  outstandingUsers: []
 }
 
 const BASE_COMPLETION = {
@@ -95,7 +117,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockGetCompanies.mockResolvedValue([])
   mockGetGroups.mockResolvedValue([])
-  mockGetAssignmentCompletions.mockResolvedValue([])
+  mockGetAssignmentStatusSummary.mockResolvedValue(null)
   mockGetById.mockResolvedValue(null)
   mockDelete.mockResolvedValue(true)
   mockGenerateSasToken.mockResolvedValue('https://blob.example.com/sas-url')
@@ -194,9 +216,22 @@ describe('GET /api/admin/companies/[id]/assignments/[assignmentId]/completions',
     expect(res.status).toBe(403)
   })
 
-  it('returns 200 with completions for the assignment', async () => {
+  it('returns 404 when assignment does not exist', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockGetAssignmentCompletions.mockResolvedValue([BASE_COMPLETION])
+    mockGetAssignmentStatusSummary.mockResolvedValue(null)
+    const req = new NextRequest(
+      'http://localhost/api/admin/companies/company_123/assignments/missing/completions'
+    )
+    const res = await listAssignmentCompletions(
+      req,
+      assignmentParams('company_123', 'missing')
+    )
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 200 with completions and outstanding users', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetAssignmentStatusSummary.mockResolvedValue(BASE_STATUS_SUMMARY)
     const req = new NextRequest(
       'http://localhost/api/admin/companies/company_123/assignments/assignment_123/completions'
     )
@@ -208,7 +243,38 @@ describe('GET /api/admin/companies/[id]/assignments/[assignmentId]/completions',
     const body = await res.json()
     expect(body.completions).toHaveLength(1)
     expect(body.completions[0].signer.displayName).toBe('Jane Smith')
-    expect(mockGetAssignmentCompletions).toHaveBeenCalledWith('assignment_123')
+    expect(body.outstandingUsers).toHaveLength(0)
+    expect(body.templateTitle).toBe('Farmyard Safety Checklist')
+    expect(body.dueDate).toBeNull()
+    expect(body.isOverdue).toBe(false)
+    expect(mockGetAssignmentStatusSummary).toHaveBeenCalledWith(
+      'assignment_123'
+    )
+  })
+
+  it('returns isOverdue true and outstanding users when overdue', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetAssignmentStatusSummary.mockResolvedValue({
+      ...BASE_STATUS_SUMMARY,
+      dueDate: '2024-01-01T00:00:00.000Z',
+      isOverdue: true,
+      completedRecords: [],
+      outstandingUsers: [
+        { id: 'user_456', displayName: 'Bob Jones', email: 'bob@example.com' }
+      ]
+    })
+    const req = new NextRequest(
+      'http://localhost/api/admin/companies/company_123/assignments/assignment_123/completions'
+    )
+    const res = await listAssignmentCompletions(
+      req,
+      assignmentParams('company_123', 'assignment_123')
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.isOverdue).toBe(true)
+    expect(body.outstandingUsers).toHaveLength(1)
+    expect(body.outstandingUsers[0].displayName).toBe('Bob Jones')
   })
 })
 

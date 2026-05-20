@@ -8,6 +8,7 @@ export interface AssignmentData {
   templateId: string
   customerCompanyId: string
   userId: string | null
+  dueDate: string | null
   createdAt: string
 }
 
@@ -27,6 +28,7 @@ type PrismaAssignment = {
   templateId: string
   customerCompanyId: string
   userId: string | null
+  dueDate: Date | null
   createdAt: Date
 }
 
@@ -56,6 +58,7 @@ function toAssignmentData(a: PrismaAssignment): AssignmentData {
     templateId: a.templateId,
     customerCompanyId: a.customerCompanyId,
     userId: a.userId,
+    dueDate: a.dueDate ? a.dueDate.toISOString() : null,
     createdAt: a.createdAt.toISOString()
   }
 }
@@ -88,15 +91,22 @@ function toAssignmentWithTemplate(
 export async function createAssignment({
   templateId,
   customerCompanyId,
-  userId
+  userId,
+  dueDate
 }: {
   templateId: string
   customerCompanyId: string
   userId?: string
+  dueDate?: string
 }): Promise<AssignmentData | null> {
   try {
     const assignment = await prisma.assignment.create({
-      data: { templateId, customerCompanyId, userId: userId ?? null }
+      data: {
+        templateId,
+        customerCompanyId,
+        userId: userId ?? null,
+        dueDate: dueDate ? new Date(dueDate) : null
+      }
     })
     return toAssignmentData(assignment)
   } catch (error) {

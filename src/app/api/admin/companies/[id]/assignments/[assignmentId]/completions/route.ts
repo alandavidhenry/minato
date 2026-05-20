@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
-import { getCompletionsForAssignmentForAdmin } from '@/lib/completion-records'
+import { getAssignmentStatusSummary } from '@/lib/completion-records'
 import { ADMIN_ROLES } from '@/types/rbac'
 
 export async function GET(
@@ -22,8 +22,20 @@ export async function GET(
 
   try {
     const { assignmentId } = await params
-    const completions = await getCompletionsForAssignmentForAdmin(assignmentId)
-    return NextResponse.json({ completions })
+    const summary = await getAssignmentStatusSummary(assignmentId)
+    if (!summary) {
+      return NextResponse.json(
+        { error: 'Assignment not found' },
+        { status: 404 }
+      )
+    }
+    return NextResponse.json({
+      completions: summary.completedRecords,
+      outstandingUsers: summary.outstandingUsers,
+      templateTitle: summary.templateTitle,
+      dueDate: summary.dueDate,
+      isOverdue: summary.isOverdue
+    })
   } catch (error) {
     console.error('Error fetching completions for assignment:', error)
     return NextResponse.json(
