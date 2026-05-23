@@ -12,6 +12,18 @@ resource "random_password" "nextauth_secret" {
   }
 }
 
+# Generate random token for the cron reminders endpoint
+resource "random_password" "cron_secret" {
+  length      = 32
+  special     = false
+  min_upper   = 1
+  min_lower   = 1
+  min_numeric = 1
+  keepers = {
+    first_run = "true"
+  }
+}
+
 module "resource_group" {
   source = "../resource_group"
 
@@ -67,6 +79,12 @@ resource "azurerm_key_vault_secret" "database_url" {
 resource "azurerm_key_vault_secret" "nextauth_secret" {
   name         = "nextauth-secret"
   value        = random_password.nextauth_secret.result
+  key_vault_id = module.key_vault.key_vault_id
+}
+
+resource "azurerm_key_vault_secret" "cron_secret" {
+  name         = "cron-secret"
+  value        = random_password.cron_secret.result
   key_vault_id = module.key_vault.key_vault_id
 }
 
@@ -127,6 +145,7 @@ module "app_service" {
     "AZURE_COMMUNICATION_CONNECTION_STRING" = "@Microsoft.KeyVault(SecretUri=${module.communication_service.acs_connection_string_secret_versionless_id})"
     "ACS_SENDER_ADDRESS"                    = module.communication_service.sender_address
     "DATABASE_URL"                          = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.database_url.versionless_id})"
+    "CRON_SECRET"                           = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.cron_secret.versionless_id})"
   })
 }
 

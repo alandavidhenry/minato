@@ -30,6 +30,12 @@ output "nextauth_secret" {
   sensitive   = true
 }
 
+output "cron_secret" {
+  description = "Cron secret — copy into CRON_SECRET GitHub Actions secret for the prod environment"
+  value       = module.document_portal.cron_secret
+  sensitive   = true
+}
+
 output "key_vault_name" {
   description = "The name of the Key Vault"
   value       = module.document_portal.key_vault_name

@@ -9,6 +9,9 @@ import {
   getAssignmentsForCompany
 } from '@/lib/assignments'
 import { authOptions } from '@/lib/auth'
+import { getDocumentTemplateById } from '@/lib/document-templates'
+import { sendAssignmentNotification } from '@/lib/email'
+import { getUserById, getUsersByCompany } from '@/lib/user-database'
 import { ADMIN_ROLES } from '@/types/rbac'
 
 async function checkAdminPermission() {
@@ -106,6 +109,33 @@ export async function POST(
         { status: 500 }
       )
     }
+
+    // Fire-and-forget — email errors must not affect the API response
+    const roles = targetJobRoles ?? null
+    Promise.all([
+      getDocumentTemplateById(templateId),
+      userId
+        ? getUserById(userId).then((u) => (u ? [u] : []))
+        : getUsersByCompany(customerCompanyId).then((users) =>
+            users.filter((u) => {
+              if (!roles || roles.length === 0) return true
+              if (!u.jobRole) return true
+              return roles.includes(u.jobRole)
+            })
+          )
+    ])
+      .then(([template, recipients]) => {
+        if (!template || recipients.length === 0) return
+        return sendAssignmentNotification(
+          recipients.map((u) => ({ email: u.email, name: u.displayName })),
+          template.title,
+          assignment.dueDate,
+          process.env.NEXTAUTH_URL ?? ''
+        )
+      })
+      .catch((err: unknown) => {
+        console.error('Assignment notification error:', err)
+      })
 
     return NextResponse.json({ assignment })
   } catch (error) {
