@@ -47,6 +47,7 @@ export function AssignTemplateDialog({
   const [templates, setTemplates] = useState<Template[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [dueDate, setDueDate] = useState('')
+  const [targetJobRoles, setTargetJobRoles] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isFetching, setIsFetching] = useState(false)
 
@@ -55,6 +56,7 @@ export function AssignTemplateDialog({
       fetchTemplates()
       setSelectedTemplateId('')
       setDueDate('')
+      setTargetJobRoles('')
     }
   }, [open])
 
@@ -95,7 +97,13 @@ export function AssignTemplateDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           templateId: selectedTemplateId,
-          dueDate: dueDate || undefined
+          dueDate: dueDate || undefined,
+          targetJobRoles: targetJobRoles
+            ? targetJobRoles
+                .split(',')
+                .map((r) => r.trim())
+                .filter(Boolean)
+            : undefined
         })
       })
 
@@ -143,6 +151,21 @@ export function AssignTemplateDialog({
                 onChange={(e) => setDueDate(e.target.value)}
                 disabled={isLoading}
               />
+            </div>
+            <div className='grid gap-2'>
+              <Label htmlFor='target-job-roles'>
+                Restrict to job roles (optional)
+              </Label>
+              <Input
+                id='target-job-roles'
+                value={targetJobRoles}
+                onChange={(e) => setTargetJobRoles(e.target.value)}
+                placeholder='e.g. Site Manager, Supervisor'
+                disabled={isLoading}
+              />
+              <p className='text-xs text-muted-foreground'>
+                Comma-separated. Leave blank to show to all users.
+              </p>
             </div>
             <div className='grid gap-2'>
               <Label htmlFor='template'>Template</Label>

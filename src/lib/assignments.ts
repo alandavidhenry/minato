@@ -1,3 +1,4 @@
+import type { Prisma } from '@/generated/prisma/client'
 import type { ComprehensionQuestionForClient } from '@/types/comprehension-question'
 import type { FormSchema } from '@/types/form-schema'
 
@@ -9,6 +10,7 @@ export interface AssignmentData {
   customerCompanyId: string
   userId: string | null
   dueDate: string | null
+  targetJobRoles: string[] | null
   createdAt: string
 }
 
@@ -29,6 +31,7 @@ type PrismaAssignment = {
   customerCompanyId: string
   userId: string | null
   dueDate: Date | null
+  targetJobRoles: unknown
   createdAt: Date
 }
 
@@ -41,6 +44,25 @@ type PrismaAssignmentWithTemplate = PrismaAssignment & {
     formSchema: unknown
     questions: unknown
   }
+}
+
+function toJsonValue(
+  value: unknown
+): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue | undefined {
+  if (value === undefined) return undefined
+  if (value === null) return 'DbNull'
+  return value as Prisma.InputJsonValue
+}
+
+function isVisibleToJobRole(
+  targetJobRoles: string[] | null,
+  userJobRole: string | null | undefined
+): boolean {
+  // No targeting: visible to everyone
+  if (!targetJobRoles || targetJobRoles.length === 0) return true
+  // User has no job role: sees everything
+  if (!userJobRole) return true
+  return targetJobRoles.includes(userJobRole)
 }
 
 const TEMPLATE_SELECT = {
@@ -59,6 +81,9 @@ function toAssignmentData(a: PrismaAssignment): AssignmentData {
     customerCompanyId: a.customerCompanyId,
     userId: a.userId,
     dueDate: a.dueDate ? a.dueDate.toISOString() : null,
+    targetJobRoles: Array.isArray(a.targetJobRoles)
+      ? (a.targetJobRoles as string[])
+      : null,
     createdAt: a.createdAt.toISOString()
   }
 }
@@ -92,12 +117,14 @@ export async function createAssignment({
   templateId,
   customerCompanyId,
   userId,
-  dueDate
+  dueDate,
+  targetJobRoles
 }: {
   templateId: string
   customerCompanyId: string
   userId?: string
   dueDate?: string
+  targetJobRoles?: string[]
 }): Promise<AssignmentData | null> {
   try {
     const assignment = await prisma.assignment.create({
@@ -105,7 +132,10 @@ export async function createAssignment({
         templateId,
         customerCompanyId,
         userId: userId ?? null,
-        dueDate: dueDate ? new Date(dueDate) : null
+        dueDate: dueDate ? new Date(dueDate) : null,
+        targetJobRoles: toJsonValue(
+          targetJobRoles && targetJobRoles.length > 0 ? targetJobRoles : null
+        )
       }
     })
     return toAssignmentData(assignment)
@@ -215,9 +245,14 @@ export async function getAssignmentsForUserOnly(
 // Returns the combined visible assignment list for a customer user:
 // company-wide assignments + their individual assignments, deduplicated by templateId
 // (individual assignment takes precedence when a template appears in both).
+// Company-wide assignments with targetJobRoles are only shown when:
+//   - targetJobRoles is null/empty (visible to all), OR
+//   - userJobRole is null/undefined (user has no role set — sees everything), OR
+//   - userJobRole is included in targetJobRoles
 export async function getAssignmentsForUser(
   userId: string,
-  customerCompanyId: string
+  customerCompanyId: string,
+  userJobRole?: string | null
 ): Promise<AssignmentWithTemplate[]> {
   try {
     const [companyWide, individual] = await Promise.all([
@@ -236,15 +271,18 @@ export async function getAssignmentsForUser(
     const seen = new Set<string>()
     const result: AssignmentWithTemplate[] = []
 
-    // Individual assignments take precedence
+    // Individual assignments take precedence (not filtered by job role)
     for (const a of individual) {
       seen.add(a.templateId)
       result.push(toAssignmentWithTemplate(a))
     }
     for (const a of companyWide) {
       if (!seen.has(a.templateId)) {
-        seen.add(a.templateId)
-        result.push(toAssignmentWithTemplate(a))
+        const converted = toAssignmentWithTemplate(a)
+        if (isVisibleToJobRole(converted.targetJobRoles, userJobRole)) {
+          seen.add(a.templateId)
+          result.push(converted)
+        }
       }
     }
 

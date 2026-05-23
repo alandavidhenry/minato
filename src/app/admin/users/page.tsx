@@ -26,9 +26,8 @@ interface User {
   userPrincipalName: string
   accountEnabled: boolean
   createdDateTime?: string
-  jobTitle?: string
-  department?: string
   role: string
+  jobRole: string | null
   customerCompanyId: string | null
 }
 
@@ -117,6 +116,9 @@ export default function UsersPage() {
         <TableCell>
           <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
         </TableCell>
+        <TableCell className='text-muted-foreground'>
+          {user.jobRole ?? '—'}
+        </TableCell>
         <TableCell>
           <Badge
             variant={user.accountEnabled ? 'outline' : 'secondary'}
@@ -141,7 +143,7 @@ export default function UsersPage() {
     if (isLoading) {
       return (
         <TableRow>
-          <TableCell colSpan={5} className='h-24 text-center'>
+          <TableCell colSpan={6} className='h-24 text-center'>
             Loading users...
           </TableCell>
         </TableRow>
@@ -151,7 +153,7 @@ export default function UsersPage() {
     if (filteredUsers.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={5} className='h-24 text-center'>
+          <TableCell colSpan={6} className='h-24 text-center'>
             No users found.
           </TableCell>
         </TableRow>
@@ -193,6 +195,7 @@ export default function UsersPage() {
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Job Role</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className='text-right'>Actions</TableHead>
             </TableRow>

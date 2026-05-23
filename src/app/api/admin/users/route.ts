@@ -38,6 +38,7 @@ export async function GET(_request: NextRequest) {
       accountEnabled: true,
       createdDateTime: user.createdAt,
       role: user.role,
+      jobRole: user.jobRole,
       customerCompanyId: user.customerCompanyId,
       // Format in a way your UI expects
       appRoleAssignments: [

@@ -18,7 +18,7 @@ This section maps Simon's stated workflow (see README "How It Works") to the cur
 |---|---|---|
 | 1 | Document upload + indexing (ref, name, date, version) | ✅ Done (blob storage + template record) |
 | 2 | Comprehension questions per document | ✅ Done — admin builder + server-side validation + customer answer form |
-| 3 | Job role-based assignment to individuals | ✅ Done — individual-level assignment (userId nullable), company-wide stays as before |
+| 3 | Job role-based assignment to individuals | ✅ Done — individual-level assignment (userId nullable) + job role filtering (targetJobRoles on Assignment, jobRole on User) |
 | 4a | Email notification on assignment | ⬜ Not started |
 | 4b | No-email worker name-entry sign-off | ⬜ Not started |
 | 4c | Line manager reminder for no-email workers | ⬜ Not started |
@@ -42,13 +42,19 @@ Key files: `src/types/comprehension-question.ts`, `src/lib/document-templates.ts
 - ✅ Company completions list (`/admin/completions/[companyId]`) now shows ALL assignments (not just those with completions), with status/overdue/outstanding count columns and due date
 - ✅ Company detail page shows due date column in both assignment tables
 
-#### P3 — Job role-based assignment
-Simon wants documents to be filtered by employee job role (e.g. Engineers only see engineering docs). This reduces admin overhead when assigning documents to large companies.
+#### P3 — Job role-based assignment ✅ Done
 
-- Add `jobRole` field to `User` (nullable string or enum — confirm with Simon whether roles are fixed or freeform)
-- Add `targetJobRoles` JSON field to `Assignment` (array of job role strings; empty = all users in company)
-- Customer documents page filters assignments by the signed-in user's job role
-- Admin assignment UI allows selecting which job roles the document applies to
+- ✅ `jobRole String?` on `User` (freeform string; null = no role set = sees all assignments)
+- ✅ `targetJobRoles Json?` on `Assignment` (string array; null/empty = visible to all users in company)
+- ✅ Filtering rule: assignment is visible if `targetJobRoles` is null/empty, OR `user.jobRole` is null, OR `user.jobRole` is in `targetJobRoles`
+- ✅ `getAssignmentsForUser` applies filtering for company-wide assignments (individual assignments bypass filter — already targeted at a specific user)
+- ✅ `jobRole` included in JWT/session so no extra DB query per customer request
+- ✅ Customer assignments route passes `session.user.jobRole` to `getAssignmentsForUser`
+- ✅ Admin assign-template dialog has comma-separated "Restrict to job roles" input
+- ✅ Company detail page shows `targetJobRoles` column in company-wide assignments table
+- ✅ User details dialog: replaced non-functional `jobTitle`/`department` fields with `jobRole`
+- ✅ Create user dialog: optional `jobRole` field shown for customer roles
+- ✅ Users admin table: Job Role column added
 
 #### P4 — Email notifications on assignment
 When a document is assigned, relevant users should receive an email with a link to complete it.

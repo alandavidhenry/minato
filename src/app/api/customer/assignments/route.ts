@@ -16,6 +16,7 @@ export async function GET() {
 
   const userId = session?.user?.id
   const customerCompanyId = session?.user?.customerCompanyId
+  const jobRole = session?.user?.jobRole ?? null
 
   if (!customerCompanyId || !userId) {
     return NextResponse.json(
@@ -25,7 +26,11 @@ export async function GET() {
   }
 
   try {
-    const assignments = await getAssignmentsForUser(userId, customerCompanyId)
+    const assignments = await getAssignmentsForUser(
+      userId,
+      customerCompanyId,
+      jobRole
+    )
     return NextResponse.json({ assignments })
   } catch (error) {
     console.error('Error fetching assignments:', error)

@@ -54,6 +54,7 @@ const BASE_USER = {
   displayName: 'Alice',
   passwordHash: '$hashed',
   role: 'Customer User',
+  jobRole: null,
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
   tenantId: null,
   customerCompanyId: null
@@ -135,6 +136,17 @@ describe('GET /api/admin/users', () => {
     const res = await listUsers(req)
     const body = await res.json()
     expect(body.users[0].customerCompanyId).toBe('company_abc')
+  })
+
+  it('returns jobRole when set', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockPrisma.user.findMany.mockResolvedValue([
+      { ...BASE_USER, jobRole: 'Site Manager' }
+    ])
+    const req = new NextRequest('http://localhost/api/admin/users')
+    const res = await listUsers(req)
+    const body = await res.json()
+    expect(body.users[0].jobRole).toBe('Site Manager')
   })
 })
 
@@ -274,6 +286,32 @@ describe('PATCH /api/admin/users/[id]', () => {
     const res = await updateUser(req, params('user@example.com'))
     expect(res.status).toBe(200)
     expect((await res.json()).success).toBe(true)
+  })
+
+  it('passes jobRole to updateUser when provided', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest(
+      'http://localhost/api/admin/users/cuid_abc123',
+      'PATCH',
+      { jobRole: 'Site Manager' }
+    )
+    const res = await updateUser(req, params('cuid_abc123'))
+    expect(res.status).toBe(200)
+    const updateCall = mockPrisma.user.update.mock.calls[0][0]
+    expect(updateCall.data.jobRole).toBe('Site Manager')
+  })
+
+  it('clears jobRole when null is passed', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest(
+      'http://localhost/api/admin/users/cuid_abc123',
+      'PATCH',
+      { jobRole: null }
+    )
+    const res = await updateUser(req, params('cuid_abc123'))
+    expect(res.status).toBe(200)
+    const updateCall = mockPrisma.user.update.mock.calls[0][0]
+    expect(updateCall.data.jobRole).toBeNull()
   })
 })
 
