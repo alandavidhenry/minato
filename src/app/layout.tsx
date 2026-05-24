@@ -1,5 +1,6 @@
 // src/app/layout.tsx
 import { Inter } from 'next/font/google'
+import Link from 'next/link'
 
 import { NavBar } from '@/components/nav-bar'
 import { RBACProvider } from '@/components/providers/rbac-provider'
@@ -34,6 +35,13 @@ export default function RootLayout({
                 <main className='flex-1'>
                   <div className='container mx-auto py-4'>{children}</div>
                 </main>
+                <footer className='border-t py-4'>
+                  <div className='container mx-auto text-center text-sm text-muted-foreground'>
+                    <Link href='/privacy' className='hover:underline'>
+                      Privacy Policy
+                    </Link>
+                  </div>
+                </footer>
               </div>
               <Toaster />
             </RBACProvider>

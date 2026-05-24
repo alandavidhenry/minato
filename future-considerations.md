@@ -351,7 +351,7 @@ Lint, format check, type check, and all Vitest tests (unit + integration) run on
 - No E2E tests in the pipeline — add a Playwright step after the Docker build once E2E tests exist
 - No staging environment — consider adding a `staging` branch/environment between `dev` and `main`
 - No database migration step — ✅ Done. `prisma migrate deploy` runs in `azure-deploy.yml` before the App Service deploy step, using `DATABASE_URL` from GitHub environment secrets.
-- No smoke test after deployment — a basic health check hit against the deployed URL would catch failed deploys earlier
+- No smoke test after deployment — ✅ Done. `GET /api/health` with 12 retries × 15s runs in `azure-deploy.yml` after the App Service deploy step.
 
 ### Recommended pipeline order (target state)
 1. Lint + format check + type check + unit/integration tests (`npm run checks`) ✓ done
@@ -359,7 +359,7 @@ Lint, format check, type check, and all Vitest tests (unit + integration) run on
 3. E2E tests against the built app (Playwright) — not yet
 4. Database migration (`prisma migrate deploy`) ✓ done — runs in `azure-deploy.yml` before deploy
 5. Azure deploy
-6. Post-deploy smoke test — not yet
+6. Post-deploy smoke test ✓ done — runs in `azure-deploy.yml` after deploy
 7. Release tag
 
 ---
