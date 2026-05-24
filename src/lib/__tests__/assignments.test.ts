@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   createAssignment,
+  createAssignmentsForNewVersion,
   deleteAssignment,
   getAssignmentById,
   getAssignmentByTemplateAndCompany,
@@ -32,6 +33,7 @@ const BASE_ASSIGNMENT = {
   userId: null,
   dueDate: null,
   targetJobRoles: null,
+  templateVersion: 1,
   createdAt: new Date('2024-01-01T00:00:00.000Z')
 }
 
@@ -42,6 +44,7 @@ const USER_ASSIGNMENT = {
   userId: 'user_123',
   dueDate: null,
   targetJobRoles: null,
+  templateVersion: 1,
   createdAt: new Date('2024-01-02T00:00:00.000Z')
 }
 
@@ -141,6 +144,21 @@ describe('getAssignmentByTemplateAndCompany', () => {
         templateId: 'template_123',
         customerCompanyId: 'company_123',
         userId: null
+      }
+    })
+  })
+
+  it('includes templateVersion in where clause when provided', async () => {
+    mockPrisma.assignment.findFirst.mockResolvedValue(BASE_ASSIGNMENT)
+
+    await getAssignmentByTemplateAndCompany('template_123', 'company_123', 2)
+
+    expect(mockPrisma.assignment.findFirst).toHaveBeenCalledWith({
+      where: {
+        templateId: 'template_123',
+        customerCompanyId: 'company_123',
+        userId: null,
+        templateVersion: 2
       }
     })
   })
@@ -308,6 +326,145 @@ describe('getAssignmentsForUser', () => {
   it('returns empty array on error', async () => {
     mockPrisma.assignment.findMany.mockRejectedValue(new Error('db error'))
     expect(await getAssignmentsForUser('user_123', 'company_123')).toEqual([])
+  })
+})
+
+describe('createAssignmentsForNewVersion', () => {
+  it('creates assignments at newVersion for each previous-version scope', async () => {
+    const prevAssignments = [
+      { ...BASE_ASSIGNMENT, templateVersion: 1 },
+      {
+        ...BASE_ASSIGNMENT,
+        id: 'assignment_789',
+        customerCompanyId: 'company_456',
+        templateVersion: 1
+      }
+    ]
+    mockPrisma.assignment.findMany.mockResolvedValue(prevAssignments)
+    mockPrisma.assignment.create
+      .mockResolvedValueOnce({
+        ...BASE_ASSIGNMENT,
+        id: 'new_1',
+        templateVersion: 2
+      })
+      .mockResolvedValueOnce({
+        ...BASE_ASSIGNMENT,
+        id: 'new_2',
+        customerCompanyId: 'company_456',
+        templateVersion: 2
+      })
+
+    const result = await createAssignmentsForNewVersion('template_123', 2)
+
+    expect(result).toHaveLength(2)
+    expect(mockPrisma.assignment.findMany).toHaveBeenCalledWith({
+      where: { templateId: 'template_123', templateVersion: 1 }
+    })
+    expect(mockPrisma.assignment.create).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns empty array when no previous-version assignments exist', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([])
+
+    const result = await createAssignmentsForNewVersion('template_123', 2)
+
+    expect(result).toEqual([])
+    expect(mockPrisma.assignment.create).not.toHaveBeenCalled()
+  })
+
+  it('new assignments have null dueDate', async () => {
+    const prevAssignment = {
+      ...BASE_ASSIGNMENT,
+      dueDate: new Date('2024-06-01'),
+      templateVersion: 1
+    }
+    mockPrisma.assignment.findMany.mockResolvedValue([prevAssignment])
+    mockPrisma.assignment.create.mockResolvedValue({
+      ...BASE_ASSIGNMENT,
+      templateVersion: 2,
+      dueDate: null
+    })
+
+    await createAssignmentsForNewVersion('template_123', 2)
+
+    expect(mockPrisma.assignment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ dueDate: null, templateVersion: 2 })
+      })
+    )
+  })
+
+  it('returns empty array on error', async () => {
+    mockPrisma.assignment.findMany.mockRejectedValue(new Error('db error'))
+    expect(await createAssignmentsForNewVersion('template_123', 2)).toEqual([])
+  })
+})
+
+describe('getAssignmentsForUser — version-aware deduplication', () => {
+  it('shows the highest-version assignment for a template when multiple versions exist', async () => {
+    const v1Assignment = {
+      ...BASE_ASSIGNMENT_WITH_TEMPLATE,
+      templateVersion: 1
+    }
+    const v2Assignment = {
+      ...BASE_ASSIGNMENT_WITH_TEMPLATE,
+      id: 'assignment_v2',
+      templateVersion: 2,
+      createdAt: new Date('2024-06-01T00:00:00.000Z')
+    }
+    mockPrisma.assignment.findMany
+      .mockResolvedValueOnce([v1Assignment, v2Assignment]) // company-wide
+      .mockResolvedValueOnce([]) // individual
+
+    const result = await getAssignmentsForUser('user_123', 'company_123')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('assignment_v2')
+    expect(result[0].templateVersion).toBe(2)
+  })
+
+  it('individual assignment at same version beats company-wide', async () => {
+    const companyWideV2 = {
+      ...BASE_ASSIGNMENT_WITH_TEMPLATE,
+      id: 'company_v2',
+      templateVersion: 2
+    }
+    const individualV2 = {
+      ...BASE_ASSIGNMENT_WITH_TEMPLATE,
+      id: 'individual_v2',
+      userId: 'user_123',
+      templateVersion: 2
+    }
+    mockPrisma.assignment.findMany
+      .mockResolvedValueOnce([companyWideV2]) // company-wide
+      .mockResolvedValueOnce([individualV2]) // individual
+
+    const result = await getAssignmentsForUser('user_123', 'company_123')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('individual_v2')
+  })
+
+  it('higher-version company-wide beats lower-version individual', async () => {
+    const companyWideV2 = {
+      ...BASE_ASSIGNMENT_WITH_TEMPLATE,
+      id: 'company_v2',
+      templateVersion: 2
+    }
+    const individualV1 = {
+      ...BASE_ASSIGNMENT_WITH_TEMPLATE,
+      id: 'individual_v1',
+      userId: 'user_123',
+      templateVersion: 1
+    }
+    mockPrisma.assignment.findMany
+      .mockResolvedValueOnce([companyWideV2]) // company-wide
+      .mockResolvedValueOnce([individualV1]) // individual
+
+    const result = await getAssignmentsForUser('user_123', 'company_123')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('company_v2')
   })
 })
 

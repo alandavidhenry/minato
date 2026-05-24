@@ -162,6 +162,7 @@ export interface CompanyWithCompletionCount {
 export interface CompletionGroupForAdmin {
   assignmentId: string
   template: { id: string; title: string }
+  templateVersion: number
   completionCount: number
   lastCompletedAt: string | null
   dueDate: string | null
@@ -188,6 +189,7 @@ type PrismaAssignmentWithCompletionGroup = {
   id: string
   userId: string | null
   dueDate: Date | null
+  templateVersion: number
   template: { id: string; title: string }
   _count: { completions: number }
   completions: { signedAt: Date }[]
@@ -260,6 +262,7 @@ export async function getCompletionGroupsByCompany(
       return {
         assignmentId: a.id,
         template: a.template,
+        templateVersion: a.templateVersion,
         completionCount,
         lastCompletedAt: a.completions[0]?.signedAt.toISOString() ?? null,
         dueDate: a.dueDate ? a.dueDate.toISOString() : null,

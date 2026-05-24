@@ -20,6 +20,7 @@ import { toast } from '@/components/ui/use-toast'
 interface CompletionGroup {
   assignmentId: string
   template: { id: string; title: string }
+  templateVersion: number
   completionCount: number
   lastCompletedAt: string | null
   dueDate: string | null
@@ -96,6 +97,11 @@ export default function CompanyCompletionsPage() {
           >
             <FileText className='h-4 w-4 text-muted-foreground' />
             {group.template.title}
+            {group.templateVersion > 1 && (
+              <Badge variant='secondary' className='text-xs'>
+                v{group.templateVersion}
+              </Badge>
+            )}
           </Link>
         </TableCell>
         <TableCell>

@@ -25,7 +25,7 @@ This section maps Simon's stated workflow (see README "How It Works") to the cur
 | 5 | Read + answer questions + digital sign-off | ⬜ Partial — sign-off done, questions done, signature pad not yet |
 | 6a | Completed vs overdue report | ✅ Done — `dueDate` on assignments; admin completions view shows per-assignment breakdown (completed vs outstanding) with overdue badge |
 | 6b | Automated reminder notifications for overdue | ✅ Done — daily GitHub Actions cron → `GET /api/cron/reminders` (Bearer token auth) → `getAssignmentsNeedingReminders` → `sendReminderNotification`; schedule: 3 days before, 1 day before, due date, then weekly |
-| 7/8 | New document version triggers new assignment cycle | ⬜ Not started |
+| 7/8 | New document version triggers new assignment cycle | ✅ Done — `version` on `DocumentTemplate`; "Publish as New Version" in edit dialog + standalone button; auto-creates assignments for all previously assigned companies/users; completions list shows per-version badges |
 
 ### Priority order and detail
 
@@ -88,14 +88,20 @@ No-email workers are stored as regular `User` records with `email = null` and `p
 - ✅ Create user dialog and user details dialog support no-email workers: line manager dropdown shown when email is blank; line manager dropdown only shows users with email addresses
 - ✅ Admin users page and company page show "No email — kiosk" for null email fields
 
-#### P7 — Document version cycle
-When Simon uploads a new version of a document, the new version should trigger a fresh assignment + completion cycle.
+#### P7 — Document version cycle ✅ Done
 
-- `DocumentTemplate` already has a version concept (blobPath versioning)
-- Make version explicit: add `version` integer to `DocumentTemplate`, auto-incremented on update
-- When a new version is published, create new `Assignment` records (linked to new template version) for all previously assigned companies
-- Old `CompletionRecord`s remain attached to their original template version — do not invalidate historical sign-offs
-- Admin report shows completion status per version, per company
+When Simon uploads a new version of a document, the new version triggers a fresh assignment + completion cycle.
+
+- ✅ `DocumentTemplate.version Int @default(1)` — explicit version number, incremented on publish
+- ✅ `Assignment.templateVersion Int @default(1)` — snapshot of template version at assignment creation; unique index now includes version so multiple versions can coexist per template per company
+- ✅ `publishNewTemplateVersion(id, updates?)` in `src/lib/document-templates.ts` — increments version via Prisma `{ increment: 1 }`, optionally applies content updates atomically
+- ✅ `createAssignmentsForNewVersion(templateId, newVersion)` in `src/lib/assignments.ts` — finds all assignments at `templateVersion = newVersion - 1`, creates new assignments at `newVersion` with null dueDate; returns created assignments for notification dispatch
+- ✅ `POST /api/admin/templates/[id]/publish-version` — increments version, creates new assignments, sends assignment notifications fire-and-forget; returns `{ template, previousVersion, newVersion, assignmentsCreated }`
+- ✅ Manual assignment creation (`POST /api/admin/companies/[id]/assignments`) now fetches current template version and uses it for duplicate checks and assignment creation
+- ✅ `getAssignmentsForUser` — updated deduplication: for each templateId, shows the highest-version assignment (at same version, individual beats company-wide)
+- ✅ Admin templates page shows `v{N}` badge for templates at version > 1; standalone "Publish New Version" icon button per template row
+- ✅ EditTemplateDialog has "Publish as New Version" button alongside "Save Template"
+- ✅ Admin completions list shows `v{N}` badge next to template name when `templateVersion > 1`
 
 ---
 

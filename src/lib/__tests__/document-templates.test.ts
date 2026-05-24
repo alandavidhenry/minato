@@ -5,6 +5,7 @@ import {
   deleteDocumentTemplate,
   getAllDocumentTemplates,
   getDocumentTemplateById,
+  publishNewTemplateVersion,
   updateDocumentTemplate
 } from '../document-templates'
 
@@ -29,6 +30,7 @@ const BASE_TEMPLATE = {
   blobPath: null,
   formSchema: null,
   questions: null,
+  version: 1,
   tenantId: null,
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
   updatedAt: new Date('2024-01-01T00:00:00.000Z')
@@ -157,5 +159,48 @@ describe('deleteDocumentTemplate', () => {
   it('returns false on error', async () => {
     mockPrisma.documentTemplate.delete.mockRejectedValue(new Error('not found'))
     expect(await deleteDocumentTemplate('missing')).toBe(false)
+  })
+})
+
+describe('publishNewTemplateVersion', () => {
+  it('increments version and returns updated template', async () => {
+    const v2 = { ...BASE_TEMPLATE, version: 2 }
+    mockPrisma.documentTemplate.update.mockResolvedValue(v2)
+
+    const result = await publishNewTemplateVersion('template_123')
+
+    expect(result).not.toBeNull()
+    expect(result?.version).toBe(2)
+    expect(mockPrisma.documentTemplate.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'template_123' },
+        data: expect.objectContaining({ version: { increment: 1 } })
+      })
+    )
+  })
+
+  it('applies content updates alongside version increment', async () => {
+    const v2 = { ...BASE_TEMPLATE, version: 2, title: 'Updated Title' }
+    mockPrisma.documentTemplate.update.mockResolvedValue(v2)
+
+    const result = await publishNewTemplateVersion('template_123', {
+      title: 'Updated Title'
+    })
+
+    expect(result?.title).toBe('Updated Title')
+    expect(result?.version).toBe(2)
+    expect(mockPrisma.documentTemplate.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          version: { increment: 1 },
+          title: 'Updated Title'
+        })
+      })
+    )
+  })
+
+  it('returns null on error', async () => {
+    mockPrisma.documentTemplate.update.mockRejectedValue(new Error('not found'))
+    expect(await publishNewTemplateVersion('missing')).toBeNull()
   })
 })

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { POST as publishVersion } from '../admin/templates/[id]/publish-version/route'
 import {
   DELETE as deleteTemplate,
   GET as getTemplate,
@@ -22,21 +23,61 @@ const { mockGetServerSession } = vi.hoisted(() => ({
 }))
 vi.mock('next-auth', () => ({ getServerSession: mockGetServerSession }))
 
-const { mockGetAll, mockCreate, mockGetById, mockUpdate, mockDelete } =
-  vi.hoisted(() => ({
-    mockGetAll: vi.fn(),
-    mockCreate: vi.fn(),
-    mockGetById: vi.fn(),
-    mockUpdate: vi.fn(),
-    mockDelete: vi.fn()
-  }))
+const {
+  mockGetAll,
+  mockCreate,
+  mockGetById,
+  mockUpdate,
+  mockDelete,
+  mockPublishNewVersion
+} = vi.hoisted(() => ({
+  mockGetAll: vi.fn(),
+  mockCreate: vi.fn(),
+  mockGetById: vi.fn(),
+  mockUpdate: vi.fn(),
+  mockDelete: vi.fn(),
+  mockPublishNewVersion: vi.fn()
+}))
 
 vi.mock('@/lib/document-templates', () => ({
   getAllDocumentTemplates: mockGetAll,
   createDocumentTemplate: mockCreate,
   getDocumentTemplateById: mockGetById,
   updateDocumentTemplate: mockUpdate,
-  deleteDocumentTemplate: mockDelete
+  deleteDocumentTemplate: mockDelete,
+  publishNewTemplateVersion: mockPublishNewVersion
+}))
+
+const { mockCreateAssignmentsForNewVersion } = vi.hoisted(() => ({
+  mockCreateAssignmentsForNewVersion: vi.fn()
+}))
+
+vi.mock('@/lib/assignments', () => ({
+  createAssignmentsForNewVersion: mockCreateAssignmentsForNewVersion
+}))
+
+const {
+  mockGetUserById: mockGetUserByIdTemplates,
+  mockGetUsersByCompany: mockGetUsersByCompanyTemplates,
+  mockResolveEmailRecipients: mockResolveEmailRecipientsTemplates
+} = vi.hoisted(() => ({
+  mockGetUserById: vi.fn(),
+  mockGetUsersByCompany: vi.fn(),
+  mockResolveEmailRecipients: vi.fn()
+}))
+
+vi.mock('@/lib/user-database', () => ({
+  getUserById: mockGetUserByIdTemplates,
+  getUsersByCompany: mockGetUsersByCompanyTemplates,
+  resolveEmailRecipients: mockResolveEmailRecipientsTemplates
+}))
+
+const { mockSendAssignmentNotificationTemplates } = vi.hoisted(() => ({
+  mockSendAssignmentNotificationTemplates: vi.fn()
+}))
+
+vi.mock('@/lib/email', () => ({
+  sendAssignmentNotification: mockSendAssignmentNotificationTemplates
 }))
 
 // ---------------------------------------------------------------------------
@@ -52,6 +93,7 @@ const BASE_TEMPLATE = {
   description: 'Annual review',
   blobPath: null,
   formSchema: null,
+  version: 1,
   tenantId: null,
   createdAt: '2024-01-01T00:00:00.000Z',
   updatedAt: '2024-01-01T00:00:00.000Z'
@@ -76,6 +118,11 @@ beforeEach(() => {
   mockGetById.mockResolvedValue(null)
   mockUpdate.mockResolvedValue(true)
   mockDelete.mockResolvedValue(true)
+  mockPublishNewVersion.mockResolvedValue({ ...BASE_TEMPLATE, version: 2 })
+  mockCreateAssignmentsForNewVersion.mockResolvedValue([])
+  mockResolveEmailRecipientsTemplates.mockResolvedValue([])
+  mockGetUsersByCompanyTemplates.mockResolvedValue([])
+  mockSendAssignmentNotificationTemplates.mockResolvedValue(undefined)
 })
 
 // ---------------------------------------------------------------------------
@@ -271,5 +318,91 @@ describe('DELETE /api/admin/templates/[id]', () => {
     const res = await deleteTemplate(req, params('template_123'))
     expect(res.status).toBe(200)
     expect((await res.json()).success).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/templates/[id]/publish-version
+// ---------------------------------------------------------------------------
+
+describe('POST /api/admin/templates/[id]/publish-version', () => {
+  it('returns 403 when not admin', async () => {
+    mockGetServerSession.mockResolvedValue(null)
+    const req = new NextRequest(
+      'http://localhost/api/admin/templates/template_123/publish-version',
+      { method: 'POST' }
+    )
+    const res = await publishVersion(req, params('template_123'))
+    expect(res.status).toBe(403)
+  })
+
+  it('returns 404 when template does not exist', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetById.mockResolvedValue(null)
+    const req = new NextRequest(
+      'http://localhost/api/admin/templates/missing/publish-version',
+      { method: 'POST' }
+    )
+    const res = await publishVersion(req, params('missing'))
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 200 with new version and assignments created', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetById.mockResolvedValue(BASE_TEMPLATE)
+    const v2Template = { ...BASE_TEMPLATE, version: 2 }
+    mockPublishNewVersion.mockResolvedValue(v2Template)
+    mockCreateAssignmentsForNewVersion.mockResolvedValue([
+      {
+        id: 'a1',
+        templateId: 'template_123',
+        customerCompanyId: 'company_123',
+        userId: null,
+        dueDate: null,
+        targetJobRoles: null,
+        templateVersion: 2,
+        createdAt: '2024-01-01T00:00:00.000Z'
+      }
+    ])
+
+    const req = new NextRequest(
+      'http://localhost/api/admin/templates/template_123/publish-version',
+      { method: 'POST' }
+    )
+    const res = await publishVersion(req, params('template_123'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.newVersion).toBe(2)
+    expect(body.previousVersion).toBe(1)
+    expect(body.assignmentsCreated).toBe(1)
+  })
+
+  it('publishes with no existing assignments (assignmentsCreated = 0)', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetById.mockResolvedValue(BASE_TEMPLATE)
+    mockPublishNewVersion.mockResolvedValue({ ...BASE_TEMPLATE, version: 2 })
+    mockCreateAssignmentsForNewVersion.mockResolvedValue([])
+
+    const req = new NextRequest(
+      'http://localhost/api/admin/templates/template_123/publish-version',
+      { method: 'POST' }
+    )
+    const res = await publishVersion(req, params('template_123'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.assignmentsCreated).toBe(0)
+  })
+
+  it('returns 500 when publishNewTemplateVersion fails', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetById.mockResolvedValue(BASE_TEMPLATE)
+    mockPublishNewVersion.mockResolvedValue(null)
+
+    const req = new NextRequest(
+      'http://localhost/api/admin/templates/template_123/publish-version',
+      { method: 'POST' }
+    )
+    const res = await publishVersion(req, params('template_123'))
+    expect(res.status).toBe(500)
   })
 })

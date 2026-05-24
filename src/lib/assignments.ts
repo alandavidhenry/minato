@@ -11,6 +11,7 @@ export interface AssignmentData {
   userId: string | null
   dueDate: string | null
   targetJobRoles: string[] | null
+  templateVersion: number
   createdAt: string
 }
 
@@ -32,6 +33,7 @@ type PrismaAssignment = {
   userId: string | null
   dueDate: Date | null
   targetJobRoles: unknown
+  templateVersion: number
   createdAt: Date
 }
 
@@ -84,6 +86,7 @@ function toAssignmentData(a: PrismaAssignment): AssignmentData {
     targetJobRoles: Array.isArray(a.targetJobRoles)
       ? (a.targetJobRoles as string[])
       : null,
+    templateVersion: a.templateVersion,
     createdAt: a.createdAt.toISOString()
   }
 }
@@ -118,13 +121,15 @@ export async function createAssignment({
   customerCompanyId,
   userId,
   dueDate,
-  targetJobRoles
+  targetJobRoles,
+  templateVersion = 1
 }: {
   templateId: string
   customerCompanyId: string
   userId?: string
   dueDate?: string
   targetJobRoles?: string[]
+  templateVersion?: number
 }): Promise<AssignmentData | null> {
   try {
     const assignment = await prisma.assignment.create({
@@ -135,7 +140,8 @@ export async function createAssignment({
         dueDate: dueDate ? new Date(dueDate) : null,
         targetJobRoles: toJsonValue(
           targetJobRoles && targetJobRoles.length > 0 ? targetJobRoles : null
-        )
+        ),
+        templateVersion
       }
     })
     return toAssignmentData(assignment)
@@ -174,14 +180,21 @@ export async function getAssignmentWithTemplate(
   }
 }
 
-// Check for an existing company-wide assignment (userId = null)
+// Check for an existing company-wide assignment (userId = null).
+// Pass templateVersion to scope the check to a specific version.
 export async function getAssignmentByTemplateAndCompany(
   templateId: string,
-  customerCompanyId: string
+  customerCompanyId: string,
+  templateVersion?: number
 ): Promise<AssignmentData | null> {
   try {
     const assignment = await prisma.assignment.findFirst({
-      where: { templateId, customerCompanyId, userId: null }
+      where: {
+        templateId,
+        customerCompanyId,
+        userId: null,
+        ...(templateVersion !== undefined && { templateVersion })
+      }
     })
     if (!assignment) return null
     return toAssignmentData(assignment)
@@ -191,14 +204,20 @@ export async function getAssignmentByTemplateAndCompany(
   }
 }
 
-// Check for an existing individual assignment for a specific user
+// Check for an existing individual assignment for a specific user.
+// Pass templateVersion to scope the check to a specific version.
 export async function getAssignmentByTemplateAndUser(
   templateId: string,
-  userId: string
+  userId: string,
+  templateVersion?: number
 ): Promise<AssignmentData | null> {
   try {
     const assignment = await prisma.assignment.findFirst({
-      where: { templateId, userId }
+      where: {
+        templateId,
+        userId,
+        ...(templateVersion !== undefined && { templateVersion })
+      }
     })
     if (!assignment) return null
     return toAssignmentData(assignment)
@@ -242,13 +261,10 @@ export async function getAssignmentsForUserOnly(
   }
 }
 
-// Returns the combined visible assignment list for a customer user:
-// company-wide assignments + their individual assignments, deduplicated by templateId
-// (individual assignment takes precedence when a template appears in both).
-// Company-wide assignments with targetJobRoles are only shown when:
-//   - targetJobRoles is null/empty (visible to all), OR
-//   - userJobRole is null/undefined (user has no role set — sees everything), OR
-//   - userJobRole is included in targetJobRoles
+// Returns the combined visible assignment list for a customer user.
+// For each templateId, shows only the highest-version assignment.
+// At the same version, individual assignment beats company-wide.
+// Company-wide assignments with targetJobRoles are filtered by job role.
 export async function getAssignmentsForUser(
   userId: string,
   customerCompanyId: string,
@@ -268,30 +284,86 @@ export async function getAssignmentsForUser(
       })
     ])
 
-    const seen = new Set<string>()
-    const result: AssignmentWithTemplate[] = []
+    // Per templateId, keep the assignment with the highest templateVersion.
+    // If two assignments share the same templateId and version, individual wins.
+    const bestByTemplate = new Map<string, PrismaAssignmentWithTemplate>()
 
-    // Individual assignments take precedence (not filtered by job role)
-    for (const a of individual) {
-      seen.add(a.templateId)
-      result.push(toAssignmentWithTemplate(a))
-    }
-    for (const a of companyWide) {
-      if (!seen.has(a.templateId)) {
-        const converted = toAssignmentWithTemplate(a)
-        if (isVisibleToJobRole(converted.targetJobRoles, userJobRole)) {
-          seen.add(a.templateId)
-          result.push(converted)
-        }
+    function maybeSet(
+      candidate: PrismaAssignmentWithTemplate,
+      isIndividual: boolean
+    ) {
+      const existing = bestByTemplate.get(candidate.templateId)
+      if (!existing) {
+        bestByTemplate.set(candidate.templateId, candidate)
+        return
+      }
+      const existingIsIndividual = existing.userId !== null
+      if (
+        candidate.templateVersion > existing.templateVersion ||
+        (candidate.templateVersion === existing.templateVersion &&
+          isIndividual &&
+          !existingIsIndividual)
+      ) {
+        bestByTemplate.set(candidate.templateId, candidate)
       }
     }
 
-    return result.sort(
-      (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    )
+    for (const a of individual) {
+      maybeSet(a, true)
+    }
+
+    for (const a of companyWide) {
+      const converted = toAssignmentWithTemplate(a)
+      if (!isVisibleToJobRole(converted.targetJobRoles, userJobRole)) continue
+      maybeSet(a, false)
+    }
+
+    return Array.from(bestByTemplate.values())
+      .map(toAssignmentWithTemplate)
+      .sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      )
   } catch (error) {
     console.error('Error getting assignments for user:', error)
+    return []
+  }
+}
+
+// Creates new assignments at `newVersion` for every scope (company/user) that
+// had an assignment at `newVersion - 1` for the given template.
+// Returns the newly created assignments.
+export async function createAssignmentsForNewVersion(
+  templateId: string,
+  newVersion: number
+): Promise<AssignmentData[]> {
+  const previousVersion = newVersion - 1
+  try {
+    const previous = await prisma.assignment.findMany({
+      where: { templateId, templateVersion: previousVersion }
+    })
+
+    if (previous.length === 0) return []
+
+    const created: AssignmentData[] = []
+    for (const prev of previous) {
+      const assignment = await prisma.assignment.create({
+        data: {
+          templateId,
+          customerCompanyId: prev.customerCompanyId,
+          userId: prev.userId,
+          dueDate: null, // new version starts without a due date
+          targetJobRoles: prev.targetJobRoles as
+            | Prisma.InputJsonValue
+            | undefined,
+          templateVersion: newVersion
+        }
+      })
+      created.push(toAssignmentData(assignment))
+    }
+    return created
+  } catch (error) {
+    console.error('Error creating assignments for new version:', error)
     return []
   }
 }
