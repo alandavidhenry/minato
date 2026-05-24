@@ -1,8 +1,8 @@
 // src/app/admin/settings/page.tsx
 'use client'
 
-import { Loader2, Save, Shield } from 'lucide-react'
-import { useState } from 'react'
+import { Loader2, Save, Shield, UserCog } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from '@/components/ui/use-toast'
+import type { ProfilePermissions } from '@/lib/user-database'
 
 type GeneralSettingValue = string | boolean
 type SecuritySettingValue = number | boolean
@@ -29,6 +30,55 @@ export default function AdminSettingsPage() {
     supportEmail: 'support@example.com',
     allowGuestAccess: false
   })
+
+  const [profilePermissions, setProfilePermissions] =
+    useState<ProfilePermissions>({
+      canEditDisplayName: true,
+      canEditEmail: true,
+      canEditJobRole: true
+    })
+  const [isLoadingPermissions, setIsLoadingPermissions] = useState(true)
+  const [isSavingPermissions, setIsSavingPermissions] = useState(false)
+
+  const fetchPermissions = useCallback(async () => {
+    setIsLoadingPermissions(true)
+    try {
+      const res = await fetch('/api/admin/settings/profile-permissions')
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setProfilePermissions(data.permissions)
+    } catch {
+      // keep defaults on error
+    } finally {
+      setIsLoadingPermissions(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchPermissions()
+  }, [fetchPermissions])
+
+  async function handleSavePermissions(e: React.FormEvent) {
+    e.preventDefault()
+    setIsSavingPermissions(true)
+    try {
+      const res = await fetch('/api/admin/settings/profile-permissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profilePermissions)
+      })
+      if (!res.ok) throw new Error()
+      toast({ title: 'Success', description: 'Profile permissions saved.' })
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to save permissions.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsSavingPermissions(false)
+    }
+  }
 
   const [securitySettings, setSecuritySettings] = useState({
     passwordMinLength: 8,
@@ -82,6 +132,7 @@ export default function AdminSettingsPage() {
           <TabsTrigger value='general'>General</TabsTrigger>
           <TabsTrigger value='security'>Security</TabsTrigger>
           <TabsTrigger value='azure'>Azure Integration</TabsTrigger>
+          <TabsTrigger value='profiles'>User Profiles</TabsTrigger>
         </TabsList>
 
         {/* General Settings */}
@@ -343,6 +394,105 @@ export default function AdminSettingsPage() {
                 </div>
               </div>
             </CardContent>
+          </Card>
+        </TabsContent>
+        {/* User Profile Permissions */}
+        <TabsContent value='profiles'>
+          <Card>
+            <form onSubmit={handleSavePermissions}>
+              <CardHeader>
+                <CardTitle className='flex items-center gap-2'>
+                  <UserCog className='h-5 w-5' />
+                  User Profile Permissions
+                </CardTitle>
+                <CardDescription>
+                  Choose which profile fields customer users may edit
+                  themselves. Staff and admin users can always edit all their
+                  own fields. Password changes are always permitted.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className='space-y-4'>
+                {isLoadingPermissions ? (
+                  <div className='flex items-center gap-2 text-muted-foreground text-sm'>
+                    <Loader2 className='h-4 w-4 animate-spin' />
+                    Loading…
+                  </div>
+                ) : (
+                  <>
+                    <div className='flex items-center gap-3'>
+                      <Switch
+                        id='canEditDisplayName'
+                        checked={profilePermissions.canEditDisplayName}
+                        onCheckedChange={(checked) =>
+                          setProfilePermissions((p) => ({
+                            ...p,
+                            canEditDisplayName: checked
+                          }))
+                        }
+                        disabled={isSavingPermissions}
+                      />
+                      <Label htmlFor='canEditDisplayName'>
+                        Allow users to edit their display name
+                      </Label>
+                    </div>
+
+                    <div className='flex items-center gap-3'>
+                      <Switch
+                        id='canEditEmail'
+                        checked={profilePermissions.canEditEmail}
+                        onCheckedChange={(checked) =>
+                          setProfilePermissions((p) => ({
+                            ...p,
+                            canEditEmail: checked
+                          }))
+                        }
+                        disabled={isSavingPermissions}
+                      />
+                      <Label htmlFor='canEditEmail'>
+                        Allow users to edit their email address
+                      </Label>
+                    </div>
+
+                    <div className='flex items-center gap-3'>
+                      <Switch
+                        id='canEditJobRole'
+                        checked={profilePermissions.canEditJobRole}
+                        onCheckedChange={(checked) =>
+                          setProfilePermissions((p) => ({
+                            ...p,
+                            canEditJobRole: checked
+                          }))
+                        }
+                        disabled={isSavingPermissions}
+                      />
+                      <Label htmlFor='canEditJobRole'>
+                        Allow users to edit their job role
+                      </Label>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+
+              <CardFooter>
+                <Button
+                  type='submit'
+                  disabled={isSavingPermissions || isLoadingPermissions}
+                >
+                  {isSavingPermissions ? (
+                    <>
+                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <Save className='mr-2 h-4 w-4' />
+                      Save Permissions
+                    </>
+                  )}
+                </Button>
+              </CardFooter>
+            </form>
           </Card>
         </TabsContent>
       </Tabs>

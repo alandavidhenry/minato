@@ -55,6 +55,7 @@ const BASE_USER = {
   passwordHash: '$hashed',
   role: 'Customer User',
   jobRole: null,
+  lineManagerId: null,
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
   tenantId: null,
   customerCompanyId: null
@@ -312,6 +313,32 @@ describe('PATCH /api/admin/users/[id]', () => {
     expect(res.status).toBe(200)
     const updateCall = mockPrisma.user.update.mock.calls[0][0]
     expect(updateCall.data.jobRole).toBeNull()
+  })
+
+  it('passes lineManagerId to updateUser when provided', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest(
+      'http://localhost/api/admin/users/cuid_abc123',
+      'PATCH',
+      { lineManagerId: 'mgr_1' }
+    )
+    const res = await updateUser(req, params('cuid_abc123'))
+    expect(res.status).toBe(200)
+    const updateCall = mockPrisma.user.update.mock.calls[0][0]
+    expect(updateCall.data.lineManagerId).toBe('mgr_1')
+  })
+
+  it('clears lineManagerId when null is passed', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest(
+      'http://localhost/api/admin/users/cuid_abc123',
+      'PATCH',
+      { lineManagerId: null }
+    )
+    const res = await updateUser(req, params('cuid_abc123'))
+    expect(res.status).toBe(200)
+    const updateCall = mockPrisma.user.update.mock.calls[0][0]
+    expect(updateCall.data.lineManagerId).toBeNull()
   })
 })
 

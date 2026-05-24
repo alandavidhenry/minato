@@ -1,7 +1,7 @@
 // src/app/admin/companies/[id]/page.tsx
 'use client'
 
-import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Copy, Pencil, Plus, QrCode, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { AssignTemplateDialog } from '@/components/admin/assign-template-dialog'
 import { AssignToUserDialog } from '@/components/admin/assign-to-user-dialog'
 import { EditCompanyDialog } from '@/components/admin/edit-company-dialog'
+import { QrCodeModal } from '@/components/qr-code-modal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -45,7 +46,7 @@ interface Assignment {
 interface CompanyUser {
   id: string
   displayName: string
-  email: string
+  email: string | null
   role: string
 }
 
@@ -65,6 +66,7 @@ export default function CompanyDetailPage() {
   const [showAssignDialog, setShowAssignDialog] = useState(false)
   const [showAssignToUserDialog, setShowAssignToUserDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showQrModal, setShowQrModal] = useState(false)
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
@@ -211,6 +213,11 @@ export default function CompanyDetailPage() {
     (ua) => ua.assignments.length > 0
   )
 
+  const kioskUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/signoff/${id}`
+      : `/signoff/${id}`
+
   return (
     <div className='space-y-6'>
       <div className='flex items-center gap-4'>
@@ -229,6 +236,37 @@ export default function CompanyDetailPage() {
         >
           <Pencil className='h-4 w-4' />
         </Button>
+      </div>
+
+      {/* Kiosk sign-off link */}
+      <div className='rounded-md border p-4 space-y-2'>
+        <h2 className='text-sm font-semibold'>Kiosk Sign-off Link</h2>
+        <p className='text-sm text-muted-foreground'>
+          Share this URL with no-email workers so they can sign off documents
+          without a login. Post it as a QR code or on a shared device.
+        </p>
+        <div className='flex items-center gap-2'>
+          <code className='flex-1 rounded bg-muted px-3 py-2 text-sm font-mono break-all'>
+            {kioskUrl}
+          </code>
+          <Button
+            variant='outline'
+            size='sm'
+            onClick={() => {
+              navigator.clipboard.writeText(kioskUrl)
+              toast({ title: 'Copied', description: 'Kiosk URL copied.' })
+            }}
+          >
+            <Copy className='h-4 w-4' />
+          </Button>
+          <Button
+            variant='outline'
+            size='sm'
+            onClick={() => setShowQrModal(true)}
+          >
+            <QrCode className='h-4 w-4' />
+          </Button>
+        </div>
       </div>
 
       {/* Company-wide assignments */}
@@ -358,9 +396,15 @@ export default function CompanyDetailPage() {
                   <Badge variant='secondary' className='text-xs'>
                     {user.role}
                   </Badge>
-                  <span className='text-xs text-muted-foreground'>
-                    {user.email}
-                  </span>
+                  {user.email ? (
+                    <span className='text-xs text-muted-foreground'>
+                      {user.email}
+                    </span>
+                  ) : (
+                    <span className='text-xs text-muted-foreground italic'>
+                      No email — kiosk sign-off
+                    </span>
+                  )}
                 </div>
                 <Table>
                   <TableHeader>
@@ -456,6 +500,16 @@ export default function CompanyDetailPage() {
           })
         }}
       />
+
+      {showQrModal && (
+        <QrCodeModal
+          url={kioskUrl}
+          fileName={company.name}
+          title='Kiosk Sign-off QR Code'
+          description='Post this QR code at your workplace. Workers scan it to sign off documents without needing a login.'
+          onClose={() => setShowQrModal(false)}
+        />
+      )}
     </div>
   )
 }

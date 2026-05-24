@@ -15,6 +15,17 @@ const { mockPrisma } = vi.hoisted(() => ({
 }))
 vi.mock('../prisma', () => ({ default: mockPrisma }))
 
+// resolveEmailRecipients calls getUserById which calls prisma.user.findUnique.
+// We mock user-database so resolveEmailRecipients just returns the email from
+// each user's email field (or the manager's email for no-email users).
+const { mockResolveEmailRecipients } = vi.hoisted(() => ({
+  mockResolveEmailRecipients: vi.fn()
+}))
+vi.mock('../user-database', () => ({
+  resolveEmailRecipients: mockResolveEmailRecipients,
+  getUserById: vi.fn()
+}))
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -36,7 +47,16 @@ const BASE_USER = {
   id: 'user_1',
   email: 'alice@co.com',
   displayName: 'Alice',
-  jobRole: null
+  jobRole: null,
+  lineManagerId: null
+}
+
+const NO_EMAIL_USER = {
+  id: 'user_2',
+  email: null,
+  displayName: 'Bob',
+  jobRole: null,
+  lineManagerId: 'manager_1'
 }
 
 beforeEach(() => {
@@ -44,6 +64,14 @@ beforeEach(() => {
   mockPrisma.completionRecord.findMany.mockResolvedValue([])
   mockPrisma.user.findMany.mockResolvedValue([BASE_USER])
   mockPrisma.user.findUnique.mockResolvedValue(BASE_USER)
+  // Default: pass through email users unchanged
+  mockResolveEmailRecipients.mockImplementation((users: (typeof BASE_USER)[]) =>
+    Promise.resolve(
+      users
+        .filter((u) => u.email)
+        .map((u) => ({ email: u.email!, name: u.displayName }))
+    )
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -166,6 +194,9 @@ describe('getAssignmentsNeedingReminders', () => {
         jobRole: 'Operator'
       }
     ])
+    mockResolveEmailRecipients.mockResolvedValue([
+      { email: 'mgr@co.com', name: 'Manager' }
+    ])
     const today = new Date('2026-06-10T00:00:00.000Z')
     const result = await getAssignmentsNeedingReminders(today)
     expect(result[0].recipients).toHaveLength(1)
@@ -194,9 +225,36 @@ describe('getAssignmentsNeedingReminders', () => {
         jobRole: null
       }
     ])
+    mockResolveEmailRecipients.mockResolvedValue([
+      { email: 'mgr@co.com', name: 'Manager' },
+      { email: 'norole@co.com', name: 'No Role' }
+    ])
     const today = new Date('2026-06-10T00:00:00.000Z')
     const result = await getAssignmentsNeedingReminders(today)
     expect(result[0].recipients).toHaveLength(2)
+  })
+
+  it('routes no-email workers to their line manager', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([BASE_ASSIGNMENT])
+    mockPrisma.user.findMany.mockResolvedValue([NO_EMAIL_USER])
+    mockResolveEmailRecipients.mockResolvedValue([
+      { email: 'manager@co.com', name: 'Manager' }
+    ])
+    const today = new Date('2026-06-10T00:00:00.000Z')
+    const result = await getAssignmentsNeedingReminders(today)
+    expect(result).toHaveLength(1)
+    expect(result[0].recipients[0].email).toBe('manager@co.com')
+  })
+
+  it('skips assignments where all outstanding users have no email and no line manager', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([BASE_ASSIGNMENT])
+    mockPrisma.user.findMany.mockResolvedValue([
+      { ...NO_EMAIL_USER, lineManagerId: null }
+    ])
+    mockResolveEmailRecipients.mockResolvedValue([])
+    const today = new Date('2026-06-10T00:00:00.000Z')
+    const result = await getAssignmentsNeedingReminders(today)
+    expect(result).toHaveLength(0)
   })
 
   it('handles individual assignment — notifies only that user', async () => {

@@ -7,15 +7,23 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  Eye,
   Trash2
 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
+import { PDFRenderer } from '@/app/documents/view/[name]/components/PDFRenderer'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -57,6 +65,12 @@ export default function AssignmentCompletionsPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [deletingSelected, setDeletingSelected] = useState(false)
+  const [viewingCompletion, setViewingCompletion] = useState<{
+    id: string
+    title: string
+  } | null>(null)
+  const [viewPdfData, setViewPdfData] = useState<Uint8Array | null>(null)
+  const [viewLoading, setViewLoading] = useState(false)
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
@@ -173,6 +187,39 @@ export default function AssignmentCompletionsPage() {
     }
   }
 
+  async function handleView(completion: Completion) {
+    if (!completion.blobPath) return
+    setViewingCompletion({ id: completion.id, title: templateTitle })
+    setViewPdfData(null)
+    setViewLoading(true)
+    try {
+      const dlRes = await fetch(
+        `/api/admin/completions/${completion.id}/download`
+      )
+      if (!dlRes.ok) {
+        const err = await dlRes.json()
+        throw new Error(err.error ?? 'Failed to get download link')
+      }
+      const { url } = await dlRes.json()
+      const proxyRes = await fetch(
+        `/api/documents/proxy?url=${encodeURIComponent(url)}`
+      )
+      if (!proxyRes.ok) throw new Error('Failed to load PDF')
+      const buffer = await proxyRes.arrayBuffer()
+      setViewPdfData(new Uint8Array(buffer))
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error ? error.message : 'Failed to load PDF',
+        variant: 'destructive'
+      })
+      setViewingCompletion(null)
+    } finally {
+      setViewLoading(false)
+    }
+  }
+
   async function handleDelete(completion: Completion) {
     if (
       !confirm(
@@ -274,14 +321,23 @@ export default function AssignmentCompletionsPage() {
         <TableCell className='text-right'>
           <div className='flex items-center justify-end gap-1'>
             {completion.blobPath && (
-              <Button
-                variant='ghost'
-                size='sm'
-                disabled={downloading === completion.id}
-                onClick={() => handleDownload(completion)}
-              >
-                <Download className='h-4 w-4' />
-              </Button>
+              <>
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  onClick={() => handleView(completion)}
+                >
+                  <Eye className='h-4 w-4' />
+                </Button>
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  disabled={downloading === completion.id}
+                  onClick={() => handleDownload(completion)}
+                >
+                  <Download className='h-4 w-4' />
+                </Button>
+              </>
             )}
             <Button
               variant='ghost'
@@ -376,6 +432,31 @@ export default function AssignmentCompletionsPage() {
           </Table>
         </div>
       </div>
+
+      <Dialog
+        open={!!viewingCompletion}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewingCompletion(null)
+            setViewPdfData(null)
+          }
+        }}
+      >
+        <DialogContent className='max-w-4xl h-[90vh] flex flex-col'>
+          <DialogHeader>
+            <DialogTitle>
+              {viewingCompletion?.title ?? 'Completion'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className='flex-1 overflow-auto'>
+            <PDFRenderer
+              pdfData={viewPdfData}
+              isLoading={viewLoading}
+              fileName={`${viewingCompletion?.title ?? 'completion'}.pdf`}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Outstanding */}
       {!isLoading && outstandingUsers.length > 0 && (

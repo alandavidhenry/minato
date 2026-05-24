@@ -51,14 +51,17 @@ vi.mock('@/lib/document-templates', () => ({
   getDocumentTemplateById: mockGetDocumentTemplateById
 }))
 
-const { mockGetUserById, mockGetUsersByCompany } = vi.hoisted(() => ({
-  mockGetUserById: vi.fn(),
-  mockGetUsersByCompany: vi.fn()
-}))
+const { mockGetUserById, mockGetUsersByCompany, mockResolveEmailRecipients } =
+  vi.hoisted(() => ({
+    mockGetUserById: vi.fn(),
+    mockGetUsersByCompany: vi.fn(),
+    mockResolveEmailRecipients: vi.fn()
+  }))
 
 vi.mock('@/lib/user-database', () => ({
   getUserById: mockGetUserById,
-  getUsersByCompany: mockGetUsersByCompany
+  getUsersByCompany: mockGetUsersByCompany,
+  resolveEmailRecipients: mockResolveEmailRecipients
 }))
 
 const { mockSendAssignmentNotification } = vi.hoisted(() => ({
@@ -146,6 +149,14 @@ beforeEach(() => {
   mockGetUsersByCompany.mockResolvedValue([BASE_USER])
   mockGetUserById.mockResolvedValue(BASE_USER)
   mockSendAssignmentNotification.mockResolvedValue(undefined)
+  // Default: pass email users through unchanged
+  mockResolveEmailRecipients.mockImplementation((users: (typeof BASE_USER)[]) =>
+    Promise.resolve(
+      users
+        .filter((u: typeof BASE_USER) => u.email)
+        .map((u: typeof BASE_USER) => ({ email: u.email, name: u.displayName }))
+    )
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -383,6 +394,37 @@ describe('POST /api/admin/companies/[id]/assignments (company-wide)', () => {
           { email: 'norole@co.com', name: 'No Role' }
         ]),
         expect.any(String),
+        null,
+        expect.any(String)
+      )
+    )
+  })
+
+  it('routes no-email users to their line manager for notifications', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const noEmailUser = {
+      ...BASE_USER,
+      id: 'u_noemail',
+      email: null,
+      displayName: 'Worker',
+      lineManagerId: 'mgr_1'
+    }
+    mockGetUsersByCompany.mockResolvedValue([noEmailUser])
+    mockResolveEmailRecipients.mockResolvedValue([
+      { email: 'mgr@co.com', name: 'Manager' }
+    ])
+
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123' }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    await vi.waitFor(() =>
+      expect(mockSendAssignmentNotification).toHaveBeenCalledWith(
+        [{ email: 'mgr@co.com', name: 'Manager' }],
+        'Farmyard Safety Checklist',
         null,
         expect.any(String)
       )

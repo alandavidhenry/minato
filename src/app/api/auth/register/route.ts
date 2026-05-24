@@ -22,22 +22,43 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
 
-    // Basic validation
-    if (!data.email || !data.password || !data.displayName) {
+    if (!data.displayName) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    // Create the user
+    const hasEmail = Boolean(data.email)
+    const hasPassword = Boolean(data.password)
+
+    // Workers with email must also have a password
+    if (hasEmail && !hasPassword) {
+      return NextResponse.json(
+        { error: 'Password is required when email is provided' },
+        { status: 400 }
+      )
+    }
+
+    // No-email workers must have a line manager for notification routing
+    if (!hasEmail && !data.lineManagerId) {
+      return NextResponse.json(
+        {
+          error:
+            'No-email workers must have a line manager assigned for notification routing'
+        },
+        { status: 400 }
+      )
+    }
+
     const user = await createUser({
-      email: data.email,
-      password: data.password,
+      email: data.email || undefined,
+      password: data.password || undefined,
       displayName: data.displayName,
       role: data.role || 'Customer User',
       jobRole: data.jobRole || undefined,
-      customerCompanyId: data.customerCompanyId || undefined
+      customerCompanyId: data.customerCompanyId || undefined,
+      lineManagerId: data.lineManagerId || undefined
     })
 
     if (!user) {
@@ -47,7 +68,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Return success without the password hash
     return NextResponse.json({
       id: user.id,
       email: user.email,

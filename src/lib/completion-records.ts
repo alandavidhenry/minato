@@ -25,7 +25,7 @@ export interface CompletionRecordForAdmin {
   id: string
   signedAt: string
   blobPath: string | null
-  signer: { id: string; displayName: string; email: string }
+  signer: { id: string; displayName: string; email: string | null }
   assignment: {
     id: string
     template: { id: string; title: string }
@@ -58,7 +58,7 @@ type PrismaCompletionRecordForAdmin = {
   id: string
   signedAt: Date
   blobPath: string | null
-  signedBy: { id: string; displayName: string; email: string }
+  signedBy: { id: string; displayName: string; email: string | null }
   assignment: {
     id: string
     template: { id: string; title: string }
@@ -174,7 +174,7 @@ export interface AssignmentStatusSummary {
   dueDate: string | null
   isOverdue: boolean
   completedRecords: CompletionRecordForAssignment[]
-  outstandingUsers: { id: string; displayName: string; email: string }[]
+  outstandingUsers: { id: string; displayName: string; email: string | null }[]
 }
 
 export interface CompletionRecordForAssignment {
@@ -348,7 +348,11 @@ export async function getAssignmentStatusSummary(
       completionRecords.map((r) => r.signedBy.id)
     )
 
-    let expectedUsers: { id: string; displayName: string; email: string }[]
+    let expectedUsers: {
+      id: string
+      displayName: string
+      email: string | null
+    }[]
     if (assignment.userId) {
       const user = await prisma.user.findUnique({
         where: { id: assignment.userId },

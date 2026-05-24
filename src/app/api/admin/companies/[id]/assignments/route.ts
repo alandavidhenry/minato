@@ -11,7 +11,11 @@ import {
 import { authOptions } from '@/lib/auth'
 import { getDocumentTemplateById } from '@/lib/document-templates'
 import { sendAssignmentNotification } from '@/lib/email'
-import { getUserById, getUsersByCompany } from '@/lib/user-database'
+import {
+  getUserById,
+  getUsersByCompany,
+  resolveEmailRecipients
+} from '@/lib/user-database'
 import { ADMIN_ROLES } from '@/types/rbac'
 
 async function checkAdminPermission() {
@@ -124,10 +128,13 @@ export async function POST(
             })
           )
     ])
-      .then(([template, recipients]) => {
-        if (!template || recipients.length === 0) return
+      .then(async ([template, users]) => {
+        if (!template || users.length === 0) return
+        // Route no-email users to their line manager; deduplicate by email
+        const recipients = await resolveEmailRecipients(users)
+        if (recipients.length === 0) return
         return sendAssignmentNotification(
-          recipients.map((u) => ({ email: u.email, name: u.displayName })),
+          recipients,
           template.title,
           assignment.dueDate,
           process.env.NEXTAUTH_URL ?? ''

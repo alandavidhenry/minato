@@ -22,12 +22,13 @@ import { toast } from '@/components/ui/use-toast'
 interface User {
   id: string
   displayName: string
-  mail: string
-  userPrincipalName: string
+  mail: string | null
+  userPrincipalName: string | null
   accountEnabled: boolean
   createdDateTime?: string
   role: string
   jobRole: string | null
+  lineManagerId: string | null
   customerCompanyId: string | null
 }
 
@@ -58,7 +59,7 @@ export default function UsersPage() {
       (user) =>
         user.displayName.toLowerCase().includes(query) ||
         user.mail?.toLowerCase().includes(query) ||
-        user.userPrincipalName.toLowerCase().includes(query)
+        user.userPrincipalName?.toLowerCase().includes(query)
     )
     setFilteredUsers(filtered)
   }, [searchQuery, users])
@@ -112,7 +113,13 @@ export default function UsersPage() {
     return (
       <TableRow key={user.id}>
         <TableCell className='font-medium'>{user.displayName}</TableCell>
-        <TableCell>{user.mail || user.userPrincipalName}</TableCell>
+        <TableCell>
+          {user.mail ?? (
+            <span className='text-muted-foreground italic text-xs'>
+              No email — kiosk
+            </span>
+          )}
+        </TableCell>
         <TableCell>
           <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
         </TableCell>

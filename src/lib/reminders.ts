@@ -1,4 +1,5 @@
 import prisma from './prisma'
+import { resolveEmailRecipients } from './user-database'
 
 export interface ReminderRecipient {
   email: string
@@ -65,21 +66,34 @@ export async function getAssignmentsNeedingReminders(
 
     let candidates: {
       id: string
-      email: string
+      email: string | null
       displayName: string
       jobRole: string | null
+      lineManagerId: string | null
     }[]
 
     if (assignment.userId) {
       const user = await prisma.user.findUnique({
         where: { id: assignment.userId },
-        select: { id: true, email: true, displayName: true, jobRole: true }
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          jobRole: true,
+          lineManagerId: true
+        }
       })
       candidates = user ? [user] : []
     } else {
       candidates = await prisma.user.findMany({
         where: { customerCompanyId: assignment.customerCompanyId },
-        select: { id: true, email: true, displayName: true, jobRole: true }
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          jobRole: true,
+          lineManagerId: true
+        }
       })
     }
 
@@ -93,6 +107,23 @@ export async function getAssignmentsNeedingReminders(
 
     if (outstanding.length === 0) continue
 
+    // Route no-email users to their line manager; deduplicate by email
+    const recipients = await resolveEmailRecipients(
+      outstanding.map((u) => ({
+        id: u.id,
+        email: u.email,
+        displayName: u.displayName,
+        passwordHash: null,
+        role: '',
+        jobRole: u.jobRole,
+        lineManagerId: u.lineManagerId,
+        createdAt: '',
+        customerCompanyId: null
+      }))
+    )
+
+    if (recipients.length === 0) continue
+
     results.push({
       assignment: {
         id: assignment.id,
@@ -100,10 +131,7 @@ export async function getAssignmentsNeedingReminders(
         dueDate: dueDate.toISOString(),
         isOverdue: dueDate < today
       },
-      recipients: outstanding.map((u) => ({
-        email: u.email,
-        name: u.displayName
-      }))
+      recipients
     })
   }
 
