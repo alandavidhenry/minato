@@ -76,9 +76,20 @@ export async function POST(
       )
     }
 
+    // Fetch template early to get current version for duplicate check + creation
+    const template = await getDocumentTemplateById(templateId)
+    if (!template) {
+      return NextResponse.json({ error: 'Template not found' }, { status: 400 })
+    }
+    const currentVersion = template.version
+
     if (userId) {
-      // Individual assignment: check for duplicate per user
-      const existing = await getAssignmentByTemplateAndUser(templateId, userId)
+      // Individual assignment: check for duplicate per user at current version
+      const existing = await getAssignmentByTemplateAndUser(
+        templateId,
+        userId,
+        currentVersion
+      )
       if (existing) {
         return NextResponse.json(
           { error: 'Template is already assigned to this user' },
@@ -86,10 +97,11 @@ export async function POST(
         )
       }
     } else {
-      // Company-wide assignment: check for duplicate per company
+      // Company-wide assignment: check for duplicate per company at current version
       const existing = await getAssignmentByTemplateAndCompany(
         templateId,
-        customerCompanyId
+        customerCompanyId,
+        currentVersion
       )
       if (existing) {
         return NextResponse.json(
@@ -104,7 +116,8 @@ export async function POST(
       customerCompanyId,
       userId,
       dueDate,
-      targetJobRoles
+      targetJobRoles,
+      templateVersion: currentVersion
     })
 
     if (!assignment) {
@@ -116,20 +129,18 @@ export async function POST(
 
     // Fire-and-forget — email errors must not affect the API response
     const roles = targetJobRoles ?? null
-    Promise.all([
-      getDocumentTemplateById(templateId),
-      userId
-        ? getUserById(userId).then((u) => (u ? [u] : []))
-        : getUsersByCompany(customerCompanyId).then((users) =>
-            users.filter((u) => {
-              if (!roles || roles.length === 0) return true
-              if (!u.jobRole) return true
-              return roles.includes(u.jobRole)
-            })
-          )
-    ])
-      .then(async ([template, users]) => {
-        if (!template || users.length === 0) return
+    Promise.resolve()
+      .then(async () => {
+        const users = userId
+          ? await getUserById(userId).then((u) => (u ? [u] : []))
+          : await getUsersByCompany(customerCompanyId).then((list) =>
+              list.filter((u) => {
+                if (!roles || roles.length === 0) return true
+                if (!u.jobRole) return true
+                return roles.includes(u.jobRole)
+              })
+            )
+        if (users.length === 0) return
         // Route no-email users to their line manager; deduplicate by email
         const recipients = await resolveEmailRecipients(users)
         if (recipients.length === 0) return

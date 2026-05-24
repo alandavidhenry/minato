@@ -85,7 +85,9 @@ const BASE_TEMPLATE = {
   blobPath: null,
   formSchema: null,
   questions: null,
-  createdAt: '2024-01-01T00:00:00.000Z'
+  version: 1,
+  createdAt: '2024-01-01T00:00:00.000Z',
+  updatedAt: '2024-01-01T00:00:00.000Z'
 }
 
 const BASE_ASSIGNMENT = {
@@ -95,6 +97,7 @@ const BASE_ASSIGNMENT = {
   userId: null,
   dueDate: null,
   targetJobRoles: null,
+  templateVersion: 1,
   createdAt: '2024-01-01T00:00:00.000Z',
   template: {
     id: 'template_123',
@@ -213,6 +216,38 @@ describe('POST /api/admin/companies/[id]/assignments (company-wide)', () => {
     const res = await createAssignment(req, companyParams('company_123'))
     expect(res.status).toBe(400)
     expect((await res.json()).error).toMatch(/templateId/i)
+  })
+
+  it('returns 400 when template does not exist', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetDocumentTemplateById.mockResolvedValue(null)
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_missing' }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/template not found/i)
+  })
+
+  it('passes templateVersion from template to createAssignment', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetDocumentTemplateById.mockResolvedValue({
+      ...BASE_TEMPLATE,
+      version: 2
+    })
+    mockCreate.mockResolvedValue({ ...BASE_ASSIGNMENT, templateVersion: 2 })
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123' }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ templateVersion: 2 })
+    )
   })
 
   it('returns 409 when already assigned to company', async () => {

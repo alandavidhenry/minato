@@ -44,7 +44,7 @@ interface EditTemplateDialogProps {
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
   readonly template: Template | null
-  readonly onTemplateSaved: () => void
+  readonly onTemplateSaved: (publishedNewVersion?: boolean) => void
 }
 
 const FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
@@ -65,6 +65,7 @@ export function EditTemplateDialog({
   onTemplateSaved
 }: EditTemplateDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [fields, setFields] = useState<FormField[]>([])
@@ -189,16 +190,14 @@ export function EditTemplateDialog({
     )
   }
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault()
-
+  function validateForm(): boolean {
     if (!title.trim()) {
       toast({
         title: 'Validation Error',
         description: 'Template title is required',
         variant: 'destructive'
       })
-      return
+      return false
     }
 
     const emptyLabels = fields.filter((f) => !f.label.trim())
@@ -208,7 +207,7 @@ export function EditTemplateDialog({
         description: 'All form fields must have a label',
         variant: 'destructive'
       })
-      return
+      return false
     }
 
     for (const q of questions) {
@@ -218,7 +217,7 @@ export function EditTemplateDialog({
           description: 'All comprehension questions must have question text',
           variant: 'destructive'
         })
-        return
+        return false
       }
       if (q.options.length < 2) {
         toast({
@@ -227,7 +226,7 @@ export function EditTemplateDialog({
             'Each comprehension question must have at least 2 options',
           variant: 'destructive'
         })
-        return
+        return false
       }
       if (q.options.some((o) => !o.trim())) {
         toast({
@@ -235,7 +234,7 @@ export function EditTemplateDialog({
           description: 'All answer options must have text',
           variant: 'destructive'
         })
-        return
+        return false
       }
       if (!q.answer || !q.options.includes(q.answer)) {
         toast({
@@ -244,9 +243,15 @@ export function EditTemplateDialog({
             'Please select the correct answer for each comprehension question',
           variant: 'destructive'
         })
-        return
+        return false
       }
     }
+    return true
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (!validateForm()) return
 
     setIsLoading(true)
 
@@ -280,6 +285,58 @@ export function EditTemplateDialog({
     }
   }
 
+  async function handlePublishAsNewVersion() {
+    if (!validateForm()) return
+
+    if (
+      !confirm(
+        'Publishing a new version will create fresh assignment cycles for all currently assigned companies. Old completions remain as historical records. Continue?'
+      )
+    )
+      return
+
+    setIsPublishing(true)
+
+    try {
+      const response = await fetch(
+        `/api/admin/templates/${template?.id}/publish-version`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: title.trim(),
+            description: description.trim() || null,
+            formSchema: fields.length > 0 ? fields : null,
+            questions: questions.length > 0 ? questions : null
+          })
+        }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to publish new version')
+      }
+
+      const data = await response.json()
+      toast({
+        title: 'New version published',
+        description: `Now v${data.newVersion}. ${data.assignmentsCreated} new assignment${data.assignmentsCreated === 1 ? '' : 's'} created.`
+      })
+      onTemplateSaved(true)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to publish new version',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsPublishing(false)
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='sm:max-w-[560px] max-h-[85vh] overflow-y-auto'>
@@ -291,6 +348,14 @@ export function EditTemplateDialog({
               will fill in.
             </DialogDescription>
           </DialogHeader>
+
+          <div className='rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200'>
+            Saving here updates the template content without triggering new
+            sign-off assignments. Use{' '}
+            <span className='font-semibold'>Publish New Version</span> (the
+            refresh icon on the templates page) when workers need to re-sign
+            because the document requirements have changed.
+          </div>
 
           <div className='grid gap-4 py-4'>
             <div className='grid gap-2'>
@@ -635,8 +700,23 @@ export function EditTemplateDialog({
             </div>
           </div>
 
-          <DialogFooter>
-            <Button type='submit' disabled={isLoading}>
+          <DialogFooter className='flex-col gap-2 sm:flex-row'>
+            <Button
+              type='button'
+              variant='outline'
+              disabled={isLoading || isPublishing}
+              onClick={handlePublishAsNewVersion}
+            >
+              {isPublishing ? (
+                <>
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                  Publishing...
+                </>
+              ) : (
+                'Publish as New Version'
+              )}
+            </Button>
+            <Button type='submit' disabled={isLoading || isPublishing}>
               {isLoading ? (
                 <>
                   <Loader2 className='mr-2 h-4 w-4 animate-spin' />

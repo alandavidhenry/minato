@@ -11,6 +11,7 @@ export interface DocumentTemplateData {
   blobPath: string | null
   formSchema: FormSchema | null
   questions: ComprehensionQuestion[] | null
+  version: number
   tenantId: string | null
   createdAt: string
   updatedAt: string
@@ -23,6 +24,7 @@ type PrismaDocumentTemplate = {
   blobPath: string | null
   formSchema: unknown
   questions: unknown
+  version: number
   tenantId: string | null
   createdAt: Date
   updatedAt: Date
@@ -38,6 +40,7 @@ function toDocumentTemplateData(
     blobPath: template.blobPath,
     formSchema: (template.formSchema as FormSchema | null) ?? null,
     questions: (template.questions as ComprehensionQuestion[] | null) ?? null,
+    version: template.version,
     tenantId: template.tenantId,
     createdAt: template.createdAt.toISOString(),
     updatedAt: template.updatedAt.toISOString()
@@ -153,5 +156,42 @@ export async function deleteDocumentTemplate(id: string): Promise<boolean> {
   } catch (error) {
     console.error('Error deleting document template:', error)
     return false
+  }
+}
+
+// Increments the template version and optionally applies content updates.
+// Returns the updated template (with the new version number) or null if not found.
+export async function publishNewTemplateVersion(
+  id: string,
+  updates?: {
+    title?: string
+    description?: string
+    blobPath?: string
+    formSchema?: FormSchema | null
+    questions?: ComprehensionQuestion[] | null
+  }
+): Promise<DocumentTemplateData | null> {
+  try {
+    const template = await prisma.documentTemplate.update({
+      where: { id },
+      data: {
+        version: { increment: 1 },
+        ...(updates?.title !== undefined && { title: updates.title }),
+        ...(updates?.description !== undefined && {
+          description: updates.description
+        }),
+        ...(updates?.blobPath !== undefined && { blobPath: updates.blobPath }),
+        ...('formSchema' in (updates ?? {}) && {
+          formSchema: toJsonValue(updates!.formSchema)
+        }),
+        ...('questions' in (updates ?? {}) && {
+          questions: toJsonValue(updates!.questions)
+        })
+      }
+    })
+    return toDocumentTemplateData(template)
+  } catch (error) {
+    console.error('Error publishing new template version:', error)
+    return null
   }
 }

@@ -102,6 +102,7 @@ model DocumentTemplate {
   blobPath    String? // path in Azure Blob Storage; null for form-only templates
   formSchema  Json? // array of FormField; null means no form fields defined
   questions   Json? // array of ComprehensionQuestion; null means no questions defined
+  version     Int      @default(1) // incremented each time a new version is published
   tenantId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -123,6 +124,7 @@ model Assignment {
   userId            String?   // null = company-wide; set = individual user
   dueDate           DateTime? // optional deadline; null = no due date
   targetJobRoles    Json?     // string[] of job roles that can see this assignment; null = visible to all
+  templateVersion   Int       @default(1) // snapshot of template version at assignment creation
   createdAt         DateTime  @default(now())
 
   template        DocumentTemplate @relation(fields: [templateId], references: [id])

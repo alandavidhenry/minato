@@ -1,12 +1,13 @@
 // src/app/admin/templates/page.tsx
 'use client'
 
-import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
+import { BookOpen, Eye, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { CreateTemplateDialog } from '@/components/admin/create-template-dialog'
 import { EditTemplateDialog } from '@/components/admin/edit-template-dialog'
 import { ViewTemplateDialog } from '@/components/admin/view-template-dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -27,6 +28,7 @@ interface Template {
   formSchema: FormField[] | null
   questions: ComprehensionQuestion[] | null
   blobPath: string | null
+  version: number
   createdAt: string
 }
 
@@ -56,6 +58,43 @@ export default function TemplatesPage() {
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  async function handlePublishNewVersion(id: string, title: string) {
+    if (
+      !confirm(
+        `Publish a new version of "${title}"?\n\nThis will create fresh assignment cycles for all currently assigned companies. Old completions remain as historical records.`
+      )
+    )
+      return
+
+    try {
+      const response = await fetch(
+        `/api/admin/templates/${id}/publish-version`,
+        { method: 'POST' }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to publish new version')
+      }
+
+      const data = await response.json()
+      toast({
+        title: 'New version published',
+        description: `"${title}" is now v${data.newVersion}. ${data.assignmentsCreated} new assignment${data.assignmentsCreated === 1 ? '' : 's'} created.`
+      })
+      fetchTemplates()
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to publish new version',
+        variant: 'destructive'
+      })
     }
   }
 
@@ -119,7 +158,16 @@ export default function TemplatesPage() {
 
     return templates.map((template) => (
       <TableRow key={template.id}>
-        <TableCell className='font-medium'>{template.title}</TableCell>
+        <TableCell className='font-medium'>
+          <div className='flex items-center gap-2'>
+            {template.title}
+            {template.version > 1 && (
+              <Badge variant='secondary' className='text-xs'>
+                v{template.version}
+              </Badge>
+            )}
+          </div>
+        </TableCell>
         <TableCell className='text-muted-foreground'>
           {template.description ?? '—'}
         </TableCell>
@@ -143,6 +191,16 @@ export default function TemplatesPage() {
             <Button
               variant='ghost'
               size='sm'
+              title='Publish new version'
+              onClick={() =>
+                handlePublishNewVersion(template.id, template.title)
+              }
+            >
+              <RefreshCw className='h-4 w-4' />
+            </Button>
+            <Button
+              variant='ghost'
+              size='sm'
               onClick={() => handleDelete(template.id, template.title)}
             >
               <Trash2 className='h-4 w-4' />
@@ -157,10 +215,18 @@ export default function TemplatesPage() {
     <div className='space-y-6'>
       <div className='flex items-center justify-between'>
         <h1 className='text-3xl font-bold'>Document Templates</h1>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className='mr-2 h-4 w-4' />
-          New Template
-        </Button>
+        <div className='flex items-center gap-2'>
+          <Button variant='outline' asChild>
+            <a href='/api/admin/manual' download>
+              <BookOpen className='mr-2 h-4 w-4' />
+              User Guide
+            </a>
+          </Button>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className='mr-2 h-4 w-4' />
+            New Template
+          </Button>
+        </div>
       </div>
 
       <div className='rounded-md border'>
