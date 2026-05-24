@@ -29,13 +29,15 @@ import { UserDetailsDialog } from './user-details-dialog'
 interface User {
   id: string
   displayName: string
-  mail: string
-  userPrincipalName: string
+  mail: string | null
+  userPrincipalName: string | null
   accountEnabled: boolean
   createdDateTime?: string
   jobTitle?: string
   department?: string
   role: string
+  jobRole?: string | null
+  lineManagerId?: string | null
   customerCompanyId: string | null
 }
 
@@ -151,7 +153,16 @@ export function UserActionsDropdown({
       {/* User Details Dialog */}
       {showDetailsDialog && (
         <UserDetailsDialog
-          user={user}
+          user={{
+            id: user.id,
+            displayName: user.displayName,
+            email: user.mail,
+            role: user.role,
+            jobRole: user.jobRole,
+            lineManagerId: user.lineManagerId,
+            customerCompanyId: user.customerCompanyId,
+            createdDateTime: user.createdDateTime
+          }}
           open={showDetailsDialog}
           onOpenChange={setShowDetailsDialog}
           onUserUpdated={onUserUpdated}

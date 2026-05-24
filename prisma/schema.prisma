@@ -19,9 +19,10 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
+  id                 String   @id @default(cuid())
+  name               String
+  createdAt          DateTime @default(now())
+  profilePermissions Json?    // ProfilePermissions: which fields customer users may self-edit
 
   users             User[]
   customerCompanies CustomerCompany[]
@@ -37,17 +38,20 @@ model Tenant {
 
 model User {
   id                String   @id @default(cuid())
-  email             String   @unique
+  email             String?  @unique // null for no-email workers who sign off via kiosk
   displayName       String
-  passwordHash      String
+  passwordHash      String?           // null for no-email workers (no login possible)
   role              String   @default("Customer User")
   jobRole           String?  // freeform job role string used for assignment filtering
+  lineManagerId     String?           // no-email workers point to their manager for email routing
   createdAt         DateTime @default(now())
   tenantId          String? // null = default single-tenant; required when multi-tenancy is enforced
   customerCompanyId String? // null for consultancy staff; required for customer-role users
 
   tenant          Tenant?          @relation(fields: [tenantId], references: [id])
   customerCompany CustomerCompany? @relation(fields: [customerCompanyId], references: [id])
+  lineManager     User?            @relation("LineManagement", fields: [lineManagerId], references: [id])
+  directReports   User[]           @relation("LineManagement")
   passwordReset   PasswordReset?
   completions     CompletionRecord[]
   userAssignments Assignment[]     @relation("UserAssignment")

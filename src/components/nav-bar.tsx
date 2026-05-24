@@ -83,12 +83,20 @@ export function NavBar() {
           <div className='hidden md:flex md:items-center md:space-x-2'>
             <ThemeToggle />
             {session ? (
-              <Button
-                variant='outline'
-                onClick={() => signOut({ callbackUrl: '/' })}
-              >
-                Sign Out
-              </Button>
+              <>
+                <Link
+                  href='/profile'
+                  className='text-sm text-muted-foreground hover:text-foreground transition-colors'
+                >
+                  {session.user?.name}
+                </Link>
+                <Button
+                  variant='outline'
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                >
+                  Sign Out
+                </Button>
+              </>
             ) : (
               <Button onClick={() => signIn()}>Sign In</Button>
             )}
@@ -129,13 +137,22 @@ export function NavBar() {
             ))}
             <div className='pt-2 px-2'>
               {session ? (
-                <Button
-                  variant='outline'
-                  className='w-full'
-                  onClick={() => signOut({ callbackUrl: '/' })}
-                >
-                  Sign Out
-                </Button>
+                <>
+                  <Link
+                    href='/profile'
+                    className='block text-sm text-muted-foreground hover:text-foreground px-1 mb-2'
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {session.user?.name}
+                  </Link>
+                  <Button
+                    variant='outline'
+                    className='w-full'
+                    onClick={() => signOut({ callbackUrl: '/' })}
+                  >
+                    Sign Out
+                  </Button>
+                </>
               ) : (
                 <Button
                   className='w-full py-3 text-base'

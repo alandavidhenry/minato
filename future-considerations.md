@@ -19,12 +19,12 @@ This section maps Simon's stated workflow (see README "How It Works") to the cur
 | 1 | Document upload + indexing (ref, name, date, version) | ✅ Done (blob storage + template record) |
 | 2 | Comprehension questions per document | ✅ Done — admin builder + server-side validation + customer answer form |
 | 3 | Job role-based assignment to individuals | ✅ Done — individual-level assignment (userId nullable) + job role filtering (targetJobRoles on Assignment, jobRole on User) |
-| 4a | Email notification on assignment | ⬜ Not started |
-| 4b | No-email worker name-entry sign-off | ⬜ Not started |
-| 4c | Line manager reminder for no-email workers | ⬜ Not started |
+| 4a | Email notification on assignment | ✅ Done — fire-and-forget from assignment POST; individual → assigned user, company-wide → all matching job-role users |
+| 4b | No-email worker name-entry sign-off | ✅ Done — public kiosk at `/signoff/[companyId]`; workers select name, complete form, submit via unauthenticated API |
+| 4c | Line manager reminder for no-email workers | ✅ Done — `resolveEmailRecipients` routes all notifications (assignment + reminders) to line manager for no-email users |
 | 5 | Read + answer questions + digital sign-off | ⬜ Partial — sign-off done, questions done, signature pad not yet |
 | 6a | Completed vs overdue report | ✅ Done — `dueDate` on assignments; admin completions view shows per-assignment breakdown (completed vs outstanding) with overdue badge |
-| 6b | Automated reminder notifications for overdue | ⬜ Not started |
+| 6b | Automated reminder notifications for overdue | ✅ Done — daily GitHub Actions cron → `GET /api/cron/reminders` (Bearer token auth) → `getAssignmentsNeedingReminders` → `sendReminderNotification`; schedule: 3 days before, 1 day before, due date, then weekly |
 | 7/8 | New document version triggers new assignment cycle | ⬜ Not started |
 
 ### Priority order and detail
@@ -56,30 +56,37 @@ Key files: `src/types/comprehension-question.ts`, `src/lib/document-templates.ts
 - ✅ Create user dialog: optional `jobRole` field shown for customer roles
 - ✅ Users admin table: Job Role column added
 
-#### P4 — Email notifications on assignment
-When a document is assigned, relevant users should receive an email with a link to complete it.
+#### P4 — Email notifications on assignment ✅ Done
 
-- Reuse the existing Azure Communication Services email infrastructure
-- Trigger email on assignment creation (or batch on a schedule if many users)
-- Email contains: document name, due date, direct link to the completion page
-- Requires the assignment to know which individual users are in scope (P2 + P3 prerequisite)
+When a document is assigned, relevant users receive an email with a link to their documents page.
 
-#### P5 — Automated reminder notifications
-Chase overdue sign-offs automatically.
+- `src/lib/email.ts` — reusable `sendAssignmentNotification(recipients, templateTitle, dueDate, baseUrl)` wrapping ACS `EmailClient`
+- Triggered fire-and-forget from `POST /api/admin/companies/[id]/assignments`
+- Individual assignment → notifies the assigned user (`getUserById`)
+- Company-wide assignment → notifies all company users filtered by `targetJobRoles` (`getUsersByCompany` + same job-role filtering logic as customer view)
+- Email failure is logged but never blocks the HTTP response or the assignment creation
 
-- Configurable reminder schedule per assignment (e.g. 3 days before due, 1 day before, day of, then weekly)
-- For users with email: send directly
-- For users without email: send to line manager (see P6)
-- Implementation options: Azure Functions timer trigger (simplest for Azure stack), or a Next.js cron via Vercel/custom scheduler
+#### P5 — Automated reminder notifications ✅ Done
 
-#### P6 — No-email worker support and line manager routing
-Some workers have no email address. Simon's spec: they use a name-entry field to sign off, and reminders go to their line manager.
+- `src/lib/reminders.ts` — `isReminderDay(dueDate, today)` (true on days -3, -1, 0, -7, -14, … relative to due) and `getAssignmentsNeedingReminders(today)` (queries all assignments with due dates, returns outstanding users per assignment with job role filtering applied)
+- `GET /api/cron/reminders` — requires `Authorization: Bearer {CRON_SECRET}`; calls reminders lib, sends `sendReminderNotification` per target; returns `{ sent: number }`
+- `.github/workflows/reminders.yml` — GitHub Actions scheduled workflow, 08:00 UTC daily, calls the cron endpoint using `prod` environment secrets (`NEXTAUTH_URL` var + `CRON_SECRET` secret)
+- Requires `CRON_SECRET` as a GitHub Actions secret and Next.js env var in each environment
+- No-email worker line manager routing implemented in P6 — `getAssignmentsNeedingReminders` calls `resolveEmailRecipients`; assignments where all users resolve to no recipients are skipped
 
-- Allow a `User` to have no email (currently email is required for auth)
-- Two sign-off modes: authenticated (email login) and name-entry (no account required — name captured at completion time)
-- Add `lineManagerId` (nullable FK to another `User`) or `lineManagerEmail` (nullable string) to `User`
-- For no-email users, all email notifications route to their line manager instead
-- The `CompletionRecord` stores either `userId` (authenticated) or `signerName` (name-entry), not both
+#### P6 — No-email worker support and line manager routing ✅ Done
+
+No-email workers are stored as regular `User` records with `email = null` and `passwordHash = null`. They cannot log in (the login gate checks `passwordHash` before calling bcrypt). Their `lineManagerId` points to another user who receives their notifications.
+
+- ✅ `User.email String?`, `User.passwordHash String?` — nullable; migration `20260523000000_no_email_worker`
+- ✅ `User.lineManagerId String?` — self-referential FK to `User.id` (ON DELETE SET NULL); no-email workers have their line manager set here
+- ✅ `resolveEmailRecipients(users)` in `src/lib/user-database.ts` — maps users → `{email, name}[]`; routes no-email users to their line manager; deduplicates by email address
+- ✅ Assignment notifications (`POST /api/admin/companies/[id]/assignments`) call `resolveEmailRecipients` before sending — no-email workers' managers get the notification
+- ✅ Reminder cron (`src/lib/reminders.ts`) calls `resolveEmailRecipients` — assignments where all outstanding users resolve to no recipients are skipped entirely
+- ✅ Public kiosk at `/signoff/[companyId]` — `GET /api/signoff/[companyId]` returns company name + workers + their pending assignments; worker selects name from dropdown, clicks assignment, completes form; `POST /api/signoff/[companyId]/[assignmentId]` validates workerId (must be a no-email user in this company), validates comprehension answers, records completion, generates PDF — same as the authenticated flow
+- ✅ Admin company detail page shows kiosk URL with copy button
+- ✅ Create user dialog and user details dialog support no-email workers: line manager dropdown shown when email is blank; line manager dropdown only shows users with email addresses
+- ✅ Admin users page and company page show "No email — kiosk" for null email fields
 
 #### P7 — Document version cycle
 When Simon uploads a new version of a document, the new version should trigger a fresh assignment + completion cycle.

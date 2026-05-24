@@ -1,7 +1,7 @@
 // src/components/qr-code-modal.tsx
 'use client'
 
-import { Download, X } from 'lucide-react'
+import { Download, Printer, Share2, X } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useState, useEffect } from 'react'
 
@@ -11,17 +11,25 @@ import { toast } from '@/components/ui/use-toast'
 interface QrCodeModalProps {
   readonly url: string
   readonly fileName: string
+  readonly title?: string
+  readonly description?: string
   readonly onClose: () => void
 }
 
-export function QrCodeModal({ url, fileName, onClose }: QrCodeModalProps) {
+export function QrCodeModal({
+  url,
+  fileName,
+  title,
+  description,
+  onClose
+}: QrCodeModalProps) {
   const [isVisible, setIsVisible] = useState(false)
+  const [canShare, setCanShare] = useState(false)
 
   useEffect(() => {
-    // Small delay for animation
     setIsVisible(true)
+    setCanShare(typeof navigator !== 'undefined' && !!navigator.share)
 
-    // Add escape key handler
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
@@ -29,53 +37,99 @@ export function QrCodeModal({ url, fileName, onClose }: QrCodeModalProps) {
     return () => window.removeEventListener('keydown', handleEscape)
   }, [onClose])
 
-  // Handle QR code download
-  const handleDownloadQrCode = () => {
-    const svg = document.getElementById('document-qr-code')
-    if (!svg) return
+  function getQrCanvas(): Promise<HTMLCanvasElement | null> {
+    return new Promise((resolve) => {
+      const svg = document.getElementById('document-qr-code')
+      if (!svg) return resolve(null)
 
-    // Create canvas from SVG
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+      const canvas = document.createElement('canvas')
+      canvas.width = 1000
+      canvas.height = 1000
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return resolve(null)
 
-    // Set canvas size (making it larger for better quality)
-    canvas.width = 1000
-    canvas.height = 1000
-
-    // Create image from SVG
-    const img = new Image()
-    const svgData = new XMLSerializer().serializeToString(svg)
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
-    const svgUrl = URL.createObjectURL(svgBlob)
-
-    img.onload = () => {
-      // Draw white background
-      ctx.fillStyle = 'white'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-      // Draw QR code
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-
-      // Convert to PNG and download
-      const pngUrl = canvas.toDataURL('image/png')
-      const downloadLink = document.createElement('a')
-      downloadLink.href = pngUrl
-      downloadLink.download = `${fileName.replace(/\.[^/.]+$/, '')}-qrcode.png`
-      downloadLink.click()
-
-      // Clean up
-      URL.revokeObjectURL(svgUrl)
-
-      toast({
-        title: 'QR Code downloaded',
-        description: 'The QR code has been saved to your device.',
-        duration: 3000
+      const img = new Image()
+      const svgData = new XMLSerializer().serializeToString(svg)
+      const svgBlob = new Blob([svgData], {
+        type: 'image/svg+xml;charset=utf-8'
       })
+      const svgUrl = URL.createObjectURL(svgBlob)
+
+      img.onload = () => {
+        ctx.fillStyle = 'white'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        URL.revokeObjectURL(svgUrl)
+        resolve(canvas)
+      }
+      img.onerror = () => {
+        URL.revokeObjectURL(svgUrl)
+        resolve(null)
+      }
+      img.src = svgUrl
+    })
+  }
+
+  const handleDownload = async () => {
+    const canvas = await getQrCanvas()
+    if (!canvas) return
+
+    const link = document.createElement('a')
+    link.href = canvas.toDataURL('image/png')
+    link.download = `${fileName.replace(/\.[^/.]+$/, '')}-qrcode.png`
+    link.click()
+
+    toast({
+      title: 'QR Code downloaded',
+      description: 'The QR code has been saved to your device.',
+      duration: 3000
+    })
+  }
+
+  const handleShare = async () => {
+    try {
+      await navigator.share({ title: title ?? fileName, url })
+    } catch (err) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        toast({
+          title: 'Share failed',
+          description: err.message,
+          variant: 'destructive'
+        })
+      }
+    }
+  }
+
+  const handlePrint = async () => {
+    const canvas = await getQrCanvas()
+    if (!canvas) return
+
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      toast({
+        title: 'Popup blocked',
+        description: 'Allow pop-ups for this site to use Print.',
+        variant: 'destructive'
+      })
+      return
     }
 
-    img.src = svgUrl
+    const dataUrl = canvas.toDataURL('image/png')
+    printWindow.document.write(
+      `<!DOCTYPE html><html><head><title>${title ?? fileName}</title></head>` +
+        `<body style="margin:40px;font-family:sans-serif;text-align:center;">` +
+        `<img src="${dataUrl}" style="width:300px;height:300px;" />` +
+        `<p style="margin-top:16px;font-size:13px;color:#555;word-break:break-all;">${url}</p>` +
+        `</body></html>`
+    )
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
   }
+
+  const modalTitle = title ?? `QR Code for ${fileName}`
+  const modalDescription =
+    description ?? 'Scan this QR code to access the document'
 
   return (
     <div className='fixed inset-0 z-50 bg-black/50 flex items-center justify-center'>
@@ -85,7 +139,7 @@ export function QrCodeModal({ url, fileName, onClose }: QrCodeModalProps) {
         }`}
       >
         <div className='flex justify-between items-center mb-4'>
-          <h2 className='text-xl font-bold'>QR Code for {fileName}</h2>
+          <h2 className='text-xl font-bold'>{modalTitle}</h2>
           <Button variant='ghost' size='icon' onClick={onClose}>
             <X className='h-4 w-4' />
           </Button>
@@ -96,20 +150,31 @@ export function QrCodeModal({ url, fileName, onClose }: QrCodeModalProps) {
             id='document-qr-code'
             value={url}
             size={250}
-            level='H' // High error correction
+            level='H'
             marginSize={4}
           />
         </div>
 
-        <div className='text-center mt-4 text-sm text-muted-foreground'>
-          <p>Scan this QR code to access the document</p>
-          <p className='mt-1'>Valid for 7 days</p>
-        </div>
+        <p className='text-center mt-4 text-sm text-muted-foreground'>
+          {modalDescription}
+        </p>
 
-        <div className='flex justify-center mt-4'>
-          <Button onClick={handleDownloadQrCode} className='w-full'>
+        <div
+          className={`grid gap-2 mt-4 ${canShare ? 'grid-cols-3' : 'grid-cols-2'}`}
+        >
+          <Button variant='outline' onClick={handleDownload}>
             <Download className='mr-2 h-4 w-4' />
-            Download QR Code
+            Download
+          </Button>
+          {canShare && (
+            <Button variant='outline' onClick={handleShare}>
+              <Share2 className='mr-2 h-4 w-4' />
+              Share
+            </Button>
+          )}
+          <Button variant='outline' onClick={handlePrint}>
+            <Printer className='mr-2 h-4 w-4' />
+            Print
           </Button>
         </div>
       </div>

@@ -43,11 +43,50 @@ vi.mock('@/lib/assignments', () => ({
   deleteAssignment: mockDelete
 }))
 
+const { mockGetDocumentTemplateById } = vi.hoisted(() => ({
+  mockGetDocumentTemplateById: vi.fn()
+}))
+
+vi.mock('@/lib/document-templates', () => ({
+  getDocumentTemplateById: mockGetDocumentTemplateById
+}))
+
+const { mockGetUserById, mockGetUsersByCompany, mockResolveEmailRecipients } =
+  vi.hoisted(() => ({
+    mockGetUserById: vi.fn(),
+    mockGetUsersByCompany: vi.fn(),
+    mockResolveEmailRecipients: vi.fn()
+  }))
+
+vi.mock('@/lib/user-database', () => ({
+  getUserById: mockGetUserById,
+  getUsersByCompany: mockGetUsersByCompany,
+  resolveEmailRecipients: mockResolveEmailRecipients
+}))
+
+const { mockSendAssignmentNotification } = vi.hoisted(() => ({
+  mockSendAssignmentNotification: vi.fn()
+}))
+
+vi.mock('@/lib/email', () => ({
+  sendAssignmentNotification: mockSendAssignmentNotification
+}))
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const ADMIN_SESSION = { user: { roles: ['Tenant Admin'] } }
+
+const BASE_TEMPLATE = {
+  id: 'template_123',
+  title: 'Farmyard Safety Checklist',
+  description: null,
+  blobPath: null,
+  formSchema: null,
+  questions: null,
+  createdAt: '2024-01-01T00:00:00.000Z'
+}
 
 const BASE_ASSIGNMENT = {
   id: 'assignment_123',
@@ -69,6 +108,17 @@ const USER_ASSIGNMENT = {
   ...BASE_ASSIGNMENT,
   id: 'assignment_456',
   userId: 'user_123'
+}
+
+const BASE_USER = {
+  id: 'user_123',
+  email: 'user@company.com',
+  displayName: 'Test User',
+  passwordHash: 'hash',
+  role: 'Customer User',
+  jobRole: null,
+  createdAt: '2024-01-01T00:00:00.000Z',
+  customerCompanyId: 'company_123'
 }
 
 function jsonRequest(url: string, method: string, body?: unknown): NextRequest {
@@ -95,6 +145,18 @@ beforeEach(() => {
   mockGetByTemplateAndUser.mockResolvedValue(null)
   mockGetById.mockResolvedValue(null)
   mockDelete.mockResolvedValue(true)
+  mockGetDocumentTemplateById.mockResolvedValue(BASE_TEMPLATE)
+  mockGetUsersByCompany.mockResolvedValue([BASE_USER])
+  mockGetUserById.mockResolvedValue(BASE_USER)
+  mockSendAssignmentNotification.mockResolvedValue(undefined)
+  // Default: pass email users through unchanged
+  mockResolveEmailRecipients.mockImplementation((users: (typeof BASE_USER)[]) =>
+    Promise.resolve(
+      users
+        .filter((u: typeof BASE_USER) => u.email)
+        .map((u: typeof BASE_USER) => ({ email: u.email, name: u.displayName }))
+    )
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -229,6 +291,158 @@ describe('POST /api/admin/companies/[id]/assignments (company-wide)', () => {
       'Supervisor'
     ])
   })
+
+  it('sends notifications to all company users on company-wide assignment', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const users = [
+      { ...BASE_USER, id: 'u1', email: 'u1@co.com', displayName: 'User One' },
+      { ...BASE_USER, id: 'u2', email: 'u2@co.com', displayName: 'User Two' }
+    ]
+    mockGetUsersByCompany.mockResolvedValue(users)
+
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123' }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    await vi.waitFor(() =>
+      expect(mockSendAssignmentNotification).toHaveBeenCalledWith(
+        [
+          { email: 'u1@co.com', name: 'User One' },
+          { email: 'u2@co.com', name: 'User Two' }
+        ],
+        'Farmyard Safety Checklist',
+        null,
+        expect.any(String)
+      )
+    )
+  })
+
+  it('filters by job role when targetJobRoles is set', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const withRoles = { ...BASE_ASSIGNMENT, targetJobRoles: ['Site Manager'] }
+    mockCreate.mockResolvedValue(withRoles)
+    const users = [
+      {
+        ...BASE_USER,
+        id: 'u1',
+        email: 'mgr@co.com',
+        displayName: 'Manager',
+        jobRole: 'Site Manager'
+      },
+      {
+        ...BASE_USER,
+        id: 'u2',
+        email: 'op@co.com',
+        displayName: 'Operator',
+        jobRole: 'Operator'
+      }
+    ]
+    mockGetUsersByCompany.mockResolvedValue(users)
+
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123', targetJobRoles: ['Site Manager'] }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    await vi.waitFor(() =>
+      expect(mockSendAssignmentNotification).toHaveBeenCalledWith(
+        [{ email: 'mgr@co.com', name: 'Manager' }],
+        'Farmyard Safety Checklist',
+        null,
+        expect.any(String)
+      )
+    )
+  })
+
+  it('includes users with no job role in filtered notifications', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const withRoles = { ...BASE_ASSIGNMENT, targetJobRoles: ['Site Manager'] }
+    mockCreate.mockResolvedValue(withRoles)
+    const users = [
+      {
+        ...BASE_USER,
+        id: 'u1',
+        email: 'mgr@co.com',
+        displayName: 'Manager',
+        jobRole: 'Site Manager'
+      },
+      {
+        ...BASE_USER,
+        id: 'u2',
+        email: 'norole@co.com',
+        displayName: 'No Role',
+        jobRole: null
+      }
+    ]
+    mockGetUsersByCompany.mockResolvedValue(users)
+
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123', targetJobRoles: ['Site Manager'] }
+    )
+    await createAssignment(req, companyParams('company_123'))
+    await vi.waitFor(() =>
+      expect(mockSendAssignmentNotification).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          { email: 'mgr@co.com', name: 'Manager' },
+          { email: 'norole@co.com', name: 'No Role' }
+        ]),
+        expect.any(String),
+        null,
+        expect.any(String)
+      )
+    )
+  })
+
+  it('routes no-email users to their line manager for notifications', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const noEmailUser = {
+      ...BASE_USER,
+      id: 'u_noemail',
+      email: null,
+      displayName: 'Worker',
+      lineManagerId: 'mgr_1'
+    }
+    mockGetUsersByCompany.mockResolvedValue([noEmailUser])
+    mockResolveEmailRecipients.mockResolvedValue([
+      { email: 'mgr@co.com', name: 'Manager' }
+    ])
+
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123' }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    await vi.waitFor(() =>
+      expect(mockSendAssignmentNotification).toHaveBeenCalledWith(
+        [{ email: 'mgr@co.com', name: 'Manager' }],
+        'Farmyard Safety Checklist',
+        null,
+        expect.any(String)
+      )
+    )
+  })
+
+  it('does not fail assignment creation when notification throws', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockSendAssignmentNotification.mockRejectedValueOnce(new Error('ACS down'))
+
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123' }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -276,6 +490,49 @@ describe('POST /api/admin/companies/[id]/assignments (individual user)', () => {
     const res = await createAssignment(req, companyParams('company_123'))
     expect(res.status).toBe(200)
     expect(mockGetByTemplateAndCompany).not.toHaveBeenCalled()
+  })
+
+  it('sends notification to the individual user', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockCreate.mockResolvedValue(USER_ASSIGNMENT)
+    mockGetUserById.mockResolvedValue({
+      ...BASE_USER,
+      email: 'alice@co.com',
+      displayName: 'Alice'
+    })
+
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123', userId: 'user_123' }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    await vi.waitFor(() =>
+      expect(mockSendAssignmentNotification).toHaveBeenCalledWith(
+        [{ email: 'alice@co.com', name: 'Alice' }],
+        'Farmyard Safety Checklist',
+        null,
+        expect.any(String)
+      )
+    )
+  })
+
+  it('skips notification when user is not found', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockCreate.mockResolvedValue(USER_ASSIGNMENT)
+    mockGetUserById.mockResolvedValue(null)
+
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123', userId: 'user_123' }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    // Allow fire-and-forget to settle, then confirm no send
+    await new Promise((r) => setTimeout(r, 10))
+    expect(mockSendAssignmentNotification).not.toHaveBeenCalled()
   })
 })
 

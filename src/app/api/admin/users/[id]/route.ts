@@ -44,7 +44,9 @@ export async function GET(
       accountEnabled: true,
       createdDateTime: user.createdAt,
       role: user.role,
-      jobRole: user.jobRole
+      jobRole: user.jobRole,
+      lineManagerId: user.lineManagerId,
+      customerCompanyId: user.customerCompanyId
     }
 
     return NextResponse.json({ user: formattedUser })
@@ -77,12 +79,15 @@ export async function PATCH(
       role: string
       jobRole: string | null
       customerCompanyId: string | null
+      lineManagerId: string | null
     }> = {}
     if (updates.displayName) userUpdates.displayName = updates.displayName
     if (updates.role) userUpdates.role = updates.role
     if ('jobRole' in updates) userUpdates.jobRole = updates.jobRole ?? null
     if (updates.customerCompanyId !== undefined)
       userUpdates.customerCompanyId = updates.customerCompanyId
+    if ('lineManagerId' in updates)
+      userUpdates.lineManagerId = updates.lineManagerId ?? null
 
     const success = await updateUser(userId, userUpdates)
 

@@ -26,7 +26,7 @@ Document management portal built on **Next.js 16 App Router** with **Azure** as 
 ### Data Layer
 - **Azure Blob Storage** — file storage, organized in hierarchical paths with versioning via naming convention; SAS tokens for secure temporary access (`src/lib/storage.ts`, `src/lib/file-system/`)
 - **Azure Table Storage** — one table: `activityLogs` (audit trail only); accessed via `@azure/data-tables` (`src/lib/activity-logger.ts`)
-- **Neon PostgreSQL + Prisma** — all relational data; schema in `prisma/schema.prisma`; Prisma client generated to `src/generated/prisma/`; singleton at `src/lib/prisma.ts`; uses `@prisma/adapter-pg` driver; models: `Tenant`, `User` (with nullable `jobRole String?` for job role filtering), `PasswordReset`, `CustomerCompany`, `DocumentTemplate` (with `formSchema Json?` and `questions Json?` — each question is `{ id, question, options: string[], answer: string }`), `Assignment` (with nullable `userId` for individual vs company-wide; nullable `dueDate DateTime?` for overdue tracking; nullable `targetJobRoles Json?` — string array restricting which job roles see this assignment), `CompletionRecord`; lib functions in `src/lib/customer-companies.ts`, `src/lib/document-templates.ts`, `src/lib/assignments.ts`, `src/lib/completion-records.ts`; `getAssignmentStatusSummary` returns completed records + outstanding users + isOverdue; `getAssignmentsForUser` accepts optional `userJobRole` and filters company-wide assignments by `targetJobRoles`; Prisma nullable JSON fields use `Prisma.NullableJsonNullValueInput` / `Prisma.InputJsonValue` (imported from `@/generated/prisma/client`)
+- **Neon PostgreSQL + Prisma** — all relational data; schema in `prisma/schema.prisma`; Prisma client generated to `src/generated/prisma/`; singleton at `src/lib/prisma.ts`; uses `@prisma/adapter-pg` driver; models: `Tenant`, `User` (nullable `email String?` and `passwordHash String?` — users without email cannot log in; nullable `jobRole String?` for job role filtering; nullable `lineManagerId String?` self-referential FK → `User.id` — no-email workers route notifications to their line manager), `PasswordReset`, `CustomerCompany`, `DocumentTemplate` (with `formSchema Json?` and `questions Json?` — each question is `{ id, question, options: string[], answer: string }`), `Assignment` (with nullable `userId` for individual vs company-wide; nullable `dueDate DateTime?` for overdue tracking; nullable `targetJobRoles Json?` — string array restricting which job roles see this assignment), `CompletionRecord`; lib functions in `src/lib/customer-companies.ts`, `src/lib/document-templates.ts`, `src/lib/assignments.ts`, `src/lib/completion-records.ts`; `getAssignmentStatusSummary` returns completed records + outstanding users + isOverdue; `getAssignmentsForUser` accepts optional `userJobRole` and filters company-wide assignments by `targetJobRoles`; Prisma nullable JSON fields use `Prisma.NullableJsonNullValueInput` / `Prisma.InputJsonValue` (imported from `@/generated/prisma/client`)
 - **Azurite emulator** — set `USE_AZURITE=true` in `.env.local` for Azure Storage local development; PostgreSQL connects to Neon (or local DB) via `DATABASE_URL`
 
 ### Authentication
@@ -35,14 +35,24 @@ NextAuth.js v4 with Credentials provider. Users authenticate against Neon Postgr
 Password reset tokens are stored in the `PasswordReset` table in PostgreSQL and expire after 1 hour. See `src/lib/password-reset.ts`.
 
 ### Email
-Transactional email (password reset) is sent via **Azure Communication Services (Email)** (`@azure/communication-email`). An Azure-managed sending domain (`DoNotReply@<uuid>.azurecomm.net`) is provisioned by Terraform — no custom domain or DNS setup required. Free tier: 100 emails/day. ACS is provisioned as part of the IaC (`infrastructure/modules/communication_service/`).
+Transactional email is sent via **Azure Communication Services (Email)** (`@azure/communication-email`). An Azure-managed sending domain (`DoNotReply@<uuid>.azurecomm.net`) is provisioned by Terraform — no custom domain or DNS setup required. Free tier: 100 emails/day. ACS is provisioned as part of the IaC (`infrastructure/modules/communication_service/`).
+
+Three email types are implemented via `src/lib/email.ts`:
+- `sendAssignmentNotification(recipients, templateTitle, dueDate, baseUrl)` — triggered fire-and-forget from `POST /api/admin/companies/[id]/assignments` when an assignment is created; individual assignments notify the specific user, company-wide assignments notify all company users filtered by `targetJobRoles`; both paths call `resolveEmailRecipients` so no-email workers route to their line manager
+- `sendReminderNotification(recipients, templateTitle, dueDate, isOverdue, baseUrl)` — called by the daily cron job; subject says "Reminder:" or "Overdue:" depending on `isOverdue`
+- Password reset — inline in `src/app/api/auth/forgot-password/route.ts`
+
+`resolveEmailRecipients(users: UserData[])` in `src/lib/user-database.ts` — resolves a list of users to `{ email, name }[]` recipients, routing no-email users to their line manager and deduplicating by email (so one manager only gets one notification even if they manage multiple no-email workers in the same batch).
+
+Automated reminders: `src/lib/reminders.ts` exports `isReminderDay(dueDate, today)` (fires on days -3, -1, 0, -7, -14, … relative to due date) and `getAssignmentsNeedingReminders(today)` which queries all due-dated assignments, applies job role filtering, resolves email recipients (including line manager routing for no-email workers), and returns outstanding users per assignment. `GET /api/cron/reminders` is the protected endpoint (`Authorization: Bearer {CRON_SECRET}`). `.github/workflows/reminders.yml` runs the endpoint daily at 08:00 UTC using the `prod` environment.
 
 ### App Structure
 ```
 src/app/
   admin/            # Admin dashboard (users, companies, templates, activity logs, settings)
-  api/              # Route handlers — auth, documents, folders, scan, shorturl, health, admin/*, customer/*
+  api/              # Route handlers — auth, documents, folders, scan, shorturl, health, admin/*, customer/*, signoff/*
   customer/         # Customer-facing pages (documents/assignments view)
+  signoff/          # Public kiosk pages — no auth required; GET /signoff/[companyId] lists workers + assignments; POST /signoff/[companyId]/[assignmentId]/complete records sign-off
   documents/        # Consultancy staff file browser UI
   scan/             # Document scanning
   shared/           # Public shared document views
@@ -77,6 +87,7 @@ AZURE_COMMUNICATION_CONNECTION_STRING=  # provisioned by Terraform via Key Vault
 ACS_SENDER_ADDRESS=                     # auto-set by Terraform (DoNotReply@<uuid>.azurecomm.net)
 USE_AZURITE=true         # local dev only
 DATABASE_URL=            # Neon connection string (or local PostgreSQL for dev)
+CRON_SECRET=             # random secret; must also be set as GitHub Actions secret for reminders workflow
 ```
 
 ## Deployment
@@ -135,7 +146,7 @@ Core document model (target state — not yet implemented):
 
 **Current coverage:**
 - Unit: full coverage of `src/lib/` and `src/lib/file-system/`
-- Integration: `health`, admin user CRUD (including `jobRole` PATCH), password reset flows, all document API routes, admin companies/templates/assignments CRUD (company-wide and individual user, including comprehension questions PATCH, `dueDate`, and `targetJobRoles`), admin completions (list + download + assignment status summary with outstanding users and overdue), customer assignments (list — company-wide + individual combined with `jobRole` filtering, get single, complete with required-field validation and comprehension answer validation, download) and completions (list + PDF download)
+- Integration: `health`, admin user CRUD (including `jobRole` and `lineManagerId` PATCH), password reset flows, all document API routes, admin companies/templates/assignments CRUD (company-wide and individual user, including comprehension questions PATCH, `dueDate`, `targetJobRoles`, assignment notification emails, and no-email worker line manager routing), admin completions (list + download + assignment status summary with outstanding users and overdue), customer assignments (list — company-wide + individual combined with `jobRole` filtering, get single, complete with required-field validation and comprehension answer validation, download) and completions (list + PDF download), cron reminders (auth, zero sends, send count, 500 error), kiosk sign-off (`GET /api/signoff/[companyId]`, `POST /api/signoff/[companyId]/[assignmentId]` — worker validation, comprehension check, completion recording)
 - E2E: not yet started
 
 **TDD workflow:** define interface types → write tests → implement to pass tests. Always request tests before implementation. Target >90% coverage on `src/lib/`.

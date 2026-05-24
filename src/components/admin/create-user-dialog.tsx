@@ -30,6 +30,12 @@ interface Company {
   name: string
 }
 
+interface CompanyUser {
+  id: string
+  displayName: string
+  email: string | null
+}
+
 interface CreateUserDialogProps {
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
@@ -45,13 +51,15 @@ export function CreateUserDialog({
 }: CreateUserDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [companies, setCompanies] = useState<Company[]>([])
+  const [companyUsers, setCompanyUsers] = useState<CompanyUser[]>([])
   const [formData, setFormData] = useState({
     displayName: '',
     email: '',
     password: '',
     role: 'Customer User',
     jobRole: '',
-    customerCompanyId: ''
+    customerCompanyId: '',
+    lineManagerId: ''
   })
 
   useEffect(() => {
@@ -63,17 +71,36 @@ export function CreateUserDialog({
     }
   }, [open])
 
+  useEffect(() => {
+    if (formData.customerCompanyId) {
+      fetch(`/api/admin/companies/${formData.customerCompanyId}/users`)
+        .then((r) => r.json())
+        .then((data) =>
+          setCompanyUsers(
+            (data.users ?? []).filter((u: CompanyUser) => u.email)
+          )
+        )
+        .catch(() => setCompanyUsers([]))
+    } else {
+      setCompanyUsers([])
+    }
+  }, [formData.customerCompanyId])
+
   const isCustomerRole = CUSTOMER_ROLES.includes(formData.role)
+  const hasEmail = formData.email.trim().length > 0
+  const isNoEmailWorker = isCustomerRole && !hasEmail
 
   function handleChange(field: string, value: string | boolean) {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
-      // clear company selection when switching away from customer role
       ...(field === 'role' &&
         !CUSTOMER_ROLES.includes(value as string) && {
-          customerCompanyId: ''
-        })
+          customerCompanyId: '',
+          lineManagerId: ''
+        }),
+      // Clear line manager when email is added
+      ...(field === 'email' && value && { lineManagerId: '' })
     }))
   }
 
@@ -99,10 +126,10 @@ export function CreateUserDialog({
     setIsLoading(true)
 
     try {
-      if (!formData.displayName || !formData.email || !formData.password) {
+      if (!formData.displayName) {
         toast({
           title: 'Validation Error',
-          description: 'Please fill in all required fields',
+          description: 'Display name is required',
           variant: 'destructive'
         })
         setIsLoading(false)
@@ -119,18 +146,40 @@ export function CreateUserDialog({
         return
       }
 
+      if (hasEmail && !formData.password) {
+        toast({
+          title: 'Validation Error',
+          description: 'Password is required when an email address is provided',
+          variant: 'destructive'
+        })
+        setIsLoading(false)
+        return
+      }
+
+      if (isNoEmailWorker && !formData.lineManagerId) {
+        toast({
+          title: 'Validation Error',
+          description:
+            'No-email workers must have a line manager assigned for notification routing',
+          variant: 'destructive'
+        })
+        setIsLoading(false)
+        return
+      }
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           displayName: formData.displayName,
-          email: formData.email,
-          password: formData.password,
+          email: formData.email || undefined,
+          password: formData.password || undefined,
           role: formData.role,
           jobRole: isCustomerRole ? formData.jobRole || undefined : undefined,
           customerCompanyId: isCustomerRole
             ? formData.customerCompanyId
-            : undefined
+            : undefined,
+          lineManagerId: isNoEmailWorker ? formData.lineManagerId : undefined
         })
       })
 
@@ -146,7 +195,8 @@ export function CreateUserDialog({
         password: '',
         role: 'Customer User',
         jobRole: '',
-        customerCompanyId: ''
+        customerCompanyId: '',
+        lineManagerId: ''
       })
     } catch (error) {
       toast({
@@ -186,7 +236,14 @@ export function CreateUserDialog({
             </div>
 
             <div className='grid gap-2'>
-              <Label htmlFor='email'>Email</Label>
+              <Label htmlFor='email'>
+                Email{' '}
+                {isCustomerRole && (
+                  <span className='text-muted-foreground font-normal'>
+                    (optional — leave blank for no-email workers)
+                  </span>
+                )}
+              </Label>
               <Input
                 id='email'
                 type='email'
@@ -199,32 +256,34 @@ export function CreateUserDialog({
               />
             </div>
 
-            <div className='grid gap-2'>
-              <div className='flex justify-between items-center'>
-                <Label htmlFor='password'>Password</Label>
-                <Button
-                  type='button'
-                  variant='link'
-                  size='sm'
-                  className='h-auto px-0 text-xs'
-                  onClick={() =>
-                    handleChange('password', generateRandomPassword())
+            {hasEmail && (
+              <div className='grid gap-2'>
+                <div className='flex justify-between items-center'>
+                  <Label htmlFor='password'>Password</Label>
+                  <Button
+                    type='button'
+                    variant='link'
+                    size='sm'
+                    className='h-auto px-0 text-xs'
+                    onClick={() =>
+                      handleChange('password', generateRandomPassword())
+                    }
+                    disabled={isLoading}
+                  >
+                    Generate
+                  </Button>
+                </div>
+                <PasswordInput
+                  id='password'
+                  value={formData.password}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    handleChange('password', e.target.value)
                   }
+                  placeholder='••••••••'
                   disabled={isLoading}
-                >
-                  Generate
-                </Button>
+                />
               </div>
-              <PasswordInput
-                id='password'
-                value={formData.password}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  handleChange('password', e.target.value)
-                }
-                placeholder='••••••••'
-                disabled={isLoading}
-              />
-            </div>
+            )}
 
             <div className='grid gap-2'>
               <Label htmlFor='role'>Role</Label>
@@ -282,6 +341,40 @@ export function CreateUserDialog({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+
+            {isNoEmailWorker && (
+              <div className='grid gap-2'>
+                <Label htmlFor='lineManager'>Line Manager</Label>
+                <Select
+                  value={formData.lineManagerId}
+                  onValueChange={(value: string) =>
+                    handleChange('lineManagerId', value)
+                  }
+                  disabled={isLoading || companyUsers.length === 0}
+                >
+                  <SelectTrigger id='lineManager'>
+                    <SelectValue
+                      placeholder={
+                        companyUsers.length === 0
+                          ? 'Select a company first'
+                          : 'Select line manager...'
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companyUsers.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.displayName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className='text-xs text-muted-foreground'>
+                  Notifications and reminders for this worker will be sent to
+                  their line manager.
+                </p>
               </div>
             )}
           </div>

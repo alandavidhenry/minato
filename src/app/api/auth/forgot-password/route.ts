@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
     // Always return success — never reveal whether an email address exists
     const user = await getUserByEmail(email.toLowerCase().trim())
-    if (user) {
+    if (user?.email) {
       const token = await createResetToken(user.email)
       const resetUrl = `${process.env.NEXTAUTH_URL}/auth/reset-password?token=${token}`
 

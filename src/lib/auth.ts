@@ -52,6 +52,8 @@ export const authOptions: NextAuthOptions = {
         // reflected without requiring the user to sign out and back in.
         const dbUser = await getUserById(token.id)
         if (dbUser) {
+          token.name = dbUser.displayName
+          token.email = dbUser.email
           token.roles = [dbUser.role as UserRole]
           token.customerCompanyId = dbUser.customerCompanyId
           token.jobRole = dbUser.jobRole

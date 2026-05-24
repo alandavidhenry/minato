@@ -1,0 +1,22 @@
+name: Send Daily Reminders
+
+on:
+  schedule:
+    # 08:00 UTC daily
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send-reminders:
+    name: Send Reminder Notifications
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Trigger reminder cron endpoint
+        run: |
+          curl --fail-with-body -X GET \
+            "${{ vars.NEXTAUTH_URL }}/api/cron/reminders" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
