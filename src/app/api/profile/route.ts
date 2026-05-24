@@ -80,7 +80,14 @@ export async function PATCH(req: NextRequest) {
 
   if (email !== undefined && permissions.canEditEmail) {
     const trimmed = String(email).trim().toLowerCase()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    const atIdx = trimmed.indexOf('@')
+    const validEmail =
+      trimmed.length <= 254 &&
+      atIdx > 0 &&
+      atIdx === trimmed.lastIndexOf('@') &&
+      trimmed.lastIndexOf('.') > atIdx + 1 &&
+      !trimmed.includes(' ')
+    if (!validEmail) {
       return Response.json({ error: 'INVALID_EMAIL' }, { status: 400 })
     }
     updates.email = trimmed
