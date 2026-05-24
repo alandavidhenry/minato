@@ -423,7 +423,7 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT_WITH_SCHEMA)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: {} }
+      { formData: {}, declarationName: 'Jane Smith' }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(400)
@@ -438,11 +438,35 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT_WITH_SCHEMA)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: { q1: false, q2: 'Jane' } }
+      { formData: { q1: false, q2: 'Jane' }, declarationName: 'Jane Smith' }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(400)
     expect((await res.json()).error).toMatch(/Are fire exits clear\?/)
+  })
+
+  it('returns 400 when declarationName is missing', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { formData: {} }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/declaration name/i)
+  })
+
+  it('returns 400 when declarationName is blank whitespace', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { formData: {}, declarationName: '   ' }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/declaration name/i)
   })
 
   it('returns 200 with completion record when all required fields provided', async () => {
@@ -450,7 +474,10 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT_WITH_SCHEMA)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: { q1: true, q2: 'Jane Smith' } }
+      {
+        formData: { q1: true, q2: 'Jane Smith' },
+        declarationName: 'Jane Smith'
+      }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(200)
@@ -465,7 +492,7 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(ASSIGNMENT_WITH_CONDITIONAL_SCHEMA)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: { q1: true } }
+      { formData: { q1: true }, declarationName: 'Jane Smith' }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(200)
@@ -477,7 +504,7 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(ASSIGNMENT_WITH_CONDITIONAL_SCHEMA)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: { q1: false } }
+      { formData: { q1: false }, declarationName: 'Jane Smith' }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(400)
@@ -488,7 +515,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
     mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
     const req = jsonRequest(
-      'http://localhost/api/customer/assignments/assignment_123/complete'
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { declarationName: 'Jane Smith' }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(200)
@@ -503,7 +531,7 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetTemplateById.mockResolvedValue(TEMPLATE_WITH_QUESTIONS)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: {} }
+      { formData: {}, declarationName: 'Jane Smith' }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(400)
@@ -523,7 +551,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
         answers: [
           { id: 'cq1', answer: 'wrong answer' },
           { id: 'cq2', answer: 'Near the main entrance' }
-        ]
+        ],
+        declarationName: 'Jane Smith'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -544,7 +573,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
         answers: [
           { id: 'cq1', answer: '  Evacuate  ' }, // extra whitespace + different case
           { id: 'cq2', answer: 'near the main entrance' }
-        ]
+        ],
+        declarationName: 'Jane Smith'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))

@@ -80,16 +80,26 @@ export async function POST(
     const {
       workerId,
       formData = {},
-      answers = []
+      answers = [],
+      declarationName: rawDeclarationName = ''
     } = body as {
       workerId?: string
       formData?: Record<string, unknown>
       answers?: { id: string; answer: string }[]
+      declarationName?: string
     }
+    const declarationName = rawDeclarationName.trim()
 
     if (!workerId) {
       return NextResponse.json(
         { error: 'Missing required field: workerId' },
+        { status: 400 }
+      )
+    }
+
+    if (!declarationName) {
+      return NextResponse.json(
+        { error: 'Declaration name is required.' },
         { status: 400 }
       )
     }
@@ -201,7 +211,8 @@ export async function POST(
         signedAt: new Date(record.signedAt),
         companyName: company.name,
         formSchema: visibleSchema,
-        formData: visibleFormData
+        formData: visibleFormData,
+        declarationName
       })
       const blobPath = await uploadPdfToBlob(
         record.id,

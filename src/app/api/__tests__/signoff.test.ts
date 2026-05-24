@@ -219,7 +219,10 @@ describe('GET /api/signoff/[companyId]', () => {
 
 describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
   it('records a kiosk completion for a no-email worker', async () => {
-    const req = makePostRequest('co_1', 'asgn_1', { workerId: 'worker_1' })
+    const req = makePostRequest('co_1', 'asgn_1', {
+      workerId: 'worker_1',
+      declarationName: 'Bob Smith'
+    })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
     })
@@ -230,6 +233,27 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
     expect(mockCreateCompletionRecord).toHaveBeenCalledWith(
       expect.objectContaining({ signedById: 'worker_1' })
     )
+  })
+
+  it('returns 400 when declarationName is missing', async () => {
+    const req = makePostRequest('co_1', 'asgn_1', { workerId: 'worker_1' })
+    const res = await completeKiosk(req, {
+      params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
+    })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/declaration name/i)
+  })
+
+  it('returns 400 when declarationName is blank whitespace', async () => {
+    const req = makePostRequest('co_1', 'asgn_1', {
+      workerId: 'worker_1',
+      declarationName: '   '
+    })
+    const res = await completeKiosk(req, {
+      params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
+    })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/declaration name/i)
   })
 
   it('returns 400 when workerId is missing', async () => {
@@ -246,7 +270,10 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
       ...NO_EMAIL_WORKER,
       email: 'hasEmail@co.com'
     })
-    const req = makePostRequest('co_1', 'asgn_1', { workerId: 'worker_1' })
+    const req = makePostRequest('co_1', 'asgn_1', {
+      workerId: 'worker_1',
+      declarationName: 'Bob Smith'
+    })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
     })
@@ -258,7 +285,10 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
       ...NO_EMAIL_WORKER,
       customerCompanyId: 'other_co'
     })
-    const req = makePostRequest('co_1', 'asgn_1', { workerId: 'worker_1' })
+    const req = makePostRequest('co_1', 'asgn_1', {
+      workerId: 'worker_1',
+      declarationName: 'Bob Smith'
+    })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
     })
@@ -270,7 +300,10 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
       ...ASSIGNMENT,
       customerCompanyId: 'other_co'
     })
-    const req = makePostRequest('co_1', 'asgn_1', { workerId: 'worker_1' })
+    const req = makePostRequest('co_1', 'asgn_1', {
+      workerId: 'worker_1',
+      declarationName: 'Bob Smith'
+    })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
     })
@@ -282,7 +315,10 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
       ...ASSIGNMENT,
       userId: 'other_worker'
     })
-    const req = makePostRequest('co_1', 'asgn_1', { workerId: 'worker_1' })
+    const req = makePostRequest('co_1', 'asgn_1', {
+      workerId: 'worker_1',
+      declarationName: 'Bob Smith'
+    })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
     })
@@ -297,7 +333,8 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
     })
     const req = makePostRequest('co_1', 'asgn_1', {
       workerId: 'worker_1',
-      answers: [{ id: 'q1', answer: 'B' }]
+      answers: [{ id: 'q1', answer: 'B' }],
+      declarationName: 'Bob Smith'
     })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
@@ -315,7 +352,8 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
     })
     const req = makePostRequest('co_1', 'asgn_1', {
       workerId: 'worker_1',
-      answers: [{ id: 'q1', answer: 'A' }]
+      answers: [{ id: 'q1', answer: 'A' }],
+      declarationName: 'Bob Smith'
     })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
