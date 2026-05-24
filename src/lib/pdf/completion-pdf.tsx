@@ -77,6 +77,21 @@ const styles = StyleSheet.create({
   fieldValue: {
     fontSize: 10
   },
+  declarationSection: {
+    marginBottom: 24,
+    borderTopWidth: 2,
+    borderTopColor: '#2563EB',
+    paddingTop: 16
+  },
+  declarationText: {
+    fontSize: 9,
+    color: '#6B7280',
+    marginBottom: 10
+  },
+  declarationNameValue: {
+    fontSize: 13,
+    fontFamily: 'Helvetica-Bold'
+  },
   footer: {
     position: 'absolute',
     bottom: 32,
@@ -99,6 +114,7 @@ export interface CompletionPDFProps {
   companyName: string
   formSchema: FormSchema
   formData: Record<string, unknown>
+  declarationName?: string
 }
 
 function formatFieldValue(field: FormField, value: unknown): string {
@@ -129,7 +145,8 @@ export function CompletionDocument({
   signedAt,
   companyName,
   formSchema,
-  formData
+  formData,
+  declarationName
 }: CompletionPDFProps) {
   return (
     <Document title={`${templateTitle} — Completion Record`}>
@@ -171,6 +188,18 @@ export function CompletionDocument({
                 </Text>
               </View>
             ))}
+          </View>
+        )}
+
+        {/* Declaration */}
+        {declarationName && (
+          <View style={styles.declarationSection}>
+            <Text style={styles.sectionTitle}>Declaration</Text>
+            <Text style={styles.declarationText}>
+              I confirm that I have read and understood this document and agree
+              to comply with its requirements.
+            </Text>
+            <Text style={styles.declarationNameValue}>{declarationName}</Text>
           </View>
         )}
 

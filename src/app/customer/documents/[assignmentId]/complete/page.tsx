@@ -47,6 +47,8 @@ export default function CompleteDocumentPage() {
   const [formValues, setFormValues] = useState<Record<string, unknown>>({})
   const [answerValues, setAnswerValues] = useState<Record<string, string>>({})
   const [failedQuestionIds, setFailedQuestionIds] = useState<string[]>([])
+  const [declarationName, setDeclarationName] = useState('')
+  const [declarationError, setDeclarationError] = useState(false)
 
   useEffect(() => {
     async function fetchAssignment() {
@@ -81,6 +83,12 @@ export default function CompleteDocumentPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    if (!declarationName.trim()) {
+      setDeclarationError(true)
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -102,7 +110,11 @@ export default function CompleteDocumentPage() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ formData: visibleFormData, answers })
+          body: JSON.stringify({
+            formData: visibleFormData,
+            answers,
+            declarationName: declarationName.trim()
+          })
         }
       )
 
@@ -272,6 +284,42 @@ export default function CompleteDocumentPage() {
             </div>
           </>
         )}
+
+        <Separator />
+        <div className='space-y-3'>
+          <div>
+            <h2 className='text-lg font-semibold'>Declaration</h2>
+            <p className='text-sm text-muted-foreground'>
+              By entering your full name below, you confirm that you have read
+              and understood this document and agree to comply with its
+              requirements.
+            </p>
+          </div>
+          <div className='grid gap-2'>
+            <Label
+              htmlFor='declaration-name'
+              className={declarationError ? 'text-destructive' : undefined}
+            >
+              Full name
+              <span className='ml-1 text-destructive'>*</span>
+            </Label>
+            <Input
+              id='declaration-name'
+              value={declarationName}
+              onChange={(e) => {
+                setDeclarationName(e.target.value)
+                setDeclarationError(false)
+              }}
+              disabled={isSubmitting}
+              placeholder='Type your full name to sign'
+            />
+            {declarationError && (
+              <p className='text-xs text-destructive'>
+                Please enter your full name to confirm this declaration.
+              </p>
+            )}
+          </div>
+        </div>
 
         <div className='flex gap-3'>
           <Button

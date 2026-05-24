@@ -95,6 +95,14 @@ export async function POST(
     const formData: Record<string, unknown> = body.formData ?? {}
     const submittedAnswers: { id: string; answer: string }[] =
       body.answers ?? []
+    const declarationName: string = (body.declarationName ?? '').trim()
+
+    if (!declarationName) {
+      return NextResponse.json(
+        { error: 'Declaration name is required.' },
+        { status: 400 }
+      )
+    }
 
     // Validate comprehension answers — fetch full template to get correct answers
     const templateRecord = await getDocumentTemplateById(assignment.templateId)
@@ -178,7 +186,8 @@ export async function POST(
         signedAt: new Date(record.signedAt),
         companyName: company?.name ?? 'Unknown Company',
         formSchema: visibleSchema,
-        formData: visibleFormData
+        formData: visibleFormData,
+        declarationName
       })
       const blobPath = await uploadPdfToBlob(
         record.id,
