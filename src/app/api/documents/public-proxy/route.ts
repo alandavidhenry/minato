@@ -16,12 +16,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
   }
 
-  // Enforce https and an exact Azure Blob Storage hostname suffix to prevent SSRF.
-  // .includes() alone can be bypassed (e.g. evil.com?.blob.core.windows.net).
-  const allowedHost = process.env.AZURE_STORAGE_PROXY_HOST
-  const validHost = allowedHost
-    ? parsedUrl.hostname === allowedHost
-    : parsedUrl.hostname.endsWith('.blob.core.windows.net')
+  // Enforce https and an exact server-controlled hostname allowlist to prevent SSRF.
+  const allowedHost = process.env.AZURE_STORAGE_PROXY_HOST?.toLowerCase()
+  if (!allowedHost) {
+    console.error('AZURE_STORAGE_PROXY_HOST is not configured')
+    return NextResponse.json({ error: 'Proxy host is not configured' }, { status: 500 })
+  }
+
+  const requestHost = parsedUrl.hostname.toLowerCase()
+  const validHost = requestHost === allowedHost
 
   if (parsedUrl.protocol !== 'https:' || !validHost) {
     return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
@@ -44,7 +47,7 @@ export async function GET(request: NextRequest) {
     for (const [key, value] of parsedUrl.searchParams) {
       safeUrl.searchParams.set(key, value)
     }
-    const response = await fetch(safeUrl)
+    const response = await fetch(safeUrl.toString())
 
     if (!response.ok) {
       return NextResponse.json(
