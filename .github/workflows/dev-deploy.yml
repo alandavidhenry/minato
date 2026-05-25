@@ -6,10 +6,12 @@ on:
     paths:
       - src/**
       - public/**
+      - e2e/**
       - package.json
       - package-lock.json
       - next.config.mjs
       - postcss.config.mjs
+      - playwright.config.ts
       - Dockerfile
       - .github/workflows/**
 
@@ -28,9 +30,14 @@ jobs:
     name: Security Scan
     uses: ./.github/workflows/security-scan.yml
 
+  e2e:
+    name: E2E Tests
+    uses: ./.github/workflows/e2e-tests.yml
+    secrets: inherit
+
   setup:
     name: Extract Version
-    needs: [lint_and_test, security_scan]
+    needs: [lint_and_test, security_scan, e2e]
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}

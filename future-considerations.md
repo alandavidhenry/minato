@@ -285,7 +285,7 @@ Add a `tenantId` foreign key to every table. All queries are scoped by `tenantId
 ## Testing Strategy
 
 ### Current state
-Vitest is configured. Unit and integration tests are in place. E2E tests are not yet written.
+Vitest is configured. Unit and integration tests are in place. E2E tests written with Playwright.
 
 **Stack:**
 
@@ -293,7 +293,7 @@ Vitest is configured. Unit and integration tests are in place. E2E tests are not
 |---|---|---|
 | Unit | Vitest | Done — full coverage of `src/lib/` and `src/lib/file-system/` |
 | Integration | Vitest (direct route handler calls) | Done — health, admin user CRUD, forgot/reset password, all document routes |
-| E2E | Playwright | Not yet started |
+| E2E | Playwright | Done — 31 tests in `e2e/`; API mocked with `page.route()` (no DB needed) |
 | Coverage | Vitest built-in (`v8`) | Configured |
 
 **Integration tests cover all document routes** (`src/app/api/__tests__/documents.test.ts`): upload, download, delete, move, rename, share, versions — auth checks, validation, success paths, and failure paths for each.
@@ -309,7 +309,7 @@ This works well and catches design problems early. Always request tests before i
 **Test discipline (non-negotiable):** update existing tests whenever code changes; write new tests whenever new code is added.
 
 ### What remains
-- **E2E tests (Playwright)** — sign in, view documents, admin manages users. Add once the document model is more stable, as UI tests are brittle against layout changes. Add Playwright step to CI after the suite exists.
+- **Expand E2E coverage** — template management (create/edit/publish), user creation, customer completion flow via portal, document upload.
 
 ### Coverage target
 High coverage on `src/lib/` (>90%) and critical API routes. E2E coverage of the five to ten most important user journeys. Do not chase 100% coverage at the expense of test quality.
@@ -348,7 +348,7 @@ GitHub Actions: lint → security scan → Docker build/push → Azure deploy �
 Lint, format check, type check, and all Vitest tests (unit + integration) run on every PR and release via `lint-format.yml`.
 
 ### Gaps to address
-- No E2E tests in the pipeline — add a Playwright step after the Docker build once E2E tests exist
+- ✅ E2E tests added to CI — `e2e-tests.yml` runs in parallel with lint/security on PR, dev-deploy, and prod-deploy; gates Docker build; uploads Playwright report as artifact
 - No staging environment — consider adding a `staging` branch/environment between `dev` and `main`
 - No database migration step — ✅ Done. `prisma migrate deploy` runs in `azure-deploy.yml` before the App Service deploy step, using `DATABASE_URL` from GitHub environment secrets.
 - No smoke test after deployment — ✅ Done. `GET /api/health` with 12 retries × 15s runs in `azure-deploy.yml` after the App Service deploy step.
@@ -356,7 +356,7 @@ Lint, format check, type check, and all Vitest tests (unit + integration) run on
 ### Recommended pipeline order (target state)
 1. Lint + format check + type check + unit/integration tests (`npm run checks`) ✓ done
 2. Docker build + push
-3. E2E tests against the built app (Playwright) — not yet
+3. ✅ E2E tests against the dev server (Playwright) — tests written; CI step added (`e2e-tests.yml`)
 4. Database migration (`prisma migrate deploy`) ✓ done — runs in `azure-deploy.yml` before deploy
 5. Azure deploy
 6. Post-deploy smoke test ✓ done — runs in `azure-deploy.yml` after deploy

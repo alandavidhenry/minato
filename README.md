@@ -136,6 +136,8 @@ npm run checks       # Lint + format check + TypeScript + tests (full quality ga
 npm test             # Run all tests
 npm run test:watch   # Run tests in watch mode
 npm run test:coverage # Run tests with coverage report
+npm run test:e2e     # Run Playwright E2E tests (requires dev server)
+npm run test:e2e:ui  # Open Playwright UI mode
 ```
 
 ## Testing
@@ -149,20 +151,23 @@ Tests are written with [Vitest](https://vitest.dev/) and live alongside the code
 | `src/lib/__tests__/` | Unit | `user-database` (including `jobRole`, `lineManagerId`, no-email worker creation, `resolveEmailRecipients` with line manager routing and deduplication), `password-reset`, `activity-logger`, `storage`, `url-shortener`, `version-manager`, `list-blobs`, `utils`, `assignments` (including `targetJobRoles` filtering), `completion-records` (including `getAssignmentStatusSummary`), `email` (`sendAssignmentNotification`, `sendReminderNotification`), `reminders` (`isReminderDay`, `getAssignmentsNeedingReminders` with no-email line manager routing) |
 | `src/lib/file-system/__tests__/` | Unit | `file-operations`, `folder-operations`, `format-utils`, `path-utils` |
 | `src/app/api/__tests__/` | Integration | `health`, admin user CRUD (including `jobRole` and `lineManagerId`), `forgot-password`, `reset-password`, document routes (`upload`, `download`, `delete`, `move`, `rename`, `share`, `versions`), admin companies/templates (including comprehension questions)/assignments (including `dueDate`, `targetJobRoles`, assignment notification emails, and no-email line manager routing)/completions (including status summary with outstanding users and overdue), customer assignments (including `jobRole` filtering)/completions (including comprehension answer validation and PDF download), cron reminders, kiosk sign-off (`GET` worker list, `POST` completion with worker validation and comprehension check) |
+| `e2e/` | E2E (Playwright) | Auth page UI, protected-route redirects, kiosk sign-off flow (company page, worker selection, form completion, success screen), admin dashboard (stats, navigation), customer documents (pending/complete split, button labels) |
 
-Unit tests mock the Prisma client and Azure SDKs directly and test `src/lib/` functions in isolation. Integration tests call API route handlers end-to-end, mocking only external services (Prisma client, Azure SDKs, email client, NextAuth session) — the full path through route handler → lib function → mocked infrastructure is exercised.
+Unit tests mock the Prisma client and Azure SDKs directly and test `src/lib/` functions in isolation. Integration tests call API route handlers end-to-end, mocking only external services (Prisma client, Azure SDKs, email client, NextAuth session) — the full path through route handler → lib function → mocked infrastructure is exercised. E2E tests run against the real Next.js dev server; API responses are intercepted with `page.route()` so no database or Azure credentials are required.
 
 **Test discipline:** Update tests whenever code changes. Add new tests whenever new code is added. Run `npm run checks` before every commit.
 
 ### Running tests
 
 ```bash
-npm test                  # Run all tests once
+npm test                  # Run all unit + integration tests once
 npm run test:watch        # Re-run on file changes
 npm run test:coverage     # Generate coverage report (output in coverage/)
+npm run test:e2e          # Run Playwright E2E tests (starts dev server automatically)
+npm run test:e2e:ui       # Open Playwright UI mode for interactive debugging
 ```
 
-All tests run in CI on every PR and release — no Azure credentials or running services are needed.
+Unit/integration tests run in CI on every PR and release — no Azure credentials or running services are needed. E2E tests also run in CI (`e2e-tests.yml`) against a locally-started dev server; only `NEXTAUTH_SECRET` is required as a secret (all API responses are mocked). The Playwright report is uploaded as a build artifact on every run.
 
 ## Email (Password Reset)
 
@@ -174,9 +179,9 @@ The ACS resources are defined in `infrastructure/modules/communication_service/`
 
 | Trigger | Workflow | What happens |
 |---|---|---|
-| PR opened/updated → `main` | `pr-check.yml` | Lint, security scan, Docker build (no push) |
-| Merge to `main` | `dev-deploy.yml` | Lint, security scan, build+push, DB migrate, deploy to dev, smoke test |
-| Release published in GitHub UI | `prod-deploy.yml` | Build+push, DB migrate, deploy to prod, smoke test |
+| PR opened/updated → `main` | `pr-check.yml` | Lint, security scan, E2E tests — all in parallel; Docker build (no push) gates on all three |
+| Merge to `main` | `dev-deploy.yml` | Lint, security scan, E2E tests — all in parallel; build+push, DB migrate, deploy to dev, smoke test |
+| Release published in GitHub UI | `prod-deploy.yml` | Lint + E2E tests in parallel; build+push, DB migrate, deploy to prod, smoke test |
 
 The smoke test polls `GET /api/health` (up to 12 × 15 s = 3 min) and fails the deployment if the app does not return `{ "status": "ok" }`. The health endpoint checks both the PostgreSQL database and Azure Blob Storage.
 

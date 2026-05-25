@@ -15,6 +15,8 @@ npm run checks       # Run lint + format check + TypeScript type check + tests
 npm test             # Run all tests (unit + integration)
 npm run test:watch   # Run tests in watch mode
 npm run test:coverage # Run tests with coverage report
+npm run test:e2e     # Run Playwright E2E tests (starts dev server automatically)
+npm run test:e2e:ui  # Open Playwright UI mode
 ```
 
 `npm run checks` is the full quality gate — run it before committing.
@@ -161,7 +163,7 @@ Core document model:
   - Cron: reminders (auth, zero sends, send count, 500 error)
   - Kiosk sign-off: `GET /api/signoff/[companyId]`, `POST /api/signoff/[companyId]/[assignmentId]` (worker validation, comprehension check, completion recording)
   - Document version cycle: `POST /api/admin/templates/[id]/publish-version` (auth, 404, success, 500); `templateVersion` on assignment creation; `publishNewTemplateVersion`; `createAssignmentsForNewVersion`; version-aware deduplication in `getAssignmentsForUser`
-- E2E: not yet started
+- E2E: 31 tests in `e2e/` covering auth UI, protected-route redirects, kiosk flow, admin dashboard, customer documents; API responses mocked with `page.route()` — no database or Azure credentials required to run
 
 **TDD workflow:** define interface types → write tests → implement to pass tests. Always request tests before implementation. Target >90% coverage on `src/lib/`.
 
@@ -170,7 +172,7 @@ Core document model:
 - Write new tests whenever new code is added
 - Run `npm run checks` before every commit
 
-Add E2E tests (Playwright) once the document model is more stable. Add E2E step to CI after the Playwright suite exists.
+Add E2E step to CI now that the Playwright suite exists (`npm run test:e2e`). Consider adding more flows (template management, user creation, completion sign-off via customer portal) as the suite matures.
 
 ## Future Considerations
 
