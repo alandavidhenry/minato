@@ -35,6 +35,7 @@ jobs:
       environment: prod
       version: ${{ needs.setup.outputs.version }}
       push: true
+    secrets: inherit
 
   deploy:
     name: Deploy to Azure Production
