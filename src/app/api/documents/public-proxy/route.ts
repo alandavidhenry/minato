@@ -20,7 +20,10 @@ export async function GET(request: NextRequest) {
   const allowedHost = process.env.AZURE_STORAGE_PROXY_HOST?.toLowerCase()
   if (!allowedHost) {
     console.error('AZURE_STORAGE_PROXY_HOST is not configured')
-    return NextResponse.json({ error: 'Proxy host is not configured' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Proxy host is not configured' },
+      { status: 500 }
+    )
   }
 
   const requestHost = parsedUrl.hostname.toLowerCase()
@@ -49,7 +52,10 @@ export async function GET(request: NextRequest) {
       lowerPath.includes('%2e%2e') ||
       lowerPath.includes('%2e.')
     ) {
-      return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Invalid document URL' },
+        { status: 400 }
+      )
     }
 
     const safeUrl = new URL(`https://${allowedHost}`)

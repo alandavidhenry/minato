@@ -40,11 +40,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Reconstruct the URL from validated components to sever the SSRF taint chain.
-    // Never pass parsedUrl.toString() (user input) directly to fetch.
-    const safeUrl = new URL(
-      `https://${parsedUrl.hostname}${parsedUrl.pathname}`
-    )
+    // Build the URL from server-controlled components only, severing CodeQL's SSRF taint chain.
+    // Host comes from the env var (never from user input); pathname is validated for traversal.
+    const normalizedPath = parsedUrl.pathname
+    const lowerPath = normalizedPath.toLowerCase()
+    if (
+      lowerPath.includes('/../') ||
+      lowerPath.endsWith('/..') ||
+      lowerPath.includes('%2e%2e') ||
+      lowerPath.includes('%2e.')
+    ) {
+      return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
+    }
+
+    const safeUrl = new URL(`https://${allowedHost}`)
+    safeUrl.pathname = normalizedPath
     for (const [key, value] of parsedUrl.searchParams) {
       safeUrl.searchParams.set(key, value)
     }
