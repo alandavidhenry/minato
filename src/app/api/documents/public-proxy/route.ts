@@ -39,14 +39,26 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Reconstruct the URL from validated components to sever the SSRF taint chain.
-    // Never pass parsedUrl.toString() (user input) directly to fetch.
-    const safeUrl = new URL(
-      `https://${parsedUrl.hostname}${parsedUrl.pathname}`
-    )
+    // Reconstruct URL with a server-controlled origin to avoid SSRF via user input.
+    // Never use user input for protocol/host.
+    const normalizedPath = parsedUrl.pathname
+    const lowerPath = normalizedPath.toLowerCase()
+    if (
+      lowerPath.includes('/../') ||
+      lowerPath.endsWith('/..') ||
+      lowerPath.includes('%2e%2e') ||
+      lowerPath.includes('%2e.')
+    ) {
+      return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
+    }
+
+    const safeUrl = new URL(`https://${allowedHost}`)
+    safeUrl.pathname = normalizedPath
+
     for (const [key, value] of parsedUrl.searchParams) {
       safeUrl.searchParams.set(key, value)
     }
+
     const response = await fetch(safeUrl.toString())
 
     if (!response.ok) {
