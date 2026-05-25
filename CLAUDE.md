@@ -26,7 +26,15 @@ Document management portal built on **Next.js 16 App Router** with **Azure** as 
 ### Data Layer
 - **Azure Blob Storage** — file storage, organized in hierarchical paths with versioning via naming convention; SAS tokens for secure temporary access (`src/lib/storage.ts`, `src/lib/file-system/`)
 - **Azure Table Storage** — one table: `activityLogs` (audit trail only); accessed via `@azure/data-tables` (`src/lib/activity-logger.ts`)
-- **Neon PostgreSQL + Prisma** — all relational data; schema in `prisma/schema.prisma`; Prisma client generated to `src/generated/prisma/`; singleton at `src/lib/prisma.ts`; uses `@prisma/adapter-pg` driver; models: `Tenant`, `User` (nullable `email String?` and `passwordHash String?` — users without email cannot log in; nullable `jobRole String?` for job role filtering; nullable `lineManagerId String?` self-referential FK → `User.id` — no-email workers route notifications to their line manager), `PasswordReset`, `CustomerCompany`, `DocumentTemplate` (with `formSchema Json?`, `questions Json?` — each question is `{ id, question, options: string[], answer: string }`, and `version Int @default(1)` incremented on each version publish), `Assignment` (with nullable `userId` for individual vs company-wide; nullable `dueDate DateTime?` for overdue tracking; nullable `targetJobRoles Json?` — string array restricting which job roles see this assignment; `templateVersion Int @default(1)` — snapshot of template version at assignment creation; partial unique indexes include templateVersion), `CompletionRecord`; lib functions in `src/lib/customer-companies.ts`, `src/lib/document-templates.ts`, `src/lib/assignments.ts`, `src/lib/completion-records.ts`; `getAssignmentStatusSummary` returns completed records + outstanding users + isOverdue; `getAssignmentsForUser` accepts optional `userJobRole`, filters by `targetJobRoles`, and deduplicates by showing the highest-version assignment per templateId (at same version, individual beats company-wide); `publishNewTemplateVersion` increments version and optionally applies content updates; `createAssignmentsForNewVersion` replicates all previous-version assignments at the new version; Prisma nullable JSON fields use `Prisma.NullableJsonNullValueInput` / `Prisma.InputJsonValue` (imported from `@/generated/prisma/client`)
+- **Neon PostgreSQL + Prisma** — all relational data
+  - Schema: `prisma/schema.prisma`; client generated to `src/generated/prisma/`; singleton at `src/lib/prisma.ts`; driver: `@prisma/adapter-pg`
+  - Models: `Tenant`, `User`, `PasswordReset`, `CustomerCompany`, `DocumentTemplate`, `Assignment`, `CompletionRecord`
+  - `User`: nullable `email?` and `passwordHash?` (no-email workers cannot log in); nullable `jobRole?`; nullable `lineManagerId?` self-ref FK → `User.id` (routes notifications to line manager)
+  - `DocumentTemplate`: `formSchema Json?`; `questions Json?` — each question is `{ id, question, options: string[], answer: string }`; `version Int @default(1)` — incremented on each publish
+  - `Assignment`: nullable `userId` (individual vs company-wide); nullable `dueDate?`; nullable `targetJobRoles Json?` (string array); `templateVersion Int @default(1)` — snapshot at assignment creation; partial unique indexes include `templateVersion`
+  - Lib: `src/lib/customer-companies.ts`, `src/lib/document-templates.ts`, `src/lib/assignments.ts`, `src/lib/completion-records.ts`
+  - Key functions: `getAssignmentStatusSummary` (completed records + outstanding users + isOverdue); `getAssignmentsForUser` (filters by `targetJobRoles`, deduplicates by highest-version per templateId — individual beats company-wide at same version); `publishNewTemplateVersion` (increments version, applies content updates); `createAssignmentsForNewVersion` (replicates all previous-version assignments at new version)
+  - Prisma nullable JSON fields: use `Prisma.NullableJsonNullValueInput` / `Prisma.InputJsonValue` (imported from `@/generated/prisma/client`)
 - **Azurite emulator** — set `USE_AZURITE=true` in `.env.local` for Azure Storage local development; PostgreSQL connects to Neon (or local DB) via `DATABASE_URL`
 
 ### Authentication
@@ -135,10 +143,10 @@ After every meaningful change, update these three files to reflect the new state
 
 Health and safety document management platform. Primary user: a small H&S consultancy (Simon) serving up to 100 client businesses. Alan is the sole developer. Future potential: market the platform to other H&S companies (SaaS).
 
-Core document model (target state — not yet implemented):
-- **Templates** — reusable H&S documents maintained by the consultancy
-- **Assignments** — templates assigned to specific customers (many-to-many, some customised per customer)
-- **Completions** — customer signs an assigned document; becomes an immutable signed PDF with audit trail
+Core document model:
+- **Templates** — reusable H&S documents maintained by the consultancy; support comprehension questions and versioning
+- **Assignments** — templates assigned to specific customers (individual or company-wide); job role filtering; version tracking
+- **Completions** — customer signs an assigned document; immutable signed PDF with audit trail
 
 ## Testing Strategy
 
@@ -146,7 +154,13 @@ Core document model (target state — not yet implemented):
 
 **Current coverage:**
 - Unit: full coverage of `src/lib/` and `src/lib/file-system/`
-- Integration: `health`, admin user CRUD (including `jobRole` and `lineManagerId` PATCH), password reset flows, all document API routes, admin companies/templates/assignments CRUD (company-wide and individual user, including comprehension questions PATCH, `dueDate`, `targetJobRoles`, assignment notification emails, and no-email worker line manager routing), admin completions (list + download + assignment status summary with outstanding users and overdue), customer assignments (list — company-wide + individual combined with `jobRole` filtering, get single, complete with required-field validation and comprehension answer validation, download) and completions (list + PDF download), cron reminders (auth, zero sends, send count, 500 error), kiosk sign-off (`GET /api/signoff/[companyId]`, `POST /api/signoff/[companyId]/[assignmentId]` — worker validation, comprehension check, completion recording), document version cycle (`POST /api/admin/templates/[id]/publish-version` — auth, 404, success with assignment count, 500; `templateVersion` passed to assignment creation; `publishNewTemplateVersion` increments version; `createAssignmentsForNewVersion` propagates to previous-version scopes; version-aware `getAssignmentsForUser` deduplication)
+- Integration:
+  - `health`
+  - Admin: user CRUD (`jobRole`, `lineManagerId` PATCH), password reset flows, document API routes, companies/templates/assignments CRUD (company-wide + individual; comprehension questions PATCH; `dueDate`; `targetJobRoles`; notification emails; no-email line manager routing), completions (list + download + status summary with outstanding users and overdue)
+  - Customer: assignments (list with `jobRole` filtering, get single, complete with field + answer validation, download), completions (list + PDF download)
+  - Cron: reminders (auth, zero sends, send count, 500 error)
+  - Kiosk sign-off: `GET /api/signoff/[companyId]`, `POST /api/signoff/[companyId]/[assignmentId]` (worker validation, comprehension check, completion recording)
+  - Document version cycle: `POST /api/admin/templates/[id]/publish-version` (auth, 404, success, 500); `templateVersion` on assignment creation; `publishNewTemplateVersion`; `createAssignmentsForNewVersion`; version-aware deduplication in `getAssignmentsForUser`
 - E2E: not yet started
 
 **TDD workflow:** define interface types → write tests → implement to pass tests. Always request tests before implementation. Target >90% coverage on `src/lib/`.
@@ -160,11 +174,8 @@ Add E2E tests (Playwright) once the document model is more stable. Add E2E step 
 
 ## Future Considerations
 
-See `future-considerations.md` for full architectural analysis. Key decisions pending:
+See `future-considerations.md` for full architectural analysis. Key items still pending:
 
-- **Database migration** — ✅ Done. Users and password resets now use Neon PostgreSQL via Prisma. Schema includes `Tenant` model and nullable `tenantId` on `User` ready for multi-tenancy. Activity logs remain in Azure Table Storage.
-- **Document model** — ✅ Done. Schema, API routes, tests, and UI all built. See below.
-- **Role model** — ✅ Done. Five roles implemented: `Platform Admin`, `Tenant Admin`, `Tenant Staff`, `Customer Admin`, `Customer User`. Defined in `src/types/rbac.ts`; `ADMIN_ROLES` constant used for admin-gate checks across all routes.
-- **Electronic signing** — start with server-side PDF generation (React-PDF) + audit trail. Signature pad (canvas) as next step. Third-party e-signing only if legally required.
-- **Multi-tenancy** — design schema for it now, build it later.
-- **Compliance** — GDPR (UK), data retention policy needed, signed documents retained 3-5 years under UK H&S law.
+- **Electronic signing** — server-side PDF (React-PDF) + audit trail done; signature pad (canvas) is next; third-party e-signing only if legally required
+- **Multi-tenancy** — schema has `Tenant` model and nullable `tenantId` on `User`; build it when needed
+- **Compliance** — GDPR (UK); data retention policy needed; signed documents retained 3–5 years under UK H&S law

@@ -25,17 +25,43 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
   }
 
-  const allowedHost = process.env.AZURE_STORAGE_PROXY_HOST
-  if (
-    (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') ||
-    (allowedHost && parsedUrl.hostname !== allowedHost)
-  ) {
+  const allowedHost = process.env.AZURE_STORAGE_PROXY_HOST?.toLowerCase()
+  if (!allowedHost) {
+    return NextResponse.json(
+      { error: 'Document proxy is not configured' },
+      { status: 500 }
+    )
+  }
+
+  const validHost = parsedUrl.hostname.toLowerCase() === allowedHost
+
+  if (parsedUrl.protocol !== 'https:' || !validHost) {
     return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
   }
 
   try {
-    // Fetch the document from Azure Storage
-    const response = await fetch(parsedUrl.toString())
+    // Build the URL from server-controlled components only, severing CodeQL's SSRF taint chain.
+    // Host comes from the env var (never from user input); pathname is validated for traversal.
+    const normalizedPath = parsedUrl.pathname
+    const lowerPath = normalizedPath.toLowerCase()
+    if (
+      lowerPath.includes('/../') ||
+      lowerPath.endsWith('/..') ||
+      lowerPath.includes('%2e%2e') ||
+      lowerPath.includes('%2e.')
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid document URL' },
+        { status: 400 }
+      )
+    }
+
+    const safeUrl = new URL(`https://${allowedHost}`)
+    safeUrl.pathname = normalizedPath
+    for (const [key, value] of parsedUrl.searchParams) {
+      safeUrl.searchParams.set(key, value)
+    }
+    const response = await fetch(safeUrl)
 
     if (!response.ok) {
       // Log the view activity

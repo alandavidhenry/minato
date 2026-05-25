@@ -16,12 +16,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
   }
 
-  // Enforce https and an exact Azure Blob Storage hostname suffix to prevent SSRF.
-  // .includes() alone can be bypassed (e.g. evil.com?.blob.core.windows.net).
-  const allowedHost = process.env.AZURE_STORAGE_PROXY_HOST
-  const validHost = allowedHost
-    ? parsedUrl.hostname === allowedHost
-    : parsedUrl.hostname.endsWith('.blob.core.windows.net')
+  // Enforce https and an exact server-controlled hostname allowlist to prevent SSRF.
+  const allowedHost = process.env.AZURE_STORAGE_PROXY_HOST?.toLowerCase()
+  if (!allowedHost) {
+    console.error('AZURE_STORAGE_PROXY_HOST is not configured')
+    return NextResponse.json(
+      { error: 'Proxy host is not configured' },
+      { status: 500 }
+    )
+  }
+
+  const requestHost = parsedUrl.hostname.toLowerCase()
+  const validHost = requestHost === allowedHost
 
   if (parsedUrl.protocol !== 'https:' || !validHost) {
     return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
@@ -36,8 +42,30 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Fetch the document from Azure Storage
-    const response = await fetch(parsedUrl.toString())
+    // Reconstruct URL with a server-controlled origin to avoid SSRF via user input.
+    // Never use user input for protocol/host.
+    const normalizedPath = parsedUrl.pathname
+    const lowerPath = normalizedPath.toLowerCase()
+    if (
+      lowerPath.includes('/../') ||
+      lowerPath.endsWith('/..') ||
+      lowerPath.includes('%2e%2e') ||
+      lowerPath.includes('%2e.')
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid document URL' },
+        { status: 400 }
+      )
+    }
+
+    const safeUrl = new URL(`https://${allowedHost}`)
+    safeUrl.pathname = normalizedPath
+
+    for (const [key, value] of parsedUrl.searchParams) {
+      safeUrl.searchParams.set(key, value)
+    }
+
+    const response = await fetch(safeUrl.toString())
 
     if (!response.ok) {
       return NextResponse.json(
