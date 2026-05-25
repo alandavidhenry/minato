@@ -25,10 +25,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
   }
 
-  const allowedHost = process.env.AZURE_STORAGE_PROXY_HOST
-  const validHost = allowedHost
-    ? parsedUrl.hostname === allowedHost
-    : parsedUrl.hostname.endsWith('.blob.core.windows.net')
+  const allowedHost = process.env.AZURE_STORAGE_PROXY_HOST?.toLowerCase()
+  if (!allowedHost) {
+    return NextResponse.json(
+      { error: 'Document proxy is not configured' },
+      { status: 500 }
+    )
+  }
+
+  const validHost = parsedUrl.hostname.toLowerCase() === allowedHost
 
   if (parsedUrl.protocol !== 'https:' || !validHost) {
     return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
