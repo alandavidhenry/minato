@@ -36,8 +36,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Fetch the document from Azure Storage
-    const response = await fetch(parsedUrl.toString())
+    // Reconstruct the URL from validated components to sever the SSRF taint chain.
+    // Never pass parsedUrl.toString() (user input) directly to fetch.
+    const safeUrl = new URL(`https://${parsedUrl.hostname}${parsedUrl.pathname}`)
+    for (const [key, value] of parsedUrl.searchParams) {
+      safeUrl.searchParams.set(key, value)
+    }
+    const response = await fetch(safeUrl)
 
     if (!response.ok) {
       return NextResponse.json(

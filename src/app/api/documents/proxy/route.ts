@@ -26,16 +26,22 @@ export async function GET(request: NextRequest) {
   }
 
   const allowedHost = process.env.AZURE_STORAGE_PROXY_HOST
-  if (
-    (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') ||
-    (allowedHost && parsedUrl.hostname !== allowedHost)
-  ) {
+  const validHost = allowedHost
+    ? parsedUrl.hostname === allowedHost
+    : parsedUrl.hostname.endsWith('.blob.core.windows.net')
+
+  if (parsedUrl.protocol !== 'https:' || !validHost) {
     return NextResponse.json({ error: 'Invalid document URL' }, { status: 400 })
   }
 
   try {
-    // Fetch the document from Azure Storage
-    const response = await fetch(parsedUrl.toString())
+    // Reconstruct the URL from validated components to sever the SSRF taint chain.
+    // Never pass parsedUrl.toString() (user input) directly to fetch.
+    const safeUrl = new URL(`https://${parsedUrl.hostname}${parsedUrl.pathname}`)
+    for (const [key, value] of parsedUrl.searchParams) {
+      safeUrl.searchParams.set(key, value)
+    }
+    const response = await fetch(safeUrl)
 
     if (!response.ok) {
       // Log the view activity
