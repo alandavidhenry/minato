@@ -37,7 +37,9 @@ export async function GET(request: NextRequest) {
   try {
     // Reconstruct the URL from validated components to sever the SSRF taint chain.
     // Never pass parsedUrl.toString() (user input) directly to fetch.
-    const safeUrl = new URL(`https://${parsedUrl.hostname}${parsedUrl.pathname}`)
+    const safeUrl = new URL(
+      `https://${parsedUrl.hostname}${parsedUrl.pathname}`
+    )
     for (const [key, value] of parsedUrl.searchParams) {
       safeUrl.searchParams.set(key, value)
     }
