@@ -36,3 +36,4 @@ jobs:
       environment: dev
       version: pr
       push: false
+    secrets: inherit
