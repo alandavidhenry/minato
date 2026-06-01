@@ -50,11 +50,10 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy container to Azure App Service
-        run: |
-          az webapp config container set \
-            --name "${{ vars.AZURE_APP_NAME }}" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --docker-custom-image-name "${{ inputs.image_uri }}"
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_APP_NAME }}
+          images: ${{ inputs.image_uri }}
 
       - name: Smoke test
         run: |
