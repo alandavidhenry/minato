@@ -1,12 +1,12 @@
 resource "azurerm_communication_service" "main" {
-  name                = "acs-${var.project}-${var.environment}"
+  name                = "acs-${var.project}-${var.environment}-uks"
   resource_group_name = var.resource_group_name
   data_location       = var.data_location
   tags                = var.tags
 }
 
 resource "azurerm_email_communication_service" "main" {
-  name                = "ecs-${var.project}-${var.environment}"
+  name                = "ecs-${var.project}-${var.environment}-uks"
   resource_group_name = var.resource_group_name
   data_location       = var.data_location
   tags                = var.tags

@@ -41,12 +41,6 @@ variable "https_only" {
   default     = true
 }
 
-variable "redirect_uris" {
-  description = "Redirect URIs for the application"
-  type        = list(string)
-  default     = []
-}
-
 variable "key_vault" {
   description = "Key Vault configuration"
   type = object({

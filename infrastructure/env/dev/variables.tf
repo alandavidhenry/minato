@@ -35,11 +35,6 @@ variable "https_only" {
   default     = true
 }
 
-variable "redirect_uris" {
-  description = "Redirect URIs for the application"
-  type        = list(string)
-}
-
 variable "key_vault" {
   description = "Key Vault configuration"
   type = object({
@@ -72,13 +67,6 @@ variable "document_intelligence" {
   default = {
     sku_name = "F0"
   }
-}
-
-variable "azure_ad" {
-  description = "Azure AD application configuration"
-  type = object({
-    password_end_date = string
-  })
 }
 
 variable "github_username" {

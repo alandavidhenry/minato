@@ -1,5 +1,24 @@
-# bootstrap/main.tf
+terraform {
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 4.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
+  }
+  required_version = ">= 1.11.0"
+}
+
+variable "subscription_id" {
+  description = "Azure subscription ID"
+  type        = string
+}
+
 provider "azurerm" {
+  subscription_id = var.subscription_id
   features {}
 }
 
