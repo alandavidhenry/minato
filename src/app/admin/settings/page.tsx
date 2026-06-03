@@ -26,7 +26,7 @@ type SecuritySettingValue = number | boolean
 export default function AdminSettingsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [generalSettings, setGeneralSettings] = useState({
-    siteName: 'Document Portal',
+    siteName: 'Minato',
     supportEmail: 'support@example.com',
     allowGuestAccess: false
   })
@@ -142,7 +142,7 @@ export default function AdminSettingsPage() {
               <CardHeader>
                 <CardTitle>General Settings</CardTitle>
                 <CardDescription>
-                  Configure the general settings for your document portal.
+                  Configure the general settings for your Minato platform.
                 </CardDescription>
               </CardHeader>
 
@@ -219,7 +219,7 @@ export default function AdminSettingsPage() {
                   Security Settings
                 </CardTitle>
                 <CardDescription>
-                  Configure security settings for your document portal.
+                  Configure security settings for your Minato platform.
                 </CardDescription>
               </CardHeader>
 
@@ -237,7 +237,7 @@ export default function AdminSettingsPage() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       handleSecuritySettingsChange(
                         'passwordMinLength',
-                        parseInt(e.target.value)
+                        Number.parseInt(e.target.value)
                       )
                     }
                     disabled={isLoading}
@@ -257,7 +257,7 @@ export default function AdminSettingsPage() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       handleSecuritySettingsChange(
                         'passwordExpireDays',
-                        parseInt(e.target.value)
+                        Number.parseInt(e.target.value)
                       )
                     }
                     disabled={isLoading}

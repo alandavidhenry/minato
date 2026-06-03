@@ -1,6 +1,6 @@
-# Document Portal
+# Minato
 
-A document management portal built with Next.js 16 App Router, Azure Blob Storage, and Azure Table Storage. Supports file browsing, upload, versioning, sharing, document scanning, and role-based access control.
+A Health & Safety document management platform built with Next.js 16 App Router, Azure Blob Storage, and Azure Table Storage. Supports file browsing, upload, versioning, sharing, document scanning, and role-based access control.
 
 ## How It Works
 

@@ -217,7 +217,7 @@ export function CreateUserDialog({
           <DialogHeader>
             <DialogTitle>Create New User</DialogTitle>
             <DialogDescription>
-              Add a new user to the document portal.
+              Add a new user to the Minato platform.
             </DialogDescription>
           </DialogHeader>
 

@@ -30,7 +30,7 @@ export async function POST(request: Request) {
         content: {
           subject: 'Reset your password',
           html: `
-            <p>You requested a password reset for your Document Portal account.</p>
+            <p>You requested a password reset for your Minato account.</p>
             <p><a href="${resetUrl}">Click here to reset your password</a></p>
             <p>This link expires in 1 hour. If you did not request this, you can ignore this email.</p>
           `

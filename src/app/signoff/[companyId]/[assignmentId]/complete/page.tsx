@@ -184,8 +184,8 @@ export default function KioskCompletePage() {
       <div className='flex flex-col items-center justify-center min-h-screen gap-4 text-center p-6'>
         <h1 className='text-2xl font-bold'>Access denied</h1>
         <p className='text-muted-foreground max-w-sm'>
-          This kiosk is for workers without a portal account. Please sign out
-          before using the kiosk sign-off page.
+          This kiosk is for workers without a Minato platform account. Please
+          sign out before using the kiosk sign-off page.
         </p>
         <Button
           variant='outline'

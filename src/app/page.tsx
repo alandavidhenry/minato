@@ -25,7 +25,7 @@ export default async function Home() {
 
   return (
     <div className='grid gap-4'>
-      <h1 className='text-3xl font-bold'>Document Portal</h1>
+      <h1 className='text-3xl font-bold'>Minato</h1>
       <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
         <Link href={docsHref}>
           <Card className='hover:bg-accent transition-colors cursor-pointer'>

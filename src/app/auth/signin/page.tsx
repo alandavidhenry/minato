@@ -54,7 +54,7 @@ function SignInContent() {
     <div className='w-full max-w-md space-y-8'>
       <Card>
         <CardHeader>
-          <CardTitle>Sign in to Document Portal</CardTitle>
+          <CardTitle>Sign in to Minato</CardTitle>
           <CardDescription>
             Enter your email and password to sign in
           </CardDescription>
@@ -110,7 +110,7 @@ function SignInLoading() {
     <div className='w-full max-w-md space-y-8'>
       <Card>
         <CardHeader>
-          <CardTitle>Sign in to Document Portal</CardTitle>
+          <CardTitle>Sign in to Minato</CardTitle>
           <CardDescription>Loading sign-in...</CardDescription>
         </CardHeader>
         <CardContent>
