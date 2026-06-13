@@ -4,10 +4,6 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
   }
   required_version = ">= 1.11.0"
 }
@@ -23,12 +19,12 @@ provider "azurerm" {
 }
 
 resource "azurerm_resource_group" "terraform_state" {
-  name     = "rg-terraform-state"
+  name     = "rg-terraform-state-prod-uks"
   location = "UK South"
 }
 
 resource "azurerm_storage_account" "terraform_state" {
-  name                     = "tfstate${random_string.suffix.result}"
+  name                     = "tfstateminatoproduks"
   resource_group_name      = azurerm_resource_group.terraform_state.name
   location                 = azurerm_resource_group.terraform_state.location
   account_tier             = "Standard"
@@ -37,15 +33,9 @@ resource "azurerm_storage_account" "terraform_state" {
 }
 
 resource "azurerm_storage_container" "terraform_state" {
-  name                  = "tfstate"
+  name                  = "tfstateprod"
   storage_account_id    = azurerm_storage_account.terraform_state.id
   container_access_type = "private"
-}
-
-resource "random_string" "suffix" {
-  length  = 6
-  special = false
-  upper   = false
 }
 
 output "storage_account_name" {

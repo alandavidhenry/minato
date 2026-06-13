@@ -1,12 +1,3 @@
-terraform {
-  backend "azurerm" {
-    resource_group_name  = "rg-terraform-state-dev-uks"
-    storage_account_name = "tfstateminatodevuks"
-    container_name       = "tfstate"
-    key                  = "minato-dev.tfstate"
-  }
-}
-
 module "minato" {
   source = "../../modules/minato"
 

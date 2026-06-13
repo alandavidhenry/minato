@@ -10,6 +10,14 @@ terraform {
     }
   }
   required_version = ">= 1.11.0"
+
+  backend "azurerm" {
+    resource_group_name  = "rg-terraform-state-prod-uks"
+    storage_account_name = "tfstateminatoproduks"
+    container_name       = "tfstateprod"
+    key                  = "minato-prod.tfstate"
+    use_azuread          = true
+  }
 }
 
 provider "azurerm" {
@@ -19,7 +27,6 @@ provider "azurerm" {
       recover_soft_deleted_key_vaults = true
     }
   }
-  subscription_id = var.subscription_id
 }
 
 provider "azurecaf" {}
