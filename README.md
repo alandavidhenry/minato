@@ -186,6 +186,8 @@ To release to production: go to **GitHub → Releases → Draft a new release**,
 
 Azure resources are defined with Terraform in `infrastructure/`. See `infrastructure/readme.md` for provisioning steps.
 
+**Terraform version:** 1.15+ required.
+
 Modules:
 - `resource_group` — Azure resource group
 - `storage` — Blob Storage account and containers
@@ -194,7 +196,42 @@ Modules:
 - `document_intelligence` — Azure AI Document Intelligence
 - `communication_service` — Azure Communication Services for email
 
-Environments are configured in `infrastructure/env/dev/` and `infrastructure/env/prod/`.
+Environments are configured in `infrastructure/env/Development/` and `infrastructure/env/Production/`.
+
+### Terraform State Backend
+
+Remote state is stored in Azure Blob Storage and accessed using Azure AD authentication (`ARM_USE_AZUREAD=true`) — no storage account keys are used. The CI/CD workflows set this via environment variable; no extra backend config is needed.
+
+### Bootstrap (first-time setup)
+
+Before running the main Terraform environments, provision the state storage account and grant the CI/CD service principal access:
+
+```bash
+cd infrastructure/bootstrap/Development   # or Production
+terraform init
+terraform apply \
+  -var="subscription_id=<SUB_ID>" \
+  -var="cicd_sp_object_id=<SP_OBJECT_ID>"
+```
+
+This creates the resource group, storage account, container, and assigns `Storage Blob Data Contributor` to the SP. Without this role assignment the backend init will fail with a 403 `AuthorizationPermissionMismatch`.
+
+**If the role assignment was created manually** (e.g. via CLI before the bootstrap was updated), import it into state so Terraform tracks it:
+
+```bash
+# 1. Find the role assignment resource ID
+az role assignment list \
+  --scope "/subscriptions/<SUB_ID>/resourceGroups/rg-terraform-state-dev-uks/providers/Microsoft.Storage/storageAccounts/tfstateminatodevuks" \
+  --role "Storage Blob Data Contributor" \
+  --query "[].id" -o tsv
+
+# 2. Import it
+terraform import \
+  -var="subscription_id=<SUB_ID>" \
+  -var="cicd_sp_object_id=<SP_OBJECT_ID>" \
+  azurerm_role_assignment.cicd_sp_state_blob \
+  "<role_assignment_resource_id>"
+```
 
 ## Deployment
 
