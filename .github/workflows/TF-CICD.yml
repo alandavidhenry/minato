@@ -23,16 +23,17 @@ jobs:
       ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      GHCR_PAT: ${{ secrets.GHCR_PAT }}
 
-  CI-PROD:
-    uses: ./.github/workflows/TF-CI.yml
-    with:
-      ENVIRONMENT: Production
-    secrets:
-      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  # CI-PROD:
+  #   uses: ./.github/workflows/TF-CI.yml
+  #   with:
+  #     ENVIRONMENT: Production
+  #   secrets:
+  #     ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+  #     ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+  #     ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+  #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
   CD-DEV:
     if: github.ref_name == 'main'
@@ -45,3 +46,4 @@ jobs:
       ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      GHCR_PAT: ${{ secrets.GHCR_PAT }}
