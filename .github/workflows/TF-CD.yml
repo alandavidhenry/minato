@@ -13,6 +13,8 @@ on:
         required: true
       ARM_TENANT_ID:
         required: true
+      DATABASE_URL:
+        required: true
 
 jobs:
   Deployment:
@@ -31,6 +33,7 @@ jobs:
       ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
       ARM_USE_OIDC: true
       ARM_USE_AZUREAD: true
+      TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
