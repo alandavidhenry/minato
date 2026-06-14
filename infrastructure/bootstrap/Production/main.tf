@@ -13,6 +13,11 @@ variable "subscription_id" {
   type        = string
 }
 
+variable "cicd_sp_object_id" {
+  description = "Object ID of the CI/CD service principal that needs access to the Terraform state storage account"
+  type        = string
+}
+
 provider "azurerm" {
   subscription_id = var.subscription_id
   features {}
@@ -36,6 +41,12 @@ resource "azurerm_storage_container" "terraform_state" {
   name                  = "tfstateprod"
   storage_account_id    = azurerm_storage_account.terraform_state.id
   container_access_type = "private"
+}
+
+resource "azurerm_role_assignment" "cicd_sp_state_blob" {
+  scope                = azurerm_storage_account.terraform_state.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = var.cicd_sp_object_id
 }
 
 output "storage_account_name" {
