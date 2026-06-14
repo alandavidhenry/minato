@@ -16,7 +16,6 @@ terraform {
     storage_account_name = "tfstateminatoproduks"
     container_name       = "tfstateprod"
     key                  = "minato-prod.tfstate"
-    use_azuread          = true
   }
 }
 
