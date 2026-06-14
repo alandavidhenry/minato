@@ -9,7 +9,7 @@ terraform {
       version = "= 2.0.0-preview3"
     }
   }
-  required_version = ">= 1.11.0"
+  required_version = ">= 1.15.0"
 
   backend "azurerm" {
     resource_group_name  = "rg-terraform-state-dev-uks"
