@@ -146,6 +146,7 @@ module "app_service" {
     "ACS_SENDER_ADDRESS"                    = module.communication_service.sender_address
     "DATABASE_URL"                          = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.database_url.versionless_id})"
     "CRON_SECRET"                           = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.cron_secret.versionless_id})"
+    "DEFAULT_ADMIN_EMAIL"                   = var.default_admin_email
   })
 }
 

@@ -21,7 +21,7 @@ npm run test:coverage # Run tests with coverage report
 
 ## Architecture
 
-Document management portal built on **Next.js 16 App Router** with **Azure** as the backend infrastructure.
+Document management platform built on **Next.js 16 App Router** with **Azure** as the backend infrastructure.
 
 ### Data Layer
 - **Azure Blob Storage** — file storage, organized in hierarchical paths with versioning via naming convention; SAS tokens for secure temporary access (`src/lib/storage.ts`, `src/lib/file-system/`)

@@ -1,8 +1,3 @@
-variable "subscription_id" {
-  description = "Azure subscription ID"
-  type        = string
-}
-
 variable "project" {
   description = "Project name"
   type        = string
@@ -33,11 +28,6 @@ variable "https_only" {
   description = "Force HTTPS for all traffic"
   type        = bool
   default     = true
-}
-
-variable "redirect_uris" {
-  description = "Redirect URIs for the application"
-  type        = list(string)
 }
 
 variable "key_vault" {
@@ -72,13 +62,6 @@ variable "document_intelligence" {
   default = {
     sku_name = "F0"
   }
-}
-
-variable "azure_ad" {
-  description = "Azure AD application configuration"
-  type = object({
-    password_end_date = string
-  })
 }
 
 variable "github_username" {

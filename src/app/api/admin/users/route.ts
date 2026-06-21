@@ -44,7 +44,7 @@ export async function GET(_request: NextRequest) {
       appRoleAssignments: [
         {
           id: 'local-role',
-          resourceDisplayName: 'Document Portal',
+          resourceDisplayName: 'Minato',
           principalDisplayName: user.displayName,
           appRoleId: user.role
         }

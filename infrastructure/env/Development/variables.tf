@@ -19,32 +19,15 @@ variable "resource_group_name" {
   default     = null
 }
 
-variable "document_intelligence" {
-  description = "Document Intelligence configuration"
-  type = object({
-    sku_name = string
-  })
-  default = {
-    sku_name = "F0"
-  }
-}
-
 variable "app_service_sku" {
   description = "App Service plan SKU"
   type        = string
-  default     = "B1"
 }
 
 variable "https_only" {
   description = "Force HTTPS for all traffic"
   type        = bool
   default     = true
-}
-
-variable "redirect_uris" {
-  description = "Redirect URIs for the application"
-  type        = list(string)
-  default     = []
 }
 
 variable "key_vault" {
@@ -71,22 +54,25 @@ variable "storage_container" {
   })
 }
 
+variable "document_intelligence" {
+  description = "Document Intelligence configuration"
+  type = object({
+    sku_name = string
+  })
+  default = {
+    sku_name = "F0"
+  }
+}
+
 variable "github_username" {
   description = "GitHub username for container registry"
   type        = string
-  sensitive   = false
 }
 
 variable "github_token" {
   description = "GitHub personal access token with package read permissions"
   type        = string
   sensitive   = true
-}
-
-variable "allowed_origins" {
-  description = "CORS allowed origins for storage account"
-  type        = list(string)
-  default     = []
 }
 
 variable "default_admin_email" {
@@ -96,7 +82,7 @@ variable "default_admin_email" {
 }
 
 variable "extra_app_settings" {
-  description = "Static app settings to merge with computed settings (Key Vault refs, URLs)"
+  description = "Static app settings to merge with computed settings"
   type        = map(string)
   default     = {}
 }
@@ -105,14 +91,4 @@ variable "database_url" {
   description = "Neon PostgreSQL connection string"
   type        = string
   sensitive   = true
-}
-
-variable "communication_service" {
-  description = "Azure Communication Service configuration"
-  type = object({
-    data_location = string
-  })
-  default = {
-    data_location = "Europe"
-  }
 }

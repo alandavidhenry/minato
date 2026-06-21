@@ -56,7 +56,7 @@ export function NavBar() {
           {/* Logo/Brand */}
           <div className='shrink-0'>
             <Link href='/' className='text-xl font-bold'>
-              Document Portal
+              Minato
             </Link>
           </div>
 

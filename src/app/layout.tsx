@@ -15,8 +15,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Document Portal',
-  description: "Your organization's document portal"
+  title: 'Minato',
+  description: "Your organization's document management and compliance portal"
 }
 
 export default function RootLayout({

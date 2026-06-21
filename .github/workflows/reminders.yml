@@ -1,9 +1,9 @@
 name: Send Daily Reminders
 
 on:
-  schedule:
+  # schedule:
     # 08:00 UTC daily
-    - cron: '0 8 * * *'
+    # - cron: '0 8 * * *'
   workflow_dispatch:
 
 permissions:

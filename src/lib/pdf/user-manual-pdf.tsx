@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
 function Footer({ section }: { section: string }) {
   return (
     <View style={styles.footer} fixed>
-      <Text style={styles.footerLeft}>Document Portal — User Guide</Text>
+      <Text style={styles.footerLeft}>Minato — User Guide</Text>
       <Text style={styles.footerRight}>{section}</Text>
     </View>
   )
@@ -319,12 +319,12 @@ function Tip({ children }: { children: string }) {
 
 export function UserManualDocument() {
   return (
-    <Document title='Document Portal — User Guide'>
+    <Document title='Minato — User Guide'>
       {/* ── COVER PAGE ── */}
       <Page size='A4' style={styles.coverPage}>
         <View style={styles.coverTop}>
           <Text style={styles.coverTag}>User Guide</Text>
-          <Text style={styles.coverTitle}>Document{'\n'}Portal</Text>
+          <Text style={styles.coverTitle}>Minato</Text>
           <Text style={styles.coverSubtitle}>
             For Administrators and Workers
           </Text>
@@ -335,7 +335,7 @@ export function UserManualDocument() {
         </View>
         <View style={styles.coverBottom}>
           <Text style={styles.coverNote}>
-            This guide covers all features of the Document Portal. Keep it to
+            This guide covers all features of the Minato platform. Keep it to
             hand for reference. For support, contact your system administrator.
           </Text>
         </View>
@@ -351,10 +351,10 @@ export function UserManualDocument() {
         </View>
 
         <Text style={styles.body}>
-          This section is for staff at your organisation who manage the portal —
-          creating documents, assigning them to client companies, and tracking
-          sign-offs. Access the admin area from the navigation bar at the top of
-          the screen.
+          This section is for staff at your organisation who manage the Minato
+          platform — creating documents, assigning them to client companies, and
+          tracking sign-offs. Access the admin area from the navigation bar at
+          the top of the screen.
         </Text>
 
         {/* Templates */}
@@ -449,9 +449,9 @@ export function UserManualDocument() {
         <Text style={styles.subHeading}>Kiosk sign-off link</Text>
         <Text style={styles.body}>
           Every company has a unique kiosk link for workers who do not have
-          portal accounts. You can copy the link or display the QR code to share
-          it with the company — pin it up at the workplace for workers to scan
-          with their phone.
+          Minato platform accounts. You can copy the link or display the QR code
+          to share it with the company — pin it up at the workplace for workers
+          to scan with their phone.
         </Text>
       </Page>
 
@@ -462,8 +462,8 @@ export function UserManualDocument() {
         {/* Users */}
         <Text style={styles.chapterHeading}>1.3 Users</Text>
         <Text style={styles.body}>
-          Manage all portal accounts from the Users section. You can search by
-          name or email.
+          Manage all Minato platform accounts from the Users section. You can
+          search by name or email.
         </Text>
 
         <Text style={styles.subHeading}>Adding a user</Text>
@@ -479,7 +479,7 @@ export function UserManualDocument() {
         </Bullet>
         <Bullet>
           If you leave email blank, the worker signs documents via the kiosk
-          link only; they cannot log in to the portal.
+          link only; they cannot log in to the Minato platform.
         </Bullet>
 
         <Text style={styles.subHeading}>Roles</Text>
@@ -584,16 +584,16 @@ export function UserManualDocument() {
 
         <Text style={styles.body}>
           This section is for workers who need to sign health and safety
-          documents. You may access the portal by logging in with your account,
-          or by using the kiosk link provided by your employer — you do not need
-          both.
+          documents. You may access the Minato platform by logging in with your
+          account, or by using the kiosk link provided by your employer — you do
+          not need both.
         </Text>
 
         {/* Signing in */}
         <Text style={styles.chapterHeading}>2.1 Signing In</Text>
         <Text style={styles.body}>
-          Open the portal address given to you by your administrator. Enter your
-          email address and password, then click "Sign In".
+          Open the Minato platform address given to you by your administrator.
+          Enter your email address and password, then click "Sign In".
         </Text>
 
         <Text style={styles.subHeading}>Forgotten password</Text>
@@ -662,9 +662,9 @@ export function UserManualDocument() {
         {/* Kiosk */}
         <Text style={styles.chapterHeading}>2.5 Kiosk Sign-Off</Text>
         <Text style={styles.body}>
-          If you do not have a portal account, your employer will give you a
-          link or a QR code printed at the workplace. Open this link on any
-          phone or computer — no password is needed.
+          If you do not have a Minato platform account, your employer will give
+          you a link or a QR code printed at the workplace. Open this link on
+          any phone or computer — no password is needed.
         </Text>
 
         <View style={{ marginTop: 6, marginBottom: 10 }}>
@@ -700,7 +700,7 @@ export function UserManualDocument() {
           <View style={styles.infoChip}>
             <Text style={styles.infoChipLabel}>Sign in</Text>
             <Text style={styles.infoChipValue}>
-              Portal URL → email + password
+              Minato platform URL → email + password
             </Text>
           </View>
           <View style={styles.infoChip}>

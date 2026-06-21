@@ -105,6 +105,240 @@ When Simon uploads a new version of a document, the new version triggers a fresh
 
 ---
 
+## Enhancement Roadmap
+
+Ordered by priority — quick wins and high-value UX first, then larger architectural features. Items later in the list may depend on earlier ones being in place.
+
+### P8 — Name Validation at Completion Signing
+
+**Goal:** Prevent fraudulent sign-offs where an authenticated user enters someone else's name on a completion record.
+
+When an authenticated user submits a completion, the name field they enter must match `session.user.name` on record (case-insensitive, trimmed whitespace). A mismatch returns HTTP 400 with a clear message and the customer UI highlights the name field.
+
+For kiosk sign-off (`/signoff/[companyId]`), the worker selects their own name from a dropdown, so no further name-matching is needed at this stage — the `workerId` is already validated server-side.
+
+**Future hardening (P8+):**
+- Require employee number or date of birth confirmation for higher-assurance sign-offs
+- Optional password re-entry before signing (especially useful if someone else has access to an unlocked device)
+- One-time PIN sent to line manager email before kiosk sign-off proceeds
+- `CompletionRecord` already stores `signerName`; add IP address and user-agent capture for audit trail
+
+---
+
+### P9 — Dashboard: Completions-Centric Redesign
+
+**Goal:** The admin dashboard is the first thing Simon sees. H&S compliance is fundamentally about completions — the dashboard should reflect that.
+
+Changes:
+- Top section: KPI tiles — total assignments active, completed this month, outstanding, overdue (across all companies)
+- "Recent activity" feed scoped to completion events only; remove upload/download/login events from this feed (those remain visible in the full activity log)
+- Add quick-action links: "View all outstanding", "Export overdue report"
+- Secondary stats (user count, company count, template count) remain but moved below the fold
+
+---
+
+### P10 — Users List: Group by Company
+
+**Goal:** The flat `/admin/users` list becomes unwieldy as user counts grow across 100 client businesses.
+
+Restructure the page to show users grouped under their company heading (accordion or collapsible section per company). Consultancy staff (Tenant Admin / Tenant Staff roles) sit in a separate "Internal Staff" group at the top. All existing CRUD operations, search, and role management remain in place.
+
+---
+
+### P11 — Activity Logs: Filter Controls and CSV Export
+
+**Goal:** The current activity log is a paginated flat list with no filtering. Simon needs to investigate events by user, company, and event type.
+
+Add filter controls to the activity logs list:
+- **Event type** — dropdown (completion, assignment, upload, download, user management, login, etc.)
+- **Company** — dropdown populated from `CustomerCompany` list
+- **User** — free-text search or dropdown
+- **Date range** — from/to date pickers
+
+Filtering applied server-side against Azure Table Storage (OData filter on partition/row key + attribute values). Add an "Export CSV" button that downloads the current filtered result set.
+
+The graphs on the activity logs page are currently tracking vanity metrics (upload count, login count). Replace them with compliance-oriented KPIs — see P14 below.
+
+---
+
+### P12 — Outstanding Completions: Filtered Table and Spreadsheet Export
+
+**Goal:** Simon currently has to navigate into each company individually to find outstanding or overdue items. A cross-company outstanding completions view is needed for client reporting and proactive chasing.
+
+New admin page (e.g. `/admin/completions/outstanding`):
+
+| Column | Notes |
+|---|---|
+| Company | Link to company detail |
+| Template | Link to template |
+| Version | v{N} badge |
+| Assigned To | User name or job role label for company-wide |
+| Due Date | Formatted, with overdue badge |
+| Days Overdue | Calculated server-side |
+| Last Reminder | Date of last reminder email sent |
+
+**Filters:** Company (multi-select), template, job role, due date range, overdue only toggle
+
+**Sort:** due date (default), company, template, overdue status
+
+**Export:** Download filtered results as CSV or XLSX. This replaces ad-hoc reporting and gives Simon something to send to clients or use in management reviews.
+
+---
+
+### P13 — Template Version History: Change Log and Diff View
+
+**Goal:** When Simon publishes a new version of a template (e.g. following new HSE legislation), there is currently no record of what changed or why. Auditors and company admins need to see the full version history with reasons.
+
+**Schema addition — `TemplateVersionHistory` table:**
+```
+TemplateVersionHistory {
+  id           String   @id @default(cuid())
+  templateId   String
+  template     DocumentTemplate @relation(...)
+  version      Int
+  changeReason String?           -- "New COSHH regulation April 2026"
+  snapshot     Json              -- {title, description, formSchema, questions} at this version
+  publishedAt  DateTime @default(now())
+  publishedBy  String?           -- userId of admin who published
+}
+```
+
+On `publishNewTemplateVersion`: save the current content snapshot to this table with the `changeReason` the admin provides before incrementing the version number.
+
+**"Publish as New Version" dialog changes:**
+- Add a required "Reason for change" text field (examples shown: "New legislation", "Corrected question wording", "Added hazard section")
+- The reason is stored on the history record and displayed in version history views
+
+**Template detail panel — new "Version History" tab:**
+- List of all versions with publish date, author, and change reason
+- Click any version to view the full snapshot
+- "Compare" — select two versions to see a structured side-by-side diff of title, description, form fields, and comprehension questions (additions in green, removals in red, unchanged in grey)
+
+---
+
+### P14 — Activity Logs: KPI Graphs and Audit Metrics
+
+**Goal:** Current graphs track volume metrics (uploads, logins) that have little meaning for H&S compliance. Replace with actionable compliance KPIs.
+
+**Compliance health:**
+- Completion rate by company (% of assigned templates completed) — horizontal bar chart sorted by rate ascending; highlights non-compliant companies at a glance
+- Overdue assignment count over time — line chart; a rising trend signals deteriorating compliance across the client base
+- Average days from assignment to completion per template — identifies documents that are systematically slow or unclear
+
+**Throughput:**
+- Completions per month (bar chart) — shows compliance throughput over the year; dips indicate periods of low engagement
+- Assignments created vs completions per month — a widening gap indicates a growing backlog
+
+**Risk indicators (table):**
+- Companies with no completions in the last 30 days
+- Templates never completed by anyone at a given company (coverage gaps)
+- Users with the most overdue items (top 10 ranked list)
+
+These metrics give Simon something he can show to clients as evidence of compliance activity and use internally to prioritise follow-up calls.
+
+---
+
+### P15 — Company Admin: Scoped Completions Dashboard
+
+**Goal:** Company admins (a client company's manager) currently have no visibility of their employees' completion status. They need to see their own team's compliance without requiring Simon to pull a report for them.
+
+New route: `/customer/admin/completions`
+
+Features:
+- Per-assignment completion status table scoped to `session.user.customerCompanyId` — reuses `getAssignmentStatusSummary`
+- Outstanding users per assignment with overdue badges
+- PDF download of individual employees' signed completion records
+- Filters: template, user, job role, date range
+- Export to CSV
+
+**Security requirements (non-negotiable):**
+- All API routes for this page must validate `requestedCompanyId === session.user.customerCompanyId` — never trust the role alone
+- Company admins see completion status and signed PDFs; they do not see raw form field values entered by employees (those may be sensitive)
+- No cross-company data leakage is possible at any query layer
+
+This is a read-only feature — company admins cannot create assignments, manage templates, or access other companies. Full self-serve creation is P16.
+
+---
+
+### P16 — Auto-Assign Templates to Job Roles
+
+**Goal:** Reduce manual assignment work by automatically matching templates to users when their job role aligns with the template's `targetJobRoles`. Currently, company-wide assignments with `targetJobRoles` filter the *view* for matching users — but there is no automatic record of "this user was enrolled in this template on this date."
+
+**Two models to choose from:**
+
+**Option A — Keep view-layer filtering (current approach, no schema change):**
+The existing `targetJobRoles` on company-wide assignments already handles this. No per-user assignment records are created; the document simply appears in the matching user's list. Simple and already working.
+
+**Option B — Explicit per-user auto-enrolment (stronger audit trail):**
+Add `autoEnroll Boolean @default(false)` to `Assignment`. When a company-wide assignment has `autoEnroll=true`:
+- On user creation or `jobRole` update, query all `autoEnroll=true` assignments for that company where the user's role matches `targetJobRoles`, and create individual `Assignment` records for the user
+- Creates a durable "enrolled on [date]" record per user — useful for audit evidence and for P15 company admin reporting
+
+Option B is recommended once the self-serve portal (P17) is in use, as company admins will expect to see explicit enrolment dates. Implement Option B at the same time as P17.
+
+---
+
+### P16b — Drag-and-Drop Form Builder with Starter Templates
+
+**Goal:** The existing form field builder in the "Edit Template" dialog is functional but list-based — fields are added and reordered via buttons, which becomes tedious for forms with many fields. A drag-and-drop interface with pre-built starter templates makes form creation significantly faster for Simon and is a prerequisite for making the self-serve portal (P17) usable by non-technical company admins.
+
+**Drag-and-drop reordering:**
+- Fields in the builder can be grabbed by a drag handle and reordered freely
+- Recommended library: `@dnd-kit/core` + `@dnd-kit/sortable` — lightweight, accessible (keyboard-navigable), actively maintained, and works well in React dialogs. Prefer over `react-beautiful-dnd` (deprecated) or `react-dnd` (heavier)
+- No change to the underlying `formSchema` JSON format — this is a UI-only enhancement
+
+**Field palette (drag-to-add):**
+- A panel alongside the canvas showing available field types: Text, Long text, Number, Date, Yes/No, Dropdown, File upload, Section heading
+- Dragging a field type from the palette onto the canvas inserts it at the drop position
+- Clicking a field type in the palette appends it to the end (existing behaviour preserved)
+
+**Starter templates:**
+Pre-populated field sets for common H&S document types that Simon can load as a starting point rather than building from scratch:
+
+| Template name | Pre-populated fields |
+|---|---|
+| COSHH Assessment | Substance name, supplier, hazard classification, exposure route, PPE required, emergency procedure, assessor name |
+| Manual Handling | Task description, load weight (kg), frequency, posture assessment, controls in place, residual risk rating |
+| Risk Assessment | Hazard description, who is at risk, likelihood (1–5), severity (1–5), existing controls, further actions |
+| Induction Checklist | Site rules acknowledged, PPE issued, emergency exits shown, fire assembly point confirmed, first aider contact known |
+| Toolbox Talk Record | Topic, presenter, date, site/location, attendee names (multi-entry) |
+
+Starter templates are client-side only — no server storage needed. They are hardcoded presets that populate the form builder canvas; Simon can then add, remove, or modify fields before saving.
+
+**Implementation notes:**
+- The builder lives entirely within `src/components/admin/edit-template-dialog.tsx` and its child components — no API changes
+- `formSchema` JSON format is unchanged; drag-and-drop affects only field ordering within the array
+- Starter template selection appears as a "Start from template" dropdown at the top of a blank form builder; dismissed once any field is added (to avoid accidental overwrites)
+- This enhancement is also the foundation for the self-serve portal (P17) — company admins creating their own forms need the same builder, and the starter templates reduce the learning curve considerably
+
+---
+
+### P17 — Self-Serve Portal: Company Admins Create and Assign Forms
+
+**Goal:** Reduce Simon's workload by allowing company admins to create their own internal forms (e.g. site-specific induction checklists, internal risk assessments) and assign them to their own employees. Simon manages the canonical H&S template library; company admins manage their company-specific additions.
+
+**Scope:**
+- Company-created templates are owned by the `CustomerCompany`, not the tenant
+- Visible only within that company — they do not appear in Simon's template library or other companies' views
+- All existing assignment, completion, version, reminder, and PDF flows apply unchanged to company-created templates
+
+**Schema change:**
+Add `ownerCompanyId String?` to `DocumentTemplate`. If set, this template was created by a company admin; if null, it belongs to the tenant (Simon's managed library). All tenant-managed template queries add `WHERE ownerCompanyId IS NULL`; company admin queries add `WHERE ownerCompanyId = {companyId}`.
+
+**Company admin UI — new section at `/customer/admin/templates`:**
+- Template list (company-owned only)
+- Create/edit template dialog — reuse the existing form field builder and comprehension question builder components
+- Assign to employees — same assign dialog as the main admin, scoped to their company
+- View completions (P15)
+
+**Consultancy admin UI changes:**
+- Simon's template library and workflow are unchanged
+- Simon can optionally view company-created templates from the company detail page for support and auditing purposes (read-only)
+
+**Versioning:** company-created templates follow the same `publishNewTemplateVersion` / `createAssignmentsForNewVersion` pattern. The `TemplateVersionHistory` table (P13) applies equally.
+
+---
+
 ## Document Model
 
 ### Current state (as of 2026-04)
@@ -155,7 +389,7 @@ User accounts and password reset tokens are stored in **Neon PostgreSQL** via **
 
 **What stays in Azure Storage:**
 - Blob Storage — all file storage stays here permanently
-- Table Storage — activity logs only (no change needed)
+- Table Storage — `activityLogs` table only (Terraform corrected to provision this table; the old stale `users` table definition has been removed)
 
 ### Why PostgreSQL was needed
 The document model (templates → assignments → completions) requires:
@@ -183,7 +417,7 @@ No separate `CustomerUser` model — the existing `User` model covers customer u
 
 ### Remaining deployment work
 - Migrate existing users from Azure Table Storage to PostgreSQL (one-time data migration script needed if there are production users)
-- Run `terraform apply` to provision the `database-url` Key Vault secret and App Service setting in each environment
+- Run `terraform apply` after the latest IaC fixes: storage table renamed from `users` → `activityLogs`; dead `azure_ad`/`redirect_uris` variables removed; `DEFAULT_ADMIN_EMAIL` now set via computed app settings; dev outputs now include `cron_secret`
 
 ---
 

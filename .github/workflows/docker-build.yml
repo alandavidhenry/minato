@@ -16,6 +16,7 @@ on:
         required: false
         type: boolean
         default: true
+
     secrets:
       DOCKERHUB_USERNAME:
         required: true
@@ -63,7 +64,7 @@ jobs:
           DOCKER_IMAGE="ghcr.io/${{ github.repository }}:${{ github.sha }}"
           echo "image_uri=$DOCKER_IMAGE" >> $GITHUB_OUTPUT
 
-          if [[ "${{ inputs.environment }}" == "prod" ]]; then
+          if [[ "${{ inputs.environment }}" == "Production" ]]; then
             TAGS="ghcr.io/${{ github.repository }}:${{ github.sha }},ghcr.io/${{ github.repository }}:latest,ghcr.io/${{ github.repository }}:v${{ inputs.version }}"
           else
             TAGS="ghcr.io/${{ github.repository }}:${{ github.sha }},ghcr.io/${{ github.repository }}:dev-latest"
@@ -77,5 +78,5 @@ jobs:
           context: .
           push: ${{ inputs.push }}
           tags: ${{ steps.image-info.outputs.tags }}
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:${{ inputs.environment == 'prod' && 'latest' || 'dev-latest' }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:${{ inputs.environment == 'Production' && 'latest' || 'dev-latest' }}
           cache-to: type=inline

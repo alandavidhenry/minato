@@ -1,12 +1,10 @@
-project         = "document-portal-next-azure"
-environment     = "prod"
+project         = "minato"
+environment     = "dev"
 location        = "UK South"
 github_username = "alandavidhenry"
 
 app_service_sku = "F1"
-https_only      = true
-
-redirect_uris = []
+https_only      = false
 
 key_vault = {
   sku_name = "standard"
@@ -27,16 +25,16 @@ document_intelligence = {
   sku_name = "F0"
 }
 
-azure_ad = {
-  password_end_date = "2027-12-31T00:00:00Z"
-}
-
 default_admin_email = "alandavidhenry@outlook.com"
 
 extra_app_settings = {
-  "WEBSITES_PORT"                       = "8080"
-  "WEBSITE_NODE_DEFAULT_VERSION"        = "~24"
+  # Storage proxy host for dev blob access
+  "AZURE_STORAGE_PROXY_HOST"            = "stminatodevuks.blob.core.windows.net"
   "SCM_DO_BUILD_DURING_DEPLOYMENT"      = "true"
-  "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "true"
+  "WEBSITE_HEALTHCHECK_MAXPINGFAILURES" = "10"
+  "WEBSITE_HTTPLOGGING_RETENTION_DAYS"  = "7"
+  "WEBSITE_NODE_DEFAULT_VERSION"        = "~24"
   "WEBSITES_CONTAINER_START_TIME_LIMIT" = "600"
+  "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "true"
+  "WEBSITES_PORT"                       = "8080"
 }

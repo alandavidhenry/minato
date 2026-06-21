@@ -18,6 +18,7 @@ permissions:
   packages: write
   security-events: write
   actions: read
+  id-token: write
 
 jobs:
   lint_and_test:
@@ -47,7 +48,7 @@ jobs:
     needs: setup
     uses: ./.github/workflows/docker-build.yml
     with:
-      environment: dev
+      environment: Development
       version: ${{ needs.setup.outputs.version }}
       push: true
     secrets: inherit
@@ -57,8 +58,10 @@ jobs:
     needs: [setup, build]
     uses: ./.github/workflows/azure-deploy.yml
     with:
-      environment: dev
+      environment: Development
       image_uri: ${{ needs.build.outputs.image_uri }}
     secrets:
-      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}

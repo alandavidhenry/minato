@@ -38,7 +38,7 @@ resource "azurerm_storage_container" "main" {
   container_access_type = each.value.access_type
 }
 
-resource "azurerm_storage_table" "users" {
-  name                 = "users"
+resource "azurerm_storage_table" "activity_logs" {
+  name                 = "activityLogs"
   storage_account_name = azurerm_storage_account.main.name
 }

@@ -2,7 +2,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — Document Portal'
+  title: 'Privacy Policy — Minato'
 }
 
 export default function PrivacyPolicy() {
@@ -16,9 +16,9 @@ export default function PrivacyPolicy() {
       <section className='space-y-3'>
         <h2 className='text-xl font-semibold'>1. Who we are</h2>
         <p className='text-muted-foreground'>
-          This Document Portal is operated by a health and safety consultancy
-          acting as the data controller. We provide document management and
-          compliance services to client businesses and their employees.
+          Minato is operated by a health and safety consultancy acting as the
+          data controller. We provide document management and compliance
+          services to client businesses and their employees.
         </p>
         <p className='text-muted-foreground'>
           To contact us about your data, please reach out via your account
@@ -29,7 +29,7 @@ export default function PrivacyPolicy() {
       <section className='space-y-3'>
         <h2 className='text-xl font-semibold'>2. What data we collect</h2>
         <p className='text-muted-foreground'>
-          We collect the following personal data when you use this portal:
+          We collect the following personal data when you use Minato:
         </p>
         <ul className='list-disc list-inside space-y-1 text-muted-foreground'>
           <li>Name</li>
@@ -40,7 +40,9 @@ export default function PrivacyPolicy() {
             Document completion records, including sign-off timestamps and
             comprehension question responses
           </li>
-          <li>Activity logs recording actions taken within the portal</li>
+          <li>
+            Activity logs recording actions taken within the Minato platform
+          </li>
         </ul>
       </section>
 
@@ -84,8 +86,8 @@ export default function PrivacyPolicy() {
       <section className='space-y-3'>
         <h2 className='text-xl font-semibold'>5. Third-party services</h2>
         <p className='text-muted-foreground'>
-          This portal uses the following third-party infrastructure, all of
-          which is covered by appropriate data processing agreements:
+          The Minato platform uses the following third-party infrastructure, all
+          of which is covered by appropriate data processing agreements:
         </p>
         <ul className='list-disc list-inside space-y-1 text-muted-foreground'>
           <li>
@@ -123,8 +125,8 @@ export default function PrivacyPolicy() {
       <section className='space-y-3'>
         <h2 className='text-xl font-semibold'>7. Cookies</h2>
         <p className='text-muted-foreground'>
-          This portal uses a single session cookie to keep you signed in. No
-          third-party tracking or advertising cookies are used.
+          The Minato platform uses a single session cookie to keep you signed
+          in. No third-party tracking or advertising cookies are used.
         </p>
       </section>
 
@@ -132,7 +134,7 @@ export default function PrivacyPolicy() {
         <h2 className='text-xl font-semibold'>8. Changes to this policy</h2>
         <p className='text-muted-foreground'>
           We may update this policy from time to time. Significant changes will
-          be communicated via the portal or by email where applicable.
+          be communicated via the Minato platform or by email where applicable.
         </p>
       </section>
     </div>

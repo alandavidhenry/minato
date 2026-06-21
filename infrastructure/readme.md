@@ -1,117 +1,185 @@
-# Document Portal Infrastructure
+# Minato Infrastructure
 
-This repository contains the Terraform code for deploying the Document Portal infrastructure to Azure. The infrastructure is organized into reusable modules and environment-specific configurations.
+Terraform code for the Minato Azure infrastructure. Organised into reusable modules and environment-specific configurations.
 
 ## Directory Structure
 
 ```
 infrastructure/
-├── modules/              # Shared modules
-│   ├── resource_group/   # Resource Group module
-│   ├── key_vault/        # Key Vault module
-│   ├── storage/          # Storage Account module
-│   ├── app_service/      # App Service module
-│   ├── azure_ad/         # Azure AD module
-│   └── document_portal/  # Composition module that uses all the above
-├── environments/         # Environment-specific configurations
-│   ├── dev/              # Development environment
-│   └── prod/             # Production environment
-└── bootstrap/            # For state management setup
+├── bootstrap/            # One-time state backend setup
+├── env/
+│   ├── Development/      # Development environment
+│   └── Production/       # Production environment
+└── modules/
+    ├── resource_group/
+    ├── key_vault/
+    ├── storage/
+    ├── app_service/
+    ├── document_intelligence/
+    ├── communication_service/
+    └── minato/  # Composition module — orchestrates all others
 ```
 
-## Getting Started
+## First-time provisioning (new Azure account)
 
 ### Prerequisites
 
-- [Terraform](https://www.terraform.io/downloads.html) (v1.11.0 or newer)
-- [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) (logged in)
-- [GitHub Personal Access Token](https://github.com/settings/tokens) with package read permissions
+- [Terraform](https://www.terraform.io/downloads.html) ≥ 1.11
+- [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) — logged in to the target account
+- GitHub PAT with `read:packages` scope (for GHCR image pulls)
+- Neon PostgreSQL connection string
 
-### Bootstrap
+### Azure CLI login
 
-Before you can deploy to any environment, you need to set up the Terraform state storage:
+If the browser login dialog does not show the correct account, use the device code flow to sign in manually:
 
-```bash
-cd infrastructure/bootstrap
+```powershell
+az login --tenant <TENANT_ID> --use-device-code
+```
+
+This prints a code. Open `https://microsoft.com/devicelogin`, enter the code, then sign in with the correct account. Find your tenant ID in **Azure Portal → Entra ID → Overview → Tenant ID**.
+
+### 1 — Bootstrap (Terraform state backend)
+
+Run once per environment to create the Azure Storage account that holds Terraform state. Bootstrap uses local state and is run manually — it does not go through CI/CD.
+
+**Development:**
+```powershell
+cd infrastructure/bootstrap/Development
 terraform init
-terraform apply
+terraform apply -var="subscription_id=YOUR_SUBSCRIPTION_ID"
 ```
 
-Note the outputs from this command, as you'll need them for the backend configuration.
-
-### Development Environment
-
-To deploy to the development environment:
-
-```bash
-cd infrastructure/environments/dev
-
-# Initialize Terraform with the backend config
-terraform init -backend-config=backend.conf
-
-# Set the GitHub token (NEVER commit this to version control)
-export TF_VAR_github_token="your_github_token"
-
-# Apply the configuration
-terraform apply
+**Production:**
+```powershell
+cd infrastructure/bootstrap/Production
+terraform init
+terraform apply -var="subscription_id=YOUR_SUBSCRIPTION_ID"
 ```
 
-### Production Environment
+### 2 — Create secrets files
 
-To deploy to the production environment:
-
-```bash
-cd infrastructure/environments/prod
-
-# Initialize Terraform with the backend config
-terraform init -backend-config=backend.conf
-
-# Set the GitHub token (NEVER commit this to version control)
-export TF_VAR_github_token="your_github_token"
-
-# Apply the configuration using the prod-specific variables
-terraform apply -var-file=prod.tfvars
+```powershell
+# Run in both env/Development and env/Production
+Copy-Item secrets.auto.tfvars.example secrets.auto.tfvars
 ```
 
-## Modules
+Fill in each `secrets.auto.tfvars`:
 
-### Resource Group Module
+```hcl
+subscription_id = "YOUR_AZURE_SUBSCRIPTION_ID"
+github_token    = "YOUR_GITHUB_PAT"        # read:packages scope
+database_url    = "YOUR_NEON_POSTGRES_URL"
+```
 
-Creates an Azure Resource Group.
+These files are `.gitignore`d — never commit them.
 
-### Key Vault Module
+### 3 — Create a service principal for GitHub Actions (OIDC)
 
-Creates an Azure Key Vault and manages secrets and access policies.
+```powershell
+az ad sp create-for-rbac --name "sp-minato-github"
+```
 
-### Storage Module
+Then add federated credentials for each GitHub environment:
 
-Creates an Azure Storage Account with containers and CORS rules.
+```powershell
+az ad app federated-credential create `
+  --id <APP_ID> `
+  --parameters '{
+    "name": "minato-development",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "subject": "repo:alandavidhenry/minato:environment:Development",
+    "audiences": ["api://AzureADTokenExchange"]
+  }'
 
-### App Service Module
+az ad app federated-credential create `
+  --id <APP_ID> `
+  --parameters '{
+    "name": "minato-production",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "subject": "repo:alandavidhenry/minato:environment:Production",
+    "audiences": ["api://AzureADTokenExchange"]
+  }'
+```
 
-Creates an Azure App Service Plan and App Service for hosting the application.
+Grant the SP **Contributor** on the subscription and **Storage Blob Data Contributor** on the Terraform state storage accounts.
 
-### Azure AD Module
+### 4 — Configure GitHub Actions environments
 
-Creates an Azure AD Application, Service Principal, and Client Secret for authentication.
+In **GitHub → repo → Settings → Environments**, configure `Development` and `Production`:
 
-### Document Portal Module
+**Secrets:**
 
-A composition module that combines all the above modules to create the complete infrastructure for the Document Portal application.
+| Secret | Value |
+|--------|-------|
+| `ARM_CLIENT_ID` | SP application (client) ID |
+| `ARM_TENANT_ID` | Azure tenant ID |
+| `ARM_SUBSCRIPTION_ID` | Azure subscription ID |
+| `DATABASE_URL` | Neon connection string |
+| `CRON_SECRET` | `terraform output -raw cron_secret` (per environment) |
+| `DOCKERHUB_USERNAME` | Docker Hub username (for hardened base images) |
+| `DOCKERHUB_TOKEN` | Docker Hub access token |
 
-## Environment Configuration
+**Variables:**
 
-Each environment (dev, prod) has its own:
+| Variable | Value |
+|----------|-------|
+| `AZURE_APP_NAME` | `terraform output app_service_name` |
+| `AZURE_RESOURCE_GROUP` | `terraform output resource_group_name` |
+| `NEXTAUTH_URL` | `https://<AZURE_APP_NAME>.azurewebsites.net` |
 
-- **main.tf** - Main Terraform configuration
-- **variables.tf** - Variable definitions
-- **terraform.tfvars / prod.tfvars** - Environment-specific variable values
-- **backend.conf** - Terraform state backend configuration
-- **outputs.tf** - Output definitions
+### 5 — Provision infrastructure via GitHub Actions
 
-## Best Practices
+Push to `main` to trigger the `Terraform - CICD` workflow. This will:
+- Validate and plan both environments
+- Automatically apply to **Development** on the `main` branch
 
-- Never commit sensitive information (like GitHub tokens) to version control
-- Use the backend configuration to keep state separate for each environment
-- Use modules for reusable components of your infrastructure
-- Document any changes to the infrastructure
+To apply to **Production**, push a version tag:
+
+```powershell
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+This triggers the `Terraform - Prod Deploy` workflow, which validates then applies to Production.
+
+### 6 — Deploy the app
+
+Push any app file change to `main` to trigger the dev deploy pipeline:
+1. Builds and pushes the Docker image to GHCR (`ghcr.io/alandavidhenry/minato`)
+2. Runs `prisma migrate deploy` against Neon
+3. Sets the container image on the Development App Service
+4. Smoke-tests `GET /api/health` (12 retries × 15 s)
+
+For Production, publish a GitHub release from a tag.
+
+---
+
+## Routine apply (after infrastructure changes)
+
+Infrastructure changes are applied via GitHub Actions — push to `main` for Development, push a `v*` tag for Production. To test locally before pushing:
+
+```powershell
+cd infrastructure/env/Development   # or Production
+terraform init
+terraform plan
+```
+
+---
+
+## What Terraform manages
+
+| Resource | Notes |
+|----------|-------|
+| Resource Group | Per environment |
+| Key Vault | Stores all secrets; app service has Get/List access via managed identity |
+| Storage Account | Blob container `documents`; Table `activityLogs` (audit trail) |
+| App Service Plan + App | Linux, Docker, system-assigned managed identity |
+| Document Intelligence | Free tier (F0); 500 pages/month |
+| Azure Communication Services | Email via managed Azure domain; 100 emails/day free |
+
+## What Terraform does NOT manage
+
+- Docker image tags — updated by GitHub Actions on every deploy
+- Neon PostgreSQL database schema — managed by `prisma migrate deploy` in the CI pipeline
+- GitHub Actions secrets — set manually (they contain values that only exist after `terraform apply`)
