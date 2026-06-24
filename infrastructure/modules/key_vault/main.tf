@@ -1,13 +1,7 @@
 data "azurerm_client_config" "current" {}
 
-resource "azurecaf_name" "key_vault" {
-  name          = var.project
-  resource_type = "azurerm_key_vault"
-  suffixes      = [var.environment]
-}
-
 resource "azurerm_key_vault" "main" {
-  name                = azurecaf_name.key_vault.result
+  name                = var.project
   resource_group_name = var.resource_group_name
   location            = var.location
   tenant_id           = data.azurerm_client_config.current.tenant_id

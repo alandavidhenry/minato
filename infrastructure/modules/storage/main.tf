@@ -1,11 +1,5 @@
-resource "azurecaf_name" "storage" {
-  name          = var.project
-  resource_type = "azurerm_storage_account"
-  suffixes      = [var.environment, var.suffix]
-}
-
 resource "azurerm_storage_account" "main" {
-  name                     = azurecaf_name.storage.result
+  name                     = var.project
   resource_group_name      = var.resource_group_name
   location                 = var.location
   account_tier             = var.account_tier

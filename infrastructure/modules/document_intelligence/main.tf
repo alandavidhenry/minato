@@ -1,11 +1,15 @@
-resource "azurecaf_name" "document_intelligence" {
-  name          = var.project
-  resource_type = "azurerm_cognitive_account"
-  suffixes      = [var.environment]
+locals {
+  location_short = {
+    "UK South" = "uks"
+    "uksouth"  = "uks"
+    "UK West"  = "ukw"
+    "ukwest"   = "ukw"
+  }[var.location]
+  name = "cog-${var.project}-${var.environment}-${local.location_short}"
 }
 
 resource "azurerm_cognitive_account" "document_intelligence" {
-  name                = azurecaf_name.document_intelligence.result
+  name                = local.name
   location            = var.location
   resource_group_name = var.resource_group_name
   kind                = "FormRecognizer"

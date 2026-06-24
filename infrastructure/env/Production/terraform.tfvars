@@ -1,7 +1,8 @@
-project         = "minato"
-environment     = "prod"
-location        = "UK South"
-github_username = "alandavidhenry"
+project              = "minato"
+environment          = "prod"
+location             = "UK South"
+app_service_location = "UK West"
+github_username      = "alandavidhenry"
 
 app_service_sku = "F1"
 https_only      = true
