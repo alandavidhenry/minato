@@ -36,11 +36,3 @@ variable "secrets" {
   default     = {}
 }
 
-variable "access_policies" {
-  description = "List of access policies for the Key Vault"
-  type = list(object({
-    object_id          = string
-    secret_permissions = list(string)
-  }))
-  default = []
-}

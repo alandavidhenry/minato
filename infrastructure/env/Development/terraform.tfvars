@@ -32,8 +32,6 @@ extra_app_settings = {
   # Storage proxy host for dev blob access
   "AZURE_STORAGE_PROXY_HOST"            = "stminatodevuks01.blob.core.windows.net"
   "SCM_DO_BUILD_DURING_DEPLOYMENT"      = "true"
-  "WEBSITE_HEALTHCHECK_MAXPINGFAILURES" = "10"
-  "WEBSITE_HTTPLOGGING_RETENTION_DAYS"  = "7"
   "WEBSITE_NODE_DEFAULT_VERSION"        = "~24"
   "WEBSITES_CONTAINER_START_TIME_LIMIT" = "600"
   "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "true"
