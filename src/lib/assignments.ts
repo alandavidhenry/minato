@@ -354,8 +354,7 @@ export async function createAssignmentsForNewVersion(
           userId: prev.userId,
           dueDate: null, // new version starts without a due date
           targetJobRoles: prev.targetJobRoles as
-            | Prisma.InputJsonValue
-            | undefined,
+            Prisma.InputJsonValue | undefined,
           templateVersion: newVersion
         }
       })

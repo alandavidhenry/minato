@@ -81,6 +81,11 @@ variable "github_token" {
   sensitive   = true
 }
 
+variable "subscription_id" {
+  description = "Azure subscription ID"
+  type        = string
+}
+
 variable "default_admin_email" {
   description = "Email of the default admin user"
   type        = string
