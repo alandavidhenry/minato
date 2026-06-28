@@ -44,9 +44,7 @@ module "key_vault" {
   sku_name            = var.key_vault.sku_name
   tags                = local.common_tags
 
-  # We'll add secrets and access policies later
-  secrets         = {}
-  access_policies = []
+  secrets = {}
 }
 
 module "storage" {
@@ -69,28 +67,47 @@ module "storage" {
   }
 }
 
+resource "azurerm_role_assignment" "kv_deployer" {
+  scope                = module.key_vault.key_vault_id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+resource "time_sleep" "kv_deployer_propagation" {
+  depends_on      = [azurerm_role_assignment.kv_deployer]
+  create_duration = "60s"
+}
+
 resource "azurerm_key_vault_secret" "database_url" {
   name         = "database-url"
   value        = var.database_url
   key_vault_id = module.key_vault.key_vault_id
+
+  depends_on = [time_sleep.kv_deployer_propagation]
 }
 
 resource "azurerm_key_vault_secret" "nextauth_secret" {
   name         = "nextauth-secret"
   value        = random_password.nextauth_secret.result
   key_vault_id = module.key_vault.key_vault_id
+
+  depends_on = [time_sleep.kv_deployer_propagation]
 }
 
 resource "azurerm_key_vault_secret" "cron_secret" {
   name         = "cron-secret"
   value        = random_password.cron_secret.result
   key_vault_id = module.key_vault.key_vault_id
+
+  depends_on = [time_sleep.kv_deployer_propagation]
 }
 
 resource "azurerm_key_vault_secret" "storage_connection_string" {
   name         = "storage-connection-string"
   value        = module.storage.primary_connection_string
   key_vault_id = module.key_vault.key_vault_id
+
+  depends_on = [time_sleep.kv_deployer_propagation]
 }
 
 module "document_intelligence" {
@@ -103,6 +120,8 @@ module "document_intelligence" {
   key_vault_id        = module.key_vault.key_vault_id
   sku_name            = var.document_intelligence.sku_name
   tags                = local.common_tags
+
+  depends_on = [time_sleep.kv_deployer_propagation]
 }
 
 module "communication_service" {
@@ -115,6 +134,8 @@ module "communication_service" {
   data_location       = var.communication_service.data_location
   key_vault_id        = module.key_vault.key_vault_id
   tags                = local.common_tags
+
+  depends_on = [time_sleep.kv_deployer_propagation]
 }
 
 module "app_service" {
@@ -150,14 +171,10 @@ module "app_service" {
   })
 }
 
-resource "azurerm_key_vault_access_policy" "app_service" {
-  key_vault_id = module.key_vault.key_vault_id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = module.app_service.app_service_identity_principal_id
-
-  secret_permissions = [
-    "Get", "List"
-  ]
+resource "azurerm_role_assignment" "kv_app_service" {
+  scope                = module.key_vault.key_vault_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.app_service.app_service_identity_principal_id
 }
 
 # Data source for current client config

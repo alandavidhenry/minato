@@ -39,6 +39,22 @@ az login --tenant <TENANT_ID> --use-device-code
 
 This prints a code. Open `https://microsoft.com/devicelogin`, enter the code, then sign in with the correct account. Find your tenant ID in **Azure Portal → Entra ID → Overview → Tenant ID**.
 
+### Register required resource providers
+
+Run once per subscription before the first `terraform apply`. The `Microsoft.Communication` provider is not registered by default and Terraform will fail to create Azure Communication Services resources without it.
+
+```powershell
+az provider register --namespace Microsoft.Communication
+```
+
+Check registration status (takes ~1 minute):
+
+```powershell
+az provider show --namespace Microsoft.Communication --query registrationState
+```
+
+Wait until the output is `"Registered"` before proceeding.
+
 ### 1 — Bootstrap (Terraform state backend)
 
 Run once per environment to create the Azure Storage account that holds Terraform state. Bootstrap uses local state and is run manually — it does not go through CI/CD.
@@ -102,7 +118,7 @@ az ad app federated-credential create `
   }'
 ```
 
-Grant the SP **Contributor** on the subscription and **Storage Blob Data Contributor** on the Terraform state storage accounts.
+Grant the SP **Owner** on the subscription (Contributor alone is insufficient — Owner is required to create role assignments) and **Storage Blob Data Contributor** on the Terraform state storage accounts.
 
 ### 4 — Configure GitHub Actions environments
 
@@ -167,12 +183,37 @@ terraform plan
 
 ---
 
+## Key Vault RBAC
+
+The Key Vault uses Azure RBAC (`rbac_authorization_enabled = true`) rather than vault access policies. Role assignments are managed by Terraform:
+
+| Principal | Role | Purpose |
+|-----------|------|---------|
+| Deploying principal (local user or GitHub Actions SP) | Key Vault Secrets Officer | Read/write secrets during `terraform apply` |
+| App Service managed identity | Key Vault Secrets User | Read secrets at runtime |
+
+The deploying principal is identified dynamically via `data.azurerm_client_config.current.object_id`, so the same code works for both local applies (your user account) and CI/CD applies (the service principal).
+
+### First-time apply caveat
+
+Azure RBAC assignments take up to 60 seconds to propagate. On a fresh apply where the Key Vault is being created for the first time, use a targeted apply to create the role assignment first:
+
+```powershell
+terraform apply -target='module.minato.azurerm_role_assignment.kv_deployer'
+# wait ~60 seconds
+terraform apply
+```
+
+Subsequent applies handle this automatically via a `time_sleep` resource in the Terraform code.
+
+---
+
 ## What Terraform manages
 
 | Resource | Notes |
 |----------|-------|
 | Resource Group | Per environment |
-| Key Vault | Stores all secrets; app service has Get/List access via managed identity |
+| Key Vault | RBAC-enabled; secrets written by Terraform, read by App Service at runtime |
 | Storage Account | Blob container `documents`; Table `activityLogs` (audit trail) |
 | App Service Plan + App | Linux, Docker, system-assigned managed identity |
 | Document Intelligence | Free tier (F0); 500 pages/month |
