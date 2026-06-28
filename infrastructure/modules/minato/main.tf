@@ -37,7 +37,7 @@ module "resource_group" {
 module "key_vault" {
   source = "../key_vault"
 
-  project             = local.kv_name
+  project             = var.project
   environment         = var.environment
   location            = var.location
   resource_group_name = module.resource_group.resource_group_name
@@ -52,7 +52,7 @@ module "key_vault" {
 module "storage" {
   source = "../storage"
 
-  project                  = local.st_name
+  project                  = var.project
   environment              = var.environment
   location                 = var.location
   resource_group_name      = module.resource_group.resource_group_name
@@ -110,6 +110,7 @@ module "communication_service" {
 
   project             = var.project
   environment         = var.environment
+  location            = var.location
   resource_group_name = module.resource_group.resource_group_name
   data_location       = var.communication_service.data_location
   key_vault_id        = module.key_vault.key_vault_id

@@ -1,5 +1,15 @@
+locals {
+  location_short = {
+    "UK South" = "uks"
+    "uksouth"  = "uks"
+    "UK West"  = "ukw"
+    "ukwest"   = "ukw"
+  }[var.location]
+  st_name = "st${replace(var.project, "-", "")}${var.environment}${local.location_short}01"
+}
+
 resource "azurerm_storage_account" "main" {
-  name                     = var.project
+  name                     = local.st_name
   resource_group_name      = var.resource_group_name
   location                 = var.location
   account_tier             = var.account_tier

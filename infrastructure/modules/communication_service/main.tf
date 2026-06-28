@@ -1,12 +1,21 @@
+locals {
+  location_short = {
+    "UK South" = "uks"
+    "uksouth"  = "uks"
+    "UK West"  = "ukw"
+    "ukwest"   = "ukw"
+  }[var.location]
+}
+
 resource "azurerm_communication_service" "main" {
-  name                = "acs-${var.project}-${var.environment}-uks"
+  name                = "acs-${var.project}-${var.environment}-${local.location_short}"
   resource_group_name = var.resource_group_name
   data_location       = var.data_location
   tags                = var.tags
 }
 
 resource "azurerm_email_communication_service" "main" {
-  name                = "ecs-${var.project}-${var.environment}-uks"
+  name                = "ecs-${var.project}-${var.environment}-${local.location_short}"
   resource_group_name = var.resource_group_name
   data_location       = var.data_location
   tags                = var.tags

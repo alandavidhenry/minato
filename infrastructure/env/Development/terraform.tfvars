@@ -30,7 +30,7 @@ default_admin_email = "alandavidhenry@outlook.com"
 
 extra_app_settings = {
   # Storage proxy host for dev blob access
-  "AZURE_STORAGE_PROXY_HOST"            = "stminatodevuks.blob.core.windows.net"
+  "AZURE_STORAGE_PROXY_HOST"            = "stminatodevuks01.blob.core.windows.net"
   "SCM_DO_BUILD_DURING_DEPLOYMENT"      = "true"
   "WEBSITE_HEALTHCHECK_MAXPINGFAILURES" = "10"
   "WEBSITE_HTTPLOGGING_RETENTION_DAYS"  = "7"
