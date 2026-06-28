@@ -4,8 +4,10 @@ locals {
     Project     = var.project
     CreatedBy   = "IaC"
   }
-  project_short            = substr(var.project, 0, 15)
-  project_short_no_hyphens = replace(local.project_short, "-", "")
-  kv_name                  = "kv-${local.project_short}-${var.environment}-uks"
-  st_name                  = "st${local.project_short_no_hyphens}${var.environment}-uks"
+  app_service_location_short = {
+    "UK South" = "uks"
+    "uksouth"  = "uks"
+    "UK West"  = "ukw"
+    "ukwest"   = "ukw"
+  }[var.app_service_location]
 }

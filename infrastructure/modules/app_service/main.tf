@@ -1,17 +1,16 @@
-resource "azurecaf_name" "app_service_plan" {
-  name          = var.project
-  resource_type = "azurerm_app_service_plan"
-  suffixes      = [var.environment]
-}
-
-resource "azurecaf_name" "app_service" {
-  name          = var.project
-  resource_type = "azurerm_app_service"
-  suffixes      = [var.environment]
+locals {
+  location_short = {
+    "UK South" = "uks"
+    "uksouth"  = "uks"
+    "UK West"  = "ukw"
+    "ukwest"   = "ukw"
+  }[var.location]
+  asp_name = "asp-${var.project}-${var.environment}-${local.location_short}"
+  app_name = "app-${var.project}-${var.environment}-${local.location_short}"
 }
 
 resource "azurerm_service_plan" "main" {
-  name                = azurecaf_name.app_service_plan.result
+  name                = local.asp_name
   resource_group_name = var.resource_group_name
   location            = var.location
   os_type             = "Linux"
@@ -20,7 +19,7 @@ resource "azurerm_service_plan" "main" {
 }
 
 resource "azurerm_linux_web_app" "main" {
-  name                = azurecaf_name.app_service.result
+  name                = local.app_name
   resource_group_name = var.resource_group_name
   location            = var.location
   service_plan_id     = azurerm_service_plan.main.id

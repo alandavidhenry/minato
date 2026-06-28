@@ -37,7 +37,7 @@ module "resource_group" {
 module "key_vault" {
   source = "../key_vault"
 
-  project             = local.kv_name
+  project             = var.project
   environment         = var.environment
   location            = var.location
   resource_group_name = module.resource_group.resource_group_name
@@ -52,9 +52,8 @@ module "key_vault" {
 module "storage" {
   source = "../storage"
 
-  project                  = local.st_name
+  project                  = var.project
   environment              = var.environment
-  suffix                   = "docs"
   location                 = var.location
   resource_group_name      = module.resource_group.resource_group_name
   account_tier             = var.storage.account_tier
@@ -111,6 +110,7 @@ module "communication_service" {
 
   project             = var.project
   environment         = var.environment
+  location            = var.location
   resource_group_name = module.resource_group.resource_group_name
   data_location       = var.communication_service.data_location
   key_vault_id        = module.key_vault.key_vault_id
@@ -122,7 +122,7 @@ module "app_service" {
 
   project             = var.project
   environment         = var.environment
-  location            = var.location
+  location            = var.app_service_location
   resource_group_name = module.resource_group.resource_group_name
   sku_name            = var.app_service_sku
   https_only          = var.https_only
@@ -138,7 +138,7 @@ module "app_service" {
   app_settings = merge(var.extra_app_settings, {
     "AZURE_STORAGE_CONNECTION_STRING"       = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.storage_connection_string.versionless_id})"
     "AZURE_STORAGE_CONTAINER_NAME"          = var.storage_container.name
-    "NEXTAUTH_URL"                          = "https://app-${var.project}-${var.environment}.azurewebsites.net"
+    "NEXTAUTH_URL"                          = "https://app-${var.project}-${var.environment}-${local.app_service_location_short}.azurewebsites.net"
     "NEXTAUTH_SECRET"                       = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.nextauth_secret.versionless_id})"
     "DOCUMENT_INTELLIGENCE_ENDPOINT"        = "@Microsoft.KeyVault(SecretUri=${module.document_intelligence.document_intelligence_endpoint_secret_versionless_id})"
     "DOCUMENT_INTELLIGENCE_KEY"             = "@Microsoft.KeyVault(SecretUri=${module.document_intelligence.document_intelligence_key_secret_versionless_id})"

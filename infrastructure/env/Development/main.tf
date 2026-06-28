@@ -4,6 +4,7 @@ module "minato" {
   project               = var.project
   environment           = var.environment
   location              = var.location
+  app_service_location  = var.app_service_location
   app_service_sku       = var.app_service_sku
   https_only            = var.https_only
   key_vault             = var.key_vault
@@ -18,6 +19,6 @@ module "minato" {
 
   allowed_origins = [
     "http://localhost:3000",
-    "https://app-${var.project}-${var.environment}-uks.azurewebsites.net"
+    "https://app-${var.project}-${var.environment}-ukw.azurewebsites.net"
   ]
 }

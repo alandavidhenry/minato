@@ -8,12 +8,6 @@ variable "environment" {
   type        = string
 }
 
-variable "suffix" {
-  description = "Suffix to add to the storage account name"
-  type        = string
-  default     = "data"
-}
-
 variable "resource_group_name" {
   description = "The name of the resource group"
   type        = string

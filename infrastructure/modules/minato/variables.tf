@@ -13,6 +13,12 @@ variable "location" {
   type        = string
 }
 
+variable "app_service_location" {
+  description = "Azure region for the App Service Plan and Web App"
+  type        = string
+  default     = "UK West"
+}
+
 variable "resource_group_name" {
   description = "Resource group name"
   type        = string
