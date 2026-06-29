@@ -1,113 +1,135 @@
-// src/app/admin/page.tsx
 'use client'
 
-import { Building2, FileText, Shield, Users, Clock } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowRight,
+  Building2,
+  CheckCircle2,
+  ClipboardList,
+  FileText,
+  Shield,
+  TrendingUp,
+  Users
+} from 'lucide-react'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
-import { RecentActivity } from '@/components/admin/recent-activity'
+import { RecentCompletions } from '@/components/admin/recent-completions'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ADMIN_ROLES, type UserRole } from '@/types/rbac'
+
+interface KPIs {
+  activeAssignments: number
+  completedThisMonth: number
+  outstanding: number
+  overdue: number
+}
+
+interface SecondaryStats {
+  totalUsers: number
+  adminUsers: number
+  totalCompanies: number
+  totalDocuments: number
+}
 
 interface UserData {
   role: UserRole
 }
 
-interface Stats {
-  totalUsers: number
-  totalDocuments: number
-  adminUsers: number
-  totalCompanies: number
-}
-
 export default function AdminDashboardPage() {
-  const [isLoading, setIsLoading] = useState(true)
-  const [stats, setStats] = useState<Stats>({
+  const [kpisLoading, setKpisLoading] = useState(true)
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [kpis, setKpis] = useState<KPIs>({
+    activeAssignments: 0,
+    completedThisMonth: 0,
+    outstanding: 0,
+    overdue: 0
+  })
+  const [stats, setStats] = useState<SecondaryStats>({
     totalUsers: 0,
-    totalDocuments: 0,
     adminUsers: 0,
-    totalCompanies: 0
+    totalCompanies: 0,
+    totalDocuments: 0
   })
 
-  // Moved outside of useEffect to reduce nesting
-  const fetchStats = async () => {
-    setIsLoading(true)
-    try {
-      // Fetch user stats
-      const usersResponse = await fetch('/api/admin/users')
-      if (usersResponse.ok) {
-        const data = await usersResponse.json()
-        // Using the extracted function to count admin users
-        const adminCount = data.users.filter((u: UserData) =>
-          ADMIN_ROLES.includes(u.role)
-        ).length
-
-        setStats((prev) => ({
-          ...prev,
-          totalUsers: data.users.length,
-          adminUsers: adminCount
-        }))
-      }
-
-      // Fetch company stats
-      const companiesResponse = await fetch('/api/admin/companies')
-      if (companiesResponse.ok) {
-        const data = await companiesResponse.json()
-        setStats((prev) => ({
-          ...prev,
-          totalCompanies: data.companies.length
-        }))
-      }
-
-      // Fetch document stats
-      const docsResponse = await fetch('/api/documents/stats')
-      if (docsResponse.ok) {
-        const data = await docsResponse.json()
-        setStats((prev) => ({
-          ...prev,
-          totalDocuments: data.totalDocuments
-        }))
-      }
-    } catch (error) {
-      console.error('Error fetching stats:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   useEffect(() => {
-    fetchStats()
+    async function fetchKPIs() {
+      try {
+        const res = await fetch('/api/admin/dashboard/stats')
+        if (res.ok) {
+          const data = await res.json()
+          setKpis(data)
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard KPIs:', error)
+      } finally {
+        setKpisLoading(false)
+      }
+    }
+
+    async function fetchSecondaryStats() {
+      try {
+        const [usersRes, companiesRes, docsRes] = await Promise.all([
+          fetch('/api/admin/users'),
+          fetch('/api/admin/companies'),
+          fetch('/api/documents/stats')
+        ])
+
+        if (usersRes.ok) {
+          const data = await usersRes.json()
+          const adminCount = data.users.filter((u: UserData) =>
+            ADMIN_ROLES.includes(u.role)
+          ).length
+          setStats((prev) => ({
+            ...prev,
+            totalUsers: data.users.length,
+            adminUsers: adminCount
+          }))
+        }
+        if (companiesRes.ok) {
+          const data = await companiesRes.json()
+          setStats((prev) => ({
+            ...prev,
+            totalCompanies: data.companies.length
+          }))
+        }
+        if (docsRes.ok) {
+          const data = await docsRes.json()
+          setStats((prev) => ({
+            ...prev,
+            totalDocuments: data.totalDocuments
+          }))
+        }
+      } catch (error) {
+        console.error('Error fetching secondary stats:', error)
+      } finally {
+        setStatsLoading(false)
+      }
+    }
+
+    fetchKPIs()
+    fetchSecondaryStats()
   }, [])
 
   return (
     <div className='space-y-6'>
       <h1 className='text-3xl font-bold'>Admin Dashboard</h1>
 
+      {/* Compliance KPI tiles */}
       <div className='grid gap-4 md:grid-cols-4'>
-        {/* Stats Cards */}
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Total Users</CardTitle>
-            <Users className='h-4 w-4 text-muted-foreground' />
+            <CardTitle className='text-sm font-medium'>
+              Active Assignments
+            </CardTitle>
+            <ClipboardList className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className='h-8 w-16 animate-pulse rounded bg-muted'></div>
+            {kpisLoading ? (
+              <div className='h-8 w-16 animate-pulse rounded bg-muted' />
             ) : (
-              <div className='text-2xl font-bold'>{stats.totalUsers}</div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Admin Users</CardTitle>
-            <Shield className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className='h-8 w-16 animate-pulse rounded bg-muted'></div>
-            ) : (
-              <div className='text-2xl font-bold'>{stats.adminUsers}</div>
+              <div className='text-2xl font-bold'>{kpis.activeAssignments}</div>
             )}
           </CardContent>
         </Card>
@@ -115,76 +137,159 @@ export default function AdminDashboardPage() {
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <CardTitle className='text-sm font-medium'>
-              Total Companies
+              Completed This Month
             </CardTitle>
-            <Building2 className='h-4 w-4 text-muted-foreground' />
+            <TrendingUp className='h-4 w-4 text-green-500' />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className='h-8 w-16 animate-pulse rounded bg-muted'></div>
+            {kpisLoading ? (
+              <div className='h-8 w-16 animate-pulse rounded bg-muted' />
             ) : (
-              <div className='text-2xl font-bold'>{stats.totalCompanies}</div>
+              <div className='text-2xl font-bold text-green-600'>
+                {kpis.completedThisMonth}
+              </div>
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>
-              Total Documents
-            </CardTitle>
-            <FileText className='h-4 w-4 text-muted-foreground' />
+            <CardTitle className='text-sm font-medium'>Outstanding</CardTitle>
+            <AlertTriangle className='h-4 w-4 text-amber-500' />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className='h-8 w-16 animate-pulse rounded bg-muted'></div>
+            {kpisLoading ? (
+              <div className='h-8 w-16 animate-pulse rounded bg-muted' />
             ) : (
-              <div className='text-2xl font-bold'>{stats.totalDocuments}</div>
+              <div className='text-2xl font-bold text-amber-600'>
+                {kpis.outstanding}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+            <CardTitle className='text-sm font-medium'>Overdue</CardTitle>
+            <AlertTriangle className='h-4 w-4 text-red-500' />
+          </CardHeader>
+          <CardContent>
+            {kpisLoading ? (
+              <div className='h-8 w-16 animate-pulse rounded bg-muted' />
+            ) : (
+              <div className='text-2xl font-bold text-red-600'>
+                {kpis.overdue}
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
 
+      {/* Recent completions feed + quick actions */}
       <div className='grid gap-4 md:grid-cols-2'>
         <Card>
           <CardHeader>
             <CardTitle className='flex items-center gap-2'>
-              <Clock className='h-5 w-5' />
-              Recent Activity
+              <CheckCircle2 className='h-5 w-5' />
+              Recent Completions
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <RecentActivity />
+            <RecentCompletions />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>System Status</CardTitle>
+            <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className='space-y-2'>
-              <div className='flex items-center justify-between'>
-                <span>Azure AD Connection</span>
-                <span className='flex items-center text-green-500'>
-                  <svg viewBox='0 0 10 10' className='h-2.5 w-2.5 fill-current'>
-                    <circle cx='5' cy='5' r='5' />
-                  </svg>
-                  <span className='ml-1'>Active</span>
-                </span>
-              </div>
-              <div className='flex items-center justify-between'>
-                <span>Storage Service</span>
-                <span className='flex items-center text-green-500'>
-                  <svg viewBox='0 0 10 10' className='h-2.5 w-2.5 fill-current'>
-                    <circle cx='5' cy='5' r='5' />
-                  </svg>
-                  <span className='ml-1'>Active</span>
-                </span>
-              </div>
-            </div>
+          <CardContent className='space-y-3'>
+            <Link href='/admin/completions' className='block'>
+              <Button variant='outline' className='w-full justify-between'>
+                View all completions
+                <ArrowRight className='h-4 w-4' />
+              </Button>
+            </Link>
+            <Link href='/admin/companies' className='block'>
+              <Button variant='outline' className='w-full justify-between'>
+                Manage companies &amp; assignments
+                <ArrowRight className='h-4 w-4' />
+              </Button>
+            </Link>
+            <Link href='/admin/activity' className='block'>
+              <Button variant='outline' className='w-full justify-between'>
+                View activity log
+                <ArrowRight className='h-4 w-4' />
+              </Button>
+            </Link>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Secondary stats — system overview */}
+      <div>
+        <h2 className='mb-4 text-lg font-semibold'>System Overview</h2>
+        <div className='grid gap-4 md:grid-cols-4'>
+          <Card>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <CardTitle className='text-sm font-medium'>Total Users</CardTitle>
+              <Users className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              {statsLoading ? (
+                <div className='h-8 w-16 animate-pulse rounded bg-muted' />
+              ) : (
+                <div className='text-2xl font-bold'>{stats.totalUsers}</div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <CardTitle className='text-sm font-medium'>Admin Users</CardTitle>
+              <Shield className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              {statsLoading ? (
+                <div className='h-8 w-16 animate-pulse rounded bg-muted' />
+              ) : (
+                <div className='text-2xl font-bold'>{stats.adminUsers}</div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <CardTitle className='text-sm font-medium'>
+                Total Companies
+              </CardTitle>
+              <Building2 className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              {statsLoading ? (
+                <div className='h-8 w-16 animate-pulse rounded bg-muted' />
+              ) : (
+                <div className='text-2xl font-bold'>{stats.totalCompanies}</div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <CardTitle className='text-sm font-medium'>
+                Total Documents
+              </CardTitle>
+              <FileText className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              {statsLoading ? (
+                <div className='h-8 w-16 animate-pulse rounded bg-muted' />
+              ) : (
+                <div className='text-2xl font-bold'>{stats.totalDocuments}</div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )

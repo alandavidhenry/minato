@@ -125,23 +125,33 @@ For kiosk sign-off (`/signoff/[companyId]`), the worker selects their own name f
 
 ---
 
-### P9 — Dashboard: Completions-Centric Redesign
+### P9 — Dashboard: Completions-Centric Redesign ✅ Done
 
 **Goal:** The admin dashboard is the first thing Simon sees. H&S compliance is fundamentally about completions — the dashboard should reflect that.
 
 Changes:
-- Top section: KPI tiles — total assignments active, completed this month, outstanding, overdue (across all companies)
-- "Recent activity" feed scoped to completion events only; remove upload/download/login events from this feed (those remain visible in the full activity log)
-- Add quick-action links: "View all outstanding", "Export overdue report"
-- Secondary stats (user count, company count, template count) remain but moved below the fold
+- ✅ Top section: KPI tiles — active assignments, completed this month, outstanding, overdue (across all companies) with colour-coded values
+- ✅ "Recent completions" feed replacing the generic activity feed (completion events only; uploads/logins still visible in full activity log)
+- ✅ Quick-action links: "View all outstanding" and "View overdue assignments" (both link to `/admin/completions`; dedicated P12 page to follow)
+- ✅ Secondary stats (user count, company count, template count, documents) moved to "System Overview" section below
+
+Key files: `src/lib/dashboard.ts` (`getDashboardKPIs`), `src/app/api/admin/dashboard/stats/route.ts`, `src/app/api/admin/dashboard/completions/route.ts`, `src/components/admin/recent-completions.tsx`, `src/app/admin/page.tsx`
 
 ---
 
-### P10 — Users List: Group by Company
+### P10 — Users List: Group by Company ✅ Done
 
 **Goal:** The flat `/admin/users` list becomes unwieldy as user counts grow across 100 client businesses.
 
-Restructure the page to show users grouped under their company heading (accordion or collapsible section per company). Consultancy staff (Tenant Admin / Tenant Staff roles) sit in a separate "Internal Staff" group at the top. All existing CRUD operations, search, and role management remain in place.
+- ✅ `/admin/users` page restructured into collapsible sections grouped by company (all collapsed by default)
+- ✅ Internal staff (Platform Admin, Tenant Admin, Tenant Staff) appear first under an "Internal Staff" heading
+- ✅ Customer users grouped by company name, sorted alphabetically; users without a company appear under "Unassigned"
+- ✅ Section header shows user count; click to expand/collapse
+- ✅ Search filters within all groups simultaneously; groups with no matches are hidden
+- ✅ `GET /api/admin/users` enriched with `customerCompanyName` (resolved from `CustomerCompany` table via parallel fetch)
+- ✅ All existing CRUD operations, role management, and dialogs unchanged
+
+Key files: `src/app/admin/users/page.tsx`, `src/app/api/admin/users/route.ts`
 
 ---
 

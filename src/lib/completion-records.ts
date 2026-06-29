@@ -421,6 +421,30 @@ export async function getCompletionsForUser(
   }
 }
 
+export async function getRecentCompletionsForAdmin(
+  limit = 5
+): Promise<CompletionRecordForAdmin[]> {
+  try {
+    const records = await prisma.completionRecord.findMany({
+      take: limit,
+      include: {
+        signedBy: { select: { id: true, displayName: true, email: true } },
+        assignment: {
+          include: {
+            template: { select: { id: true, title: true } },
+            customerCompany: { select: { id: true, name: true } }
+          }
+        }
+      },
+      orderBy: { signedAt: 'desc' }
+    })
+    return records.map(toCompletionRecordForAdmin)
+  } catch (error) {
+    console.error('Error getting recent completions for admin:', error)
+    return []
+  }
+}
+
 export async function getAllCompletionsForAdmin(): Promise<
   CompletionRecordForAdmin[]
 > {

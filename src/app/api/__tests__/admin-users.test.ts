@@ -33,6 +33,9 @@ const { mockPrisma, mockBcrypt } = vi.hoisted(() => {
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn()
+    },
+    customerCompany: {
+      findMany: vi.fn()
     }
   }
   const mockBcrypt = { hash: vi.fn(), compare: vi.fn() }
@@ -84,6 +87,7 @@ beforeEach(() => {
   mockPrisma.user.create.mockResolvedValue(BASE_USER)
   mockPrisma.user.update.mockResolvedValue(BASE_USER)
   mockPrisma.user.delete.mockResolvedValue(BASE_USER)
+  mockPrisma.customerCompany.findMany.mockResolvedValue([])
   mockBcrypt.hash.mockResolvedValue('$newhashed')
   mockBcrypt.compare.mockResolvedValue(false)
 })
@@ -148,6 +152,37 @@ describe('GET /api/admin/users', () => {
     const res = await listUsers(req)
     const body = await res.json()
     expect(body.users[0].jobRole).toBe('Site Manager')
+  })
+
+  it('resolves customerCompanyName from company list', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockPrisma.user.findMany.mockResolvedValue([
+      { ...BASE_USER, customerCompanyId: 'company_abc' }
+    ])
+    mockPrisma.customerCompany.findMany.mockResolvedValue([
+      {
+        id: 'company_abc',
+        name: 'Acme Ltd',
+        tenantId: null,
+        folderPath: null,
+        createdAt: new Date('2024-01-01T00:00:00.000Z')
+      }
+    ])
+    const req = new NextRequest('http://localhost/api/admin/users')
+    const res = await listUsers(req)
+    const body = await res.json()
+    expect(body.users[0].customerCompanyName).toBe('Acme Ltd')
+  })
+
+  it('returns null customerCompanyName when company not found', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockPrisma.user.findMany.mockResolvedValue([
+      { ...BASE_USER, customerCompanyId: 'company_unknown' }
+    ])
+    const req = new NextRequest('http://localhost/api/admin/users')
+    const res = await listUsers(req)
+    const body = await res.json()
+    expect(body.users[0].customerCompanyName).toBeNull()
   })
 })
 

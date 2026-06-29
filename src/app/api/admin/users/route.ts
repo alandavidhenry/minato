@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
+import { getAllCustomerCompanies } from '@/lib/customer-companies'
 import { getAllUsers } from '@/lib/user-database'
 import { ADMIN_ROLES } from '@/types/rbac'
 
@@ -26,8 +27,11 @@ export async function GET(_request: NextRequest) {
   }
 
   try {
-    // Get users directly from your database - no more Azure AD integration
-    const users = await getAllUsers()
+    const [users, companies] = await Promise.all([
+      getAllUsers(),
+      getAllCustomerCompanies()
+    ])
+    const companyNameMap = new Map(companies.map((c) => [c.id, c.name]))
 
     // Format the users for API consumption
     const formattedUsers = users.map((user) => ({
@@ -41,6 +45,9 @@ export async function GET(_request: NextRequest) {
       jobRole: user.jobRole,
       lineManagerId: user.lineManagerId,
       customerCompanyId: user.customerCompanyId,
+      customerCompanyName: user.customerCompanyId
+        ? (companyNameMap.get(user.customerCompanyId) ?? null)
+        : null,
       appRoleAssignments: [
         {
           id: 'local-role',

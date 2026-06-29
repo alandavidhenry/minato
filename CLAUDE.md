@@ -161,6 +161,8 @@ Core document model:
   - Cron: reminders (auth, zero sends, send count, 500 error)
   - Kiosk sign-off: `GET /api/signoff/[companyId]`, `POST /api/signoff/[companyId]/[assignmentId]` (worker validation, comprehension check, completion recording)
   - Document version cycle: `POST /api/admin/templates/[id]/publish-version` (auth, 404, success, 500); `templateVersion` on assignment creation; `publishNewTemplateVersion`; `createAssignmentsForNewVersion`; version-aware deduplication in `getAssignmentsForUser`
+  - Dashboard: `GET /api/admin/dashboard/stats` (auth, 200 with KPIs, 500); `GET /api/admin/dashboard/completions` (auth, empty list, recent completions, limit param, cap at 20, 500)
+  - Admin users list: `GET /api/admin/users` returns `customerCompanyName` (resolved via parallel company fetch); tests cover name resolution and null fallback
 - E2E: not yet started
 
 **TDD workflow:** define interface types → write tests → implement to pass tests. Always request tests before implementation. Target >90% coverage on `src/lib/`.
