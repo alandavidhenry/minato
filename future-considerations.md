@@ -125,15 +125,17 @@ For kiosk sign-off (`/signoff/[companyId]`), the worker selects their own name f
 
 ---
 
-### P9 — Dashboard: Completions-Centric Redesign
+### P9 — Dashboard: Completions-Centric Redesign ✅ Done
 
 **Goal:** The admin dashboard is the first thing Simon sees. H&S compliance is fundamentally about completions — the dashboard should reflect that.
 
 Changes:
-- Top section: KPI tiles — total assignments active, completed this month, outstanding, overdue (across all companies)
-- "Recent activity" feed scoped to completion events only; remove upload/download/login events from this feed (those remain visible in the full activity log)
-- Add quick-action links: "View all outstanding", "Export overdue report"
-- Secondary stats (user count, company count, template count) remain but moved below the fold
+- ✅ Top section: KPI tiles — active assignments, completed this month, outstanding, overdue (across all companies) with colour-coded values
+- ✅ "Recent completions" feed replacing the generic activity feed (completion events only; uploads/logins still visible in full activity log)
+- ✅ Quick-action links: "View all outstanding" and "View overdue assignments" (both link to `/admin/completions`; dedicated P12 page to follow)
+- ✅ Secondary stats (user count, company count, template count, documents) moved to "System Overview" section below
+
+Key files: `src/lib/dashboard.ts` (`getDashboardKPIs`), `src/app/api/admin/dashboard/stats/route.ts`, `src/app/api/admin/dashboard/completions/route.ts`, `src/components/admin/recent-completions.tsx`, `src/app/admin/page.tsx`
 
 ---
 
