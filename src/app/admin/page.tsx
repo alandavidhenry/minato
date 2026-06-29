@@ -206,13 +206,19 @@ export default function AdminDashboardPage() {
           <CardContent className='space-y-3'>
             <Link href='/admin/completions' className='block'>
               <Button variant='outline' className='w-full justify-between'>
-                View all outstanding
+                View all completions
                 <ArrowRight className='h-4 w-4' />
               </Button>
             </Link>
-            <Link href='/admin/completions' className='block'>
+            <Link href='/admin/companies' className='block'>
               <Button variant='outline' className='w-full justify-between'>
-                View overdue assignments
+                Manage companies &amp; assignments
+                <ArrowRight className='h-4 w-4' />
+              </Button>
+            </Link>
+            <Link href='/admin/activity' className='block'>
+              <Button variant='outline' className='w-full justify-between'>
+                View activity log
                 <ArrowRight className='h-4 w-4' />
               </Button>
             </Link>
