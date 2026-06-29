@@ -57,11 +57,20 @@ jobs:
           subscription-id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
 
       - name: Deploy container to Azure App Service
+        env:
+          IMAGE_URI: ${{ inputs.image_uri }}
         run: |
+          if [ -z "$IMAGE_URI" ]; then
+            REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+            IMAGE_URI="ghcr.io/$REPO:${{ github.sha }}"
+            echo "inputs.image_uri was empty — reconstructed: $IMAGE_URI"
+          else
+            echo "Deploying image: $IMAGE_URI"
+          fi
           az webapp config container set \
-            --name ${{ vars.AZURE_APP_NAME }} \
-            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
-            --container-image-name ${{ inputs.image_uri }}
+            --name "${{ vars.AZURE_APP_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --container-image-name "$IMAGE_URI"
 
       - name: Smoke test
         run: |
