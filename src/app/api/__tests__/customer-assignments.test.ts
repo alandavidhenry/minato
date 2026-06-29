@@ -106,6 +106,15 @@ const CUSTOMER_SESSION = {
     jobRole: null
   }
 }
+const CUSTOMER_SESSION_WITH_NAME = {
+  user: {
+    id: 'user_123',
+    name: 'Jane Smith',
+    roles: ['Customer User'],
+    customerCompanyId: 'company_123',
+    jobRole: null
+  }
+}
 const NO_COMPANY_SESSION = {
   user: {
     id: 'user_123',
@@ -576,6 +585,42 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
         ],
         declarationName: 'Jane Smith'
       }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(200)
+  })
+
+  it('returns 400 when declarationName does not match session user name', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION_WITH_NAME)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { formData: {}, declarationName: 'Wrong Name' }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/match your account name/i)
+    expect(body.nameError).toBe(true)
+  })
+
+  it('accepts declarationName matching session user name case-insensitively with extra whitespace', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION_WITH_NAME)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { formData: {}, declarationName: '  jane smith  ' }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(200)
+  })
+
+  it('skips name matching when session has no name set', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { formData: {}, declarationName: 'Any Name At All' }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(200)
