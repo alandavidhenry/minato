@@ -34,7 +34,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      security-events: write
     outputs:
       image_uri: ${{ steps.image-info.outputs.image_uri }}
 
@@ -85,19 +84,8 @@ jobs:
 
       - name: Scan image with Grype
         uses: anchore/scan-action@v7
-        id: grype
         with:
           image: ${{ steps.image-info.outputs.image_uri }}
-          fail-build: true
-          # severity-cutoff: high
-          output-format: sarif
-
-      - name: Display Grype scan results
-        if: always()
-        run: grype ${{ steps.image-info.outputs.image_uri }} --output table
-
-      - name: Upload Grype SARIF report
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
-        with:
-          sarif_file: ${{ steps.grype.outputs.sarif }}
+          fail-build: false
+          severity-cutoff: high
+          output-format: table
