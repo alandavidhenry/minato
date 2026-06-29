@@ -1,7 +1,7 @@
 // src/app/admin/users/page.tsx
 'use client'
 
-import { Plus, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Search } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 import { CreateUserDialog } from '@/components/admin/create-user-dialog'
@@ -30,53 +30,72 @@ interface User {
   jobRole: string | null
   lineManagerId: string | null
   customerCompanyId: string | null
+  customerCompanyName: string | null
 }
 
-// Define the valid badge variant types
 type BadgeVariant = 'default' | 'destructive' | 'outline' | 'secondary'
+
+const INTERNAL_ROLES = new Set([
+  'Platform Admin',
+  'Tenant Admin',
+  'Tenant Staff'
+])
+
+interface UserGroup {
+  id: string
+  label: string
+  users: User[]
+}
+
+function groupUsers(users: User[]): UserGroup[] {
+  const groups: UserGroup[] = []
+
+  const internal = users.filter((u) => INTERNAL_ROLES.has(u.role))
+  if (internal.length > 0) {
+    groups.push({
+      id: '__internal__',
+      label: 'Internal Staff',
+      users: internal
+    })
+  }
+
+  const byCompany = new Map<string, { label: string; users: User[] }>()
+  for (const user of users.filter((u) => !INTERNAL_ROLES.has(u.role))) {
+    const key = user.customerCompanyId ?? '__unassigned__'
+    const label = user.customerCompanyName ?? 'Unassigned'
+    if (!byCompany.has(key)) byCompany.set(key, { label, users: [] })
+    byCompany.get(key)!.users.push(user)
+  }
+
+  const sorted = [...byCompany.entries()].sort(([, a], [, b]) =>
+    a.label.localeCompare(b.label)
+  )
+  for (const [id, { label, users }] of sorted) {
+    groups.push({ id, label, users })
+  }
+
+  return groups
+}
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
-  // Fetch users on component mount
   useEffect(() => {
     fetchUsers()
   }, [])
 
-  // Filter users when search query changes
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredUsers(users)
-      return
-    }
-
-    const query = searchQuery.toLowerCase()
-    const filtered = users.filter(
-      (user) =>
-        user.displayName.toLowerCase().includes(query) ||
-        user.mail?.toLowerCase().includes(query) ||
-        user.userPrincipalName?.toLowerCase().includes(query)
-    )
-    setFilteredUsers(filtered)
-  }, [searchQuery, users])
-
-  // Function to fetch users from API
   async function fetchUsers() {
     setIsLoading(true)
     try {
       const response = await fetch('/api/admin/users')
-      if (!response.ok) {
-        throw new Error('Failed to fetch users')
-      }
+      if (!response.ok) throw new Error('Failed to fetch users')
       const data = await response.json()
       setUsers(data.users)
-      setFilteredUsers(data.users)
-    } catch (error) {
-      console.error('Error fetching users:', error)
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to load users. Please try again.',
@@ -87,20 +106,17 @@ export default function UsersPage() {
     }
   }
 
-  // Handle user creation
   function handleUserCreated() {
     fetchUsers()
     setShowCreateDialog(false)
     toast({ title: 'Success', description: 'User created successfully' })
   }
 
-  // Handle user update
   function handleUserUpdated() {
     fetchUsers()
     toast({ title: 'Success', description: 'User updated successfully' })
   }
 
-  // Extract badge variant logic into a function with proper return type
   function getRoleBadgeVariant(role: string): BadgeVariant {
     if (role === 'Platform Admin' || role === 'Tenant Admin')
       return 'destructive'
@@ -108,7 +124,27 @@ export default function UsersPage() {
     return 'secondary'
   }
 
-  // Render a single user row
+  function toggleGroup(groupId: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(groupId)) next.delete(groupId)
+      else next.add(groupId)
+      return next
+    })
+  }
+
+  const query = searchQuery.toLowerCase().trim()
+  const filteredUsers = query
+    ? users.filter(
+        (u) =>
+          u.displayName.toLowerCase().includes(query) ||
+          u.mail?.toLowerCase().includes(query) ||
+          u.userPrincipalName?.toLowerCase().includes(query)
+      )
+    : users
+
+  const groups = groupUsers(filteredUsers)
+
   function renderUserRow(user: User) {
     return (
       <TableRow key={user.id}>
@@ -145,29 +181,41 @@ export default function UsersPage() {
     )
   }
 
-  // Render table content based on loading state and filtered users
-  function renderTableContent() {
-    if (isLoading) {
-      return (
-        <TableRow>
-          <TableCell colSpan={6} className='h-24 text-center'>
-            Loading users...
-          </TableCell>
-        </TableRow>
-      )
-    }
-
-    if (filteredUsers.length === 0) {
-      return (
-        <TableRow>
-          <TableCell colSpan={6} className='h-24 text-center'>
-            No users found.
-          </TableCell>
-        </TableRow>
-      )
-    }
-
-    return filteredUsers.map(renderUserRow)
+  function renderGroup(group: UserGroup) {
+    const isExpanded = expandedGroups.has(group.id)
+    const Icon = isExpanded ? ChevronDown : ChevronRight
+    return (
+      <div key={group.id} className='rounded-md border'>
+        <button
+          type='button'
+          className='flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold hover:bg-muted/50 transition-colors rounded-md'
+          onClick={() => toggleGroup(group.id)}
+        >
+          <Icon className='h-4 w-4 text-muted-foreground shrink-0' />
+          <span>{group.label}</span>
+          <span className='ml-auto font-normal text-muted-foreground'>
+            {group.users.length} {group.users.length === 1 ? 'user' : 'users'}
+          </span>
+        </button>
+        {isExpanded && (
+          <div className='border-t'>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Job Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className='text-right'>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>{group.users.map(renderUserRow)}</TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -180,7 +228,6 @@ export default function UsersPage() {
         </Button>
       </div>
 
-      {/* Search & Filter */}
       <div className='flex items-center space-x-2'>
         <div className='relative flex-1'>
           <Search className='absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground' />
@@ -194,24 +241,34 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Users Table */}
-      <div className='rounded-md border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Job Role</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className='text-right'>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>{renderTableContent()}</TableBody>
-        </Table>
-      </div>
+      {isLoading ? (
+        <div className='rounded-md border'>
+          <Table>
+            <TableBody>
+              <TableRow>
+                <TableCell colSpan={6} className='h-24 text-center'>
+                  Loading users...
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      ) : groups.length === 0 ? (
+        <div className='rounded-md border'>
+          <Table>
+            <TableBody>
+              <TableRow>
+                <TableCell colSpan={6} className='h-24 text-center'>
+                  No users found.
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className='space-y-3'>{groups.map(renderGroup)}</div>
+      )}
 
-      {/* Create User Dialog */}
       <CreateUserDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
