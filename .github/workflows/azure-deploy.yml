@@ -57,10 +57,11 @@ jobs:
           subscription-id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
 
       - name: Deploy container to Azure App Service
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ vars.AZURE_APP_NAME }}
-          images: ${{ inputs.image_uri }}
+        run: |
+          az webapp config container set \
+            --name ${{ vars.AZURE_APP_NAME }} \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --container-image-name ${{ inputs.image_uri }}
 
       - name: Smoke test
         run: |
