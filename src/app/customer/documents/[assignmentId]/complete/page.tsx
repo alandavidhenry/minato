@@ -2,6 +2,7 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -47,8 +48,11 @@ export default function CompleteDocumentPage() {
   const [formValues, setFormValues] = useState<Record<string, unknown>>({})
   const [answerValues, setAnswerValues] = useState<Record<string, string>>({})
   const [failedQuestionIds, setFailedQuestionIds] = useState<string[]>([])
+  const { data: session } = useSession()
+  const accountName = session?.user?.name ?? ''
+
   const [declarationName, setDeclarationName] = useState('')
-  const [declarationError, setDeclarationError] = useState(false)
+  const [declarationError, setDeclarationError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchAssignment() {
@@ -85,7 +89,9 @@ export default function CompleteDocumentPage() {
     e.preventDefault()
 
     if (!declarationName.trim()) {
-      setDeclarationError(true)
+      setDeclarationError(
+        'Please enter your full name to confirm this declaration.'
+      )
       return
     }
 
@@ -128,6 +134,12 @@ export default function CompleteDocumentPage() {
               'Please review your answers to the comprehension questions and try again.',
             variant: 'destructive'
           })
+          return
+        }
+        if (errorBody.nameError) {
+          setDeclarationError(
+            'The name you entered does not match your account name. Please enter your name exactly as it appears in your account.'
+          )
           return
         }
         throw new Error(errorBody.error || 'Failed to submit')
@@ -292,7 +304,7 @@ export default function CompleteDocumentPage() {
             <p className='text-sm text-muted-foreground'>
               By entering your full name below, you confirm that you have read
               and understood this document and agree to comply with its
-              requirements.
+              requirements. The name must match your account name exactly.
             </p>
           </div>
           <div className='grid gap-2'>
@@ -308,15 +320,18 @@ export default function CompleteDocumentPage() {
               value={declarationName}
               onChange={(e) => {
                 setDeclarationName(e.target.value)
-                setDeclarationError(false)
+                setDeclarationError(null)
               }}
               disabled={isSubmitting}
-              placeholder='Type your full name to sign'
+              placeholder={accountName || 'Type your full name to sign'}
             />
-            {declarationError && (
-              <p className='text-xs text-destructive'>
-                Please enter your full name to confirm this declaration.
+            {accountName && !declarationError && (
+              <p className='text-xs text-muted-foreground'>
+                Enter your name as it appears in your account: {accountName}
               </p>
+            )}
+            {declarationError && (
+              <p className='text-xs text-destructive'>{declarationError}</p>
             )}
           </div>
         </div>

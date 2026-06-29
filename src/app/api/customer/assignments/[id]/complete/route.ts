@@ -104,6 +104,20 @@ export async function POST(
       )
     }
 
+    const sessionName = (session?.user?.name ?? '').trim()
+    if (
+      sessionName &&
+      declarationName.toLowerCase() !== sessionName.toLowerCase()
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Declaration name must match your account name.',
+          nameError: true
+        },
+        { status: 400 }
+      )
+    }
+
     // Validate comprehension answers — fetch full template to get correct answers
     const templateRecord = await getDocumentTemplateById(assignment.templateId)
     const questions =
