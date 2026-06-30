@@ -94,6 +94,28 @@ export function CustomerPageGuard({
   return <>{children}</>
 }
 
+// Component to guard an entire page that requires Customer Admin access
+export function CustomerAdminPageGuard({
+  children
+}: {
+  readonly children: React.ReactNode
+}) {
+  const { hasRole, isLoading } = useRBAC()
+  const router = useRouter()
+
+  const isCustomerAdmin = hasRole(UserRole.CUSTOMER_ADMIN)
+
+  useEffect(() => {
+    if (!isLoading && !isCustomerAdmin) {
+      router.push('/unauthorized')
+    }
+  }, [isCustomerAdmin, isLoading, router])
+
+  if (isLoading || !isCustomerAdmin) return null
+
+  return <>{children}</>
+}
+
 // Component to guard an entire page that requires admin access
 export function AdminPageGuard({ children }: AdminPageGuardProps) {
   const { isAdmin, isLoading } = useRBAC()

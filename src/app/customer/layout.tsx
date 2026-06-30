@@ -1,11 +1,13 @@
 // src/app/customer/layout.tsx
 'use client'
 
-import { FileCheck, FileText } from 'lucide-react'
+import { FileCheck, FileText, Users } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 import { CustomerPageGuard } from '@/components/auth/permission-guard'
+import { useRBAC } from '@/components/providers/rbac-provider'
+import { UserRole } from '@/types/rbac'
 
 export default function CustomerLayout({
   children
@@ -13,6 +15,7 @@ export default function CustomerLayout({
   readonly children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const { hasRole } = useRBAC()
 
   const navItems = [
     {
@@ -24,7 +27,16 @@ export default function CustomerLayout({
       name: 'Completed Forms',
       href: '/customer/completions',
       icon: <FileCheck className='h-5 w-5' />
-    }
+    },
+    ...(hasRole(UserRole.CUSTOMER_ADMIN)
+      ? [
+          {
+            name: 'Team Compliance',
+            href: '/customer/admin/completions',
+            icon: <Users className='h-5 w-5' />
+          }
+        ]
+      : [])
   ]
 
   return (

@@ -1,5 +1,5 @@
 // src/app/page.tsx
-import { Camera, FileText, Star } from 'lucide-react'
+import { Camera, FileText, Star, Users } from 'lucide-react'
 import Link from 'next/link'
 import { getServerSession } from 'next-auth'
 
@@ -10,12 +10,13 @@ import {
   CardTitle
 } from '@/components/ui/card'
 import { authOptions } from '@/lib/auth'
-import { CUSTOMER_ROLES } from '@/types/rbac'
+import { CUSTOMER_ROLES, UserRole } from '@/types/rbac'
 
 export default async function Home() {
   const session = await getServerSession(authOptions)
   const roles = session?.user?.roles ?? []
   const isCustomer = roles.some((r) => CUSTOMER_ROLES.includes(r))
+  const isCustomerAdmin = roles.includes(UserRole.CUSTOMER_ADMIN)
 
   const docsHref = isCustomer ? '/customer/documents' : '/documents'
   const docsTitle = isCustomer ? 'My Documents' : 'Documents'
@@ -51,15 +52,33 @@ export default async function Home() {
           </Card>
         </Link>
 
-        <Card className='opacity-60 cursor-not-allowed'>
-          <CardHeader>
-            <div className='flex items-center gap-2'>
-              <Star className='h-6 w-6' />
-              <CardTitle>Future Feature 1</CardTitle>
-            </div>
-            <CardDescription>Coming soon</CardDescription>
-          </CardHeader>
-        </Card>
+        {isCustomerAdmin && (
+          <Link href='/customer/admin/completions'>
+            <Card className='hover:bg-accent transition-colors cursor-pointer'>
+              <CardHeader>
+                <div className='flex items-center gap-2'>
+                  <Users className='h-6 w-6' />
+                  <CardTitle>Team Compliance</CardTitle>
+                </div>
+                <CardDescription>
+                  View your team&apos;s completion status
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        )}
+
+        {!isCustomerAdmin && (
+          <Card className='opacity-60 cursor-not-allowed'>
+            <CardHeader>
+              <div className='flex items-center gap-2'>
+                <Star className='h-6 w-6' />
+                <CardTitle>Future Feature 1</CardTitle>
+              </div>
+              <CardDescription>Coming soon</CardDescription>
+            </CardHeader>
+          </Card>
+        )}
 
         <Card className='opacity-60 cursor-not-allowed'>
           <CardHeader>
