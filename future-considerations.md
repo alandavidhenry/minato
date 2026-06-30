@@ -155,17 +155,18 @@ Key files: `src/app/admin/users/page.tsx`, `src/app/api/admin/users/route.ts`
 
 ---
 
-### P11 — Activity Logs: Filter Controls and CSV Export
+### P11 — Activity Logs: Filter Controls and CSV Export ✅ Done
 
 **Goal:** The current activity log is a paginated flat list with no filtering. Simon needs to investigate events by user, company, and event type.
 
-Add filter controls to the activity logs list:
-- **Event type** — dropdown (completion, assignment, upload, download, user management, login, etc.)
-- **Company** — dropdown populated from `CustomerCompany` list
-- **User** — free-text search or dropdown
-- **Date range** — from/to date pickers
+- ✅ **Event type** — dropdown covering all 7 `ActivityType` values (view, download, upload, new_version, rename, delete, move); applied client-side so it's instant
+- ✅ **Company** — dropdown populated from `CustomerCompany` list; selecting a company triggers a server-side refetch scoped to that company's users (resolved via Prisma → passed as `userIds[]` OData filter on `PartitionKey`)
+- ✅ **User/file search** — free-text search across `userName` and `fileName`; applied client-side
+- ✅ **Date range** — from/to date pickers; triggers server-side refetch with OData `timestamp ge/le` filter
+- ✅ **Export CSV** — "Export CSV" button downloads the current filtered result set (all visible rows) as a `.csv` file; generated client-side with proper quoting and a datestamped filename
+- ✅ Result count shown ("N entries") above the table
 
-Filtering applied server-side against Azure Table Storage (OData filter on partition/row key + attribute values). Add an "Export CSV" button that downloads the current filtered result set.
+Key files: `src/lib/activity-logger.ts` (`ActivityLogFilters` interface + `buildODataFilter()`), `src/app/api/admin/activity/route.ts` (new `companyId`, `startDate`, `endDate` params), `src/app/admin/activity/page.tsx`
 
 The graphs on the activity logs page are currently tracking vanity metrics (upload count, login count). Replace them with compliance-oriented KPIs — see P14 below.
 
@@ -226,45 +227,43 @@ On `publishNewTemplateVersion`: save the current content snapshot to this table 
 
 ---
 
-### P14 — Activity Logs: KPI Graphs and Audit Metrics
+### P14 — Activity Logs: KPI Graphs and Audit Metrics ✅ Done
 
 **Goal:** Current graphs track volume metrics (uploads, logins) that have little meaning for H&S compliance. Replace with actionable compliance KPIs.
 
-**Compliance health:**
-- Completion rate by company (% of assigned templates completed) — horizontal bar chart sorted by rate ascending; highlights non-compliant companies at a glance
-- Overdue assignment count over time — line chart; a rising trend signals deteriorating compliance across the client base
-- Average days from assignment to completion per template — identifies documents that are systematically slow or unclear
+- ✅ **Completion rate by company** — horizontal bar chart, sorted ascending (worst first), colour-coded red/amber/green by threshold; shows `rate% (completed / total assignments)` in tooltip
+- ✅ **Assignments vs completions per month** — dual bar chart over the last 12 months; a widening gap signals a growing backlog; month labels formatted as "Jan '24"
+- ✅ **Average days to completion per template** — horizontal bar chart, sorted descending; tooltip shows count of completions used to compute the average
+- ✅ **Risk indicators table** — 3 columns:
+  - Companies with no completions in the last 30 days
+  - Assignments with zero completions (coverage gaps; top 20, with "+N more" overflow)
+  - Users with the most overdue items (top 10 ranked, with red badge count)
 
-**Throughput:**
-- Completions per month (bar chart) — shows compliance throughput over the year; dips indicate periods of low engagement
-- Assignments created vs completions per month — a widening gap indicates a growing backlog
+Old charts (daily activity, activity by type, top 5 users) removed from the activity logs page.
 
-**Risk indicators (table):**
-- Companies with no completions in the last 30 days
-- Templates never completed by anyone at a given company (coverage gaps)
-- Users with the most overdue items (top 10 ranked list)
-
-These metrics give Simon something he can show to clients as evidence of compliance activity and use internally to prioritise follow-up calls.
+Key files: `src/lib/compliance-kpis.ts` (`getComplianceKPIs()`), `src/app/api/admin/dashboard/compliance-kpis/route.ts`, `src/components/admin/ComplianceDashboard.tsx`, `src/components/admin/charts/CompanyCompletionRateChart.tsx`, `src/components/admin/charts/MonthlyThroughputChart.tsx`, `src/components/admin/charts/TemplateAvgDaysChart.tsx`, `src/components/admin/RiskIndicatorsTable.tsx`
 
 ---
 
-### P15 — Company Admin: Scoped Completions Dashboard
+### P15 — Company Admin: Scoped Completions Dashboard ✅ COMPLETED
 
 **Goal:** Company admins (a client company's manager) currently have no visibility of their employees' completion status. They need to see their own team's compliance without requiring Simon to pull a report for them.
 
-New route: `/customer/admin/completions`
+**Implemented:** `/customer/admin/completions` (page + 3 API routes)
 
-Features:
-- Per-assignment completion status table scoped to `session.user.customerCompanyId` — reuses `getAssignmentStatusSummary`
+- Per-assignment completion status table scoped to `session.user.customerCompanyId`
 - Outstanding users per assignment with overdue badges
-- PDF download of individual employees' signed completion records
-- Filters: template, user, job role, date range
+- PDF download of individual employees' signed completion records (via SAS token)
+- Filters: template name search, due date range, overdue-only toggle (all client-side)
 - Export to CSV
+- "Team Compliance" nav item in customer sidebar — visible only to Customer Admin role
 
-**Security requirements (non-negotiable):**
-- All API routes for this page must validate `requestedCompanyId === session.user.customerCompanyId` — never trust the role alone
-- Company admins see completion status and signed PDFs; they do not see raw form field values entered by employees (those may be sensitive)
-- No cross-company data leakage is possible at any query layer
+API routes:
+- `GET /api/customer/admin/completions` — lists completion groups; companyId always from session
+- `GET /api/customer/admin/completions/[assignmentId]` — assignment status; validates assignment belongs to session company; returns `hasPdf: boolean` (not raw blobPath)
+- `GET /api/customer/admin/completions/[assignmentId]/download/[completionId]` — SAS PDF download; validates completion → assignment → company chain
+
+Security: company ID is always from `session.user.customerCompanyId`; `formData` (raw employee answers) is never returned; double-validates assignment + completion ownership on download.
 
 This is a read-only feature — company admins cannot create assignments, manage templates, or access other companies. Full self-serve creation is P16.
 

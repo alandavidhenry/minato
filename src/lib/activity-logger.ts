@@ -89,13 +89,49 @@ export async function logActivity(
   }
 }
 
-export async function getActivityLogs(userId?: string): Promise<ActivityLog[]> {
+export interface ActivityLogFilters {
+  userId?: string
+  userIds?: string[]
+  startDate?: string
+  endDate?: string
+}
+
+function buildODataFilter(filters: ActivityLogFilters): string | undefined {
+  const parts: string[] = []
+
+  if (filters.userId) {
+    parts.push(`PartitionKey eq '${filters.userId}'`)
+  } else if (filters.userIds && filters.userIds.length > 0) {
+    const userConditions = filters.userIds
+      .map((id) => `PartitionKey eq '${id}'`)
+      .join(' or ')
+    parts.push(`(${userConditions})`)
+  }
+
+  if (filters.startDate) {
+    parts.push(`timestamp ge '${filters.startDate}'`)
+  }
+
+  if (filters.endDate) {
+    parts.push(`timestamp le '${filters.endDate}'`)
+  }
+
+  return parts.length > 0 ? parts.join(' and ') : undefined
+}
+
+export async function getActivityLogs(
+  filters?: ActivityLogFilters | string
+): Promise<ActivityLog[]> {
   const tableClient = getTableClient()
   const logs: ActivityLog[] = []
 
+  const resolvedFilters: ActivityLogFilters =
+    typeof filters === 'string' ? { userId: filters } : (filters ?? {})
+
   try {
-    const queryOptions = userId
-      ? { queryOptions: { filter: `PartitionKey eq '${userId}'` } }
+    const oDataFilter = buildODataFilter(resolvedFilters)
+    const queryOptions = oDataFilter
+      ? { queryOptions: { filter: oDataFilter } }
       : undefined
 
     const iterator = tableClient.listEntities(queryOptions)

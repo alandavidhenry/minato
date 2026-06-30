@@ -25,12 +25,16 @@ export function NavBar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const isCustomer = CUSTOMER_ROLES.some((role) => hasRole(role as UserRole))
+  const isCustomerAdmin = hasRole(UserRole.CUSTOMER_ADMIN)
   const isStaff = isAdmin || hasRole(UserRole.TENANT_STAFF)
 
   const navItems: NavItem[] = [
     { name: 'Home', href: '/' },
     ...(isCustomer
       ? [{ name: 'My Documents', href: '/customer/documents' }]
+      : []),
+    ...(isCustomerAdmin
+      ? [{ name: 'Team Compliance', href: '/customer/admin/completions' }]
       : []),
     ...(isStaff ? [{ name: 'Documents', href: '/documents' }] : []),
     ...(isAdmin

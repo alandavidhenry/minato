@@ -58,8 +58,8 @@ Automated reminders: `src/lib/reminders.ts` exports `isReminderDay(dueDate, toda
 ```
 src/app/
   admin/            # Admin dashboard (users, companies, templates, activity logs, settings)
-  api/              # Route handlers — auth, documents, folders, scan, shorturl, health, admin/*, customer/*, signoff/*
-  customer/         # Customer-facing pages (documents/assignments view)
+  api/              # Route handlers — auth, documents, folders, scan, shorturl, health, admin/*, customer/*, customer/admin/* (Customer Admin only), signoff/*
+  customer/         # Customer-facing pages (documents/assignments view); customer/admin/ for Customer Admin-only views (team completions)
   signoff/          # Public kiosk pages — no auth required; GET /signoff/[companyId] lists workers + assignments; POST /signoff/[companyId]/[assignmentId]/complete records sign-off
   documents/        # Consultancy staff file browser UI
   scan/             # Document scanning
@@ -158,11 +158,14 @@ Core document model:
   - `health`
   - Admin: user CRUD (`jobRole`, `lineManagerId` PATCH), password reset flows, document API routes, companies/templates/assignments CRUD (company-wide + individual; comprehension questions PATCH; `dueDate`; `targetJobRoles`; notification emails; no-email line manager routing), completions (list + download + status summary with outstanding users and overdue)
   - Customer: assignments (list with `jobRole` filtering, get single, complete with field + answer validation, download), completions (list + PDF download)
+  - Customer Admin (company-scoped): completions list (auth, role check, company scope from session), assignment status (cross-company 404, blobPath→hasPdf stripping), PDF download (assignment+company chain validation, missing blobPath 404, success SAS URL)
   - Cron: reminders (auth, zero sends, send count, 500 error)
   - Kiosk sign-off: `GET /api/signoff/[companyId]`, `POST /api/signoff/[companyId]/[assignmentId]` (worker validation, comprehension check, completion recording)
   - Document version cycle: `POST /api/admin/templates/[id]/publish-version` (auth, 404, success, 500); `templateVersion` on assignment creation; `publishNewTemplateVersion`; `createAssignmentsForNewVersion`; version-aware deduplication in `getAssignmentsForUser`
   - Dashboard: `GET /api/admin/dashboard/stats` (auth, 200 with KPIs, 500); `GET /api/admin/dashboard/completions` (auth, empty list, recent completions, limit param, cap at 20, 500)
   - Admin users list: `GET /api/admin/users` returns `customerCompanyName` (resolved via parallel company fetch); tests cover name resolution and null fallback
+  - Activity logs: `GET /api/admin/activity` (auth, role access for Tenant Staff, basic list, userId filter, companyId→userIds resolution, empty company, date range normalisation, limit, 500)
+  - Compliance KPIs: `GET /api/admin/dashboard/compliance-kpis` (auth, 200 with full KPI object, 500); lib unit tests cover: empty data, 12-month span, completion rates sorted ascending, monthly bucketing, template avg-days, coverage gaps, overdue user counting and deduplication
 - E2E: not yet started
 
 **TDD workflow:** define interface types → write tests → implement to pass tests. Always request tests before implementation. Target >90% coverage on `src/lib/`.

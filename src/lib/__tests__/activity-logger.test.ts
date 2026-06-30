@@ -144,10 +144,52 @@ describe('getActivityLogs', () => {
     expect(logs[1].id).toBe('a')
   })
 
-  it('filters by userId when provided', async () => {
+  it('filters by userId string (backward compat)', async () => {
     await getActivityLogs('user-1')
     expect(mockTableClient.listEntities).toHaveBeenCalledWith({
       queryOptions: { filter: "PartitionKey eq 'user-1'" }
+    })
+  })
+
+  it('filters by userId in filters object', async () => {
+    await getActivityLogs({ userId: 'user-1' })
+    expect(mockTableClient.listEntities).toHaveBeenCalledWith({
+      queryOptions: { filter: "PartitionKey eq 'user-1'" }
+    })
+  })
+
+  it('filters by multiple userIds', async () => {
+    await getActivityLogs({ userIds: ['user-1', 'user-2'] })
+    expect(mockTableClient.listEntities).toHaveBeenCalledWith({
+      queryOptions: {
+        filter: "(PartitionKey eq 'user-1' or PartitionKey eq 'user-2')"
+      }
+    })
+  })
+
+  it('filters by date range', async () => {
+    await getActivityLogs({
+      startDate: '2024-01-01T00:00:00.000Z',
+      endDate: '2024-01-31T23:59:59.999Z'
+    })
+    expect(mockTableClient.listEntities).toHaveBeenCalledWith({
+      queryOptions: {
+        filter:
+          "timestamp ge '2024-01-01T00:00:00.000Z' and timestamp le '2024-01-31T23:59:59.999Z'"
+      }
+    })
+  })
+
+  it('combines userId and date filters', async () => {
+    await getActivityLogs({
+      userId: 'user-1',
+      startDate: '2024-01-01T00:00:00.000Z'
+    })
+    expect(mockTableClient.listEntities).toHaveBeenCalledWith({
+      queryOptions: {
+        filter:
+          "PartitionKey eq 'user-1' and timestamp ge '2024-01-01T00:00:00.000Z'"
+      }
     })
   })
 
