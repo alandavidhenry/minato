@@ -132,7 +132,7 @@ For kiosk sign-off (`/signoff/[companyId]`), the worker selects their own name f
 Changes:
 - ✅ Top section: KPI tiles — active assignments, completed this month, outstanding, overdue (across all companies) with colour-coded values
 - ✅ "Recent completions" feed replacing the generic activity feed (completion events only; uploads/logins still visible in full activity log)
-- ✅ Quick-action links: "View all outstanding" and "View overdue assignments" (both link to `/admin/completions`; dedicated P12 page to follow)
+- ✅ Quick-action links: "Outstanding"/"Overdue" KPI tiles and a "View outstanding completions" link now route to the dedicated `/admin/completions/outstanding` page (P12)
 - ✅ Secondary stats (user count, company count, template count, documents) moved to "System Overview" section below
 
 Key files: `src/lib/dashboard.ts` (`getDashboardKPIs`), `src/app/api/admin/dashboard/stats/route.ts`, `src/app/api/admin/dashboard/completions/route.ts`, `src/components/admin/recent-completions.tsx`, `src/app/admin/page.tsx`
@@ -172,27 +172,30 @@ The graphs on the activity logs page are currently tracking vanity metrics (uplo
 
 ---
 
-### P12 — Outstanding Completions: Filtered Table and Spreadsheet Export
+### P12 — Outstanding Completions: Filtered Table and Spreadsheet Export ✅ Done
 
 **Goal:** Simon currently has to navigate into each company individually to find outstanding or overdue items. A cross-company outstanding completions view is needed for client reporting and proactive chasing.
 
-New admin page (e.g. `/admin/completions/outstanding`):
+- ✅ New admin page `/admin/completions/outstanding`, one row per assignment with `outstandingCount > 0`:
 
 | Column | Notes |
 |---|---|
-| Company | Link to company detail |
-| Template | Link to template |
+| Company | Links to `/admin/companies/[id]` |
+| Template | Links to `/admin/templates` |
 | Version | v{N} badge |
-| Assigned To | User name or job role label for company-wide |
+| Assigned To | User name (individual) or job role label / "All staff" (company-wide) |
 | Due Date | Formatted, with overdue badge |
-| Days Overdue | Calculated server-side |
-| Last Reminder | Date of last reminder email sent |
+| Days Overdue | Calculated server-side in `getOutstandingCompletions` |
+| Last Reminder | Date the reminders cron last sent a reminder for this assignment |
 
-**Filters:** Company (multi-select), template, job role, due date range, overdue only toggle
+- ✅ **Filters:** Company (multi-select dropdown), template, job role, due date range, overdue-only toggle — all applied client-side against the full fetched row set
+- ✅ **Sort:** due date (default, ascending, no-due-date last), company, template, overdue status — clickable column headers with `SortArrows`
+- ✅ **Export:** CSV (client-side, matches P11's quoting convention) and XLSX (via `exceljs`, lazy-loaded on click to avoid bloating the initial bundle)
+- ✅ Dashboard "Outstanding"/"Overdue" KPI tiles and a new quick-action link now route to this page; `/admin/completions` has a "View Outstanding" button
 
-**Sort:** due date (default), company, template, overdue status
+**Schema addition:** `Assignment.lastReminderSentAt DateTime?` — set by `GET /api/cron/reminders` (`prisma.assignment.updateMany`) each time reminders are sent for an assignment. Previously there was no persisted record of reminder sends.
 
-**Export:** Download filtered results as CSV or XLSX. This replaces ad-hoc reporting and gives Simon something to send to clients or use in management reviews.
+Key files: `src/lib/outstanding-completions.ts` (`getOutstandingCompletions`), `src/app/api/admin/completions/outstanding/route.ts`, `src/app/admin/completions/outstanding/page.tsx`, `src/app/api/cron/reminders/route.ts`
 
 ---
 

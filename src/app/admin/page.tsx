@@ -152,37 +152,41 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Outstanding</CardTitle>
-            <AlertTriangle className='h-4 w-4 text-amber-500' />
-          </CardHeader>
-          <CardContent>
-            {kpisLoading ? (
-              <div className='h-8 w-16 animate-pulse rounded bg-muted' />
-            ) : (
-              <div className='text-2xl font-bold text-amber-600'>
-                {kpis.outstanding}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <Link href='/admin/completions/outstanding'>
+          <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <CardTitle className='text-sm font-medium'>Outstanding</CardTitle>
+              <AlertTriangle className='h-4 w-4 text-amber-500' />
+            </CardHeader>
+            <CardContent>
+              {kpisLoading ? (
+                <div className='h-8 w-16 animate-pulse rounded bg-muted' />
+              ) : (
+                <div className='text-2xl font-bold text-amber-600'>
+                  {kpis.outstanding}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Overdue</CardTitle>
-            <AlertTriangle className='h-4 w-4 text-red-500' />
-          </CardHeader>
-          <CardContent>
-            {kpisLoading ? (
-              <div className='h-8 w-16 animate-pulse rounded bg-muted' />
-            ) : (
-              <div className='text-2xl font-bold text-red-600'>
-                {kpis.overdue}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <Link href='/admin/completions/outstanding?overdueOnly=true'>
+          <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <CardTitle className='text-sm font-medium'>Overdue</CardTitle>
+              <AlertTriangle className='h-4 w-4 text-red-500' />
+            </CardHeader>
+            <CardContent>
+              {kpisLoading ? (
+                <div className='h-8 w-16 animate-pulse rounded bg-muted' />
+              ) : (
+                <div className='text-2xl font-bold text-red-600'>
+                  {kpis.overdue}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Recent completions feed + quick actions */}
@@ -207,6 +211,12 @@ export default function AdminDashboardPage() {
             <Link href='/admin/completions' className='block'>
               <Button variant='outline' className='w-full justify-between'>
                 View all completions
+                <ArrowRight className='h-4 w-4' />
+              </Button>
+            </Link>
+            <Link href='/admin/completions/outstanding' className='block'>
+              <Button variant='outline' className='w-full justify-between'>
+                View outstanding completions
                 <ArrowRight className='h-4 w-4' />
               </Button>
             </Link>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { sendReminderNotification } from '@/lib/email'
+import prisma from '@/lib/prisma'
 import { getAssignmentsNeedingReminders } from '@/lib/reminders'
 
 export async function GET(request: NextRequest) {
@@ -25,6 +26,13 @@ export async function GET(request: NextRequest) {
         )
       )
     )
+
+    if (targets.length > 0) {
+      await prisma.assignment.updateMany({
+        where: { id: { in: targets.map((t) => t.assignment.id) } },
+        data: { lastReminderSentAt: new Date() }
+      })
+    }
 
     const sent = targets.reduce((sum, t) => sum + t.recipients.length, 0)
     return NextResponse.json({ sent })
