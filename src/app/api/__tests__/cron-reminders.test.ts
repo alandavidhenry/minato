@@ -21,6 +21,13 @@ vi.mock('@/lib/email', () => ({
   sendReminderNotification: mockSendReminderNotification
 }))
 
+const { mockPrisma } = vi.hoisted(() => ({
+  mockPrisma: {
+    assignment: { updateMany: vi.fn() }
+  }
+}))
+vi.mock('@/lib/prisma', () => ({ default: mockPrisma }))
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -47,6 +54,7 @@ beforeEach(() => {
   process.env.NEXTAUTH_URL = 'https://portal.example.com'
   mockGetAssignmentsNeedingReminders.mockResolvedValue([])
   mockSendReminderNotification.mockResolvedValue(undefined)
+  mockPrisma.assignment.updateMany.mockResolvedValue({ count: 0 })
 })
 
 // ---------------------------------------------------------------------------
@@ -75,6 +83,7 @@ describe('GET /api/cron/reminders', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.sent).toBe(0)
+    expect(mockPrisma.assignment.updateMany).not.toHaveBeenCalled()
   })
 
   it('sends reminders and returns correct sent count', async () => {
@@ -90,6 +99,10 @@ describe('GET /api/cron/reminders', () => {
       false,
       'https://portal.example.com'
     )
+    expect(mockPrisma.assignment.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['assignment_1'] } },
+      data: { lastReminderSentAt: expect.any(Date) }
+    })
   })
 
   it('counts recipients across multiple targets', async () => {
