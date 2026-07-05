@@ -30,10 +30,10 @@ Document management platform built on **Next.js 16 App Router** with **Azure** a
   - Schema: `prisma/schema.prisma`; client generated to `src/generated/prisma/`; singleton at `src/lib/prisma.ts`; driver: `@prisma/adapter-pg`
   - Models: `Tenant`, `User`, `PasswordReset`, `CustomerCompany`, `DocumentTemplate`, `TemplateVersionHistory`, `Assignment`, `CompletionRecord`
   - `User`: nullable `email?` and `passwordHash?` (no-email workers cannot log in); nullable `jobRole?`; nullable `lineManagerId?` self-ref FK → `User.id` (routes notifications to line manager)
-  - `DocumentTemplate`: `formSchema Json?`; `questions Json?` — each question is `{ id, question, options: string[], answer: string }`; `version Int @default(1)` — incremented on each publish
+  - `DocumentTemplate`: `formSchema Json?` — array of `FormField` (`src/types/form-schema.ts`): `type` is one of `text | textarea | number | checkbox | date | select | file | section`; `select` fields carry `options: string[]`; `file` fields store an `{ blobPath, fileName }` object once uploaded; `section` fields are heading-only (no value, never required, excluded from stored `formData`); `questions Json?` — each question is `{ id, question, options: string[], answer: string }`; `version Int @default(1)` — incremented on each publish
   - `TemplateVersionHistory`: `templateId` FK, `version Int`, `changeReason String?`, `snapshot Json` (`{title, description, formSchema, questions}`), `publishedAt`, `publishedBy String?` (userId) — only ever holds *superseded* versions; the live version's content lives on `DocumentTemplate` itself
   - `Assignment`: nullable `userId` (individual vs company-wide); nullable `dueDate?`; nullable `targetJobRoles Json?` (string array); `templateVersion Int @default(1)` — snapshot at assignment creation; partial unique indexes include `templateVersion`; nullable `lastReminderSentAt DateTime?` — set by the reminders cron each time a reminder is sent for that assignment; `autoEnroll Boolean @default(false)` — company-wide only (forced `false` when `userId` is set); marks an assignment for auto-enrolment (see `enrollMatchingUsersForAssignment`/`enrollUserInMatchingAssignments` below)
-  - Lib: `src/lib/customer-companies.ts`, `src/lib/document-templates.ts`, `src/lib/template-version-history.ts`, `src/lib/template-version-diff.ts`, `src/lib/assignments.ts`, `src/lib/completion-records.ts`, `src/lib/outstanding-completions.ts`
+  - Lib: `src/lib/customer-companies.ts`, `src/lib/document-templates.ts`, `src/lib/template-version-history.ts`, `src/lib/template-version-diff.ts`, `src/lib/assignments.ts`, `src/lib/completion-records.ts`, `src/lib/outstanding-completions.ts`, `src/lib/form-schema-utils.ts` (`isFieldVisible` — shared by client rendering and server validation), `src/lib/form-validation.ts` (`getMissingRequiredFields`/`getVisibleFormData` — server-side required-field and visibility validation per field type), `src/lib/starter-templates.ts` (hardcoded, client-side-only form field presets for common H&S document types)
   - Key functions: `getAssignmentStatusSummary` (completed records + outstanding users + isOverdue); `getAssignmentsForUser` (filters by `targetJobRoles`, deduplicates by highest-version per templateId — individual beats company-wide at same version); `publishNewTemplateVersion` (requires `changeReason`; in one `$transaction`, snapshots the current content into `TemplateVersionHistory` then increments `version` and applies content updates); `createAssignmentsForNewVersion` (replicates all previous-version assignments at new version, carrying `autoEnroll` forward); `getOutstandingCompletions` (cross-company, one row per assignment with `outstandingCount > 0`, sorted by due date ascending); `diffTemplateSnapshots` (pure — structural diff of two `TemplateSnapshot`s by field/question `id`: added/removed/changed/unchanged); `enrollMatchingUsersForAssignment`/`enrollUserInMatchingAssignments` (auto-enrolment: creates an individual `Assignment` — an audit-trail "enrolled on [date]" record — for each company user whose `jobRole` matches an `autoEnroll` company-wide assignment's `targetJobRoles`; stricter than view-layer filtering — a user with no `jobRole` does not match a role-restricted `autoEnroll` assignment; triggered on assignment creation, user registration, and admin/self-service `jobRole` changes)
   - Prisma nullable JSON fields: use `Prisma.NullableJsonNullValueInput` / `Prisma.InputJsonValue` (imported from `@/generated/prisma/client`)
 - **Azurite emulator** — set `USE_AZURITE=true` in `.env.local` for Azure Storage local development; PostgreSQL connects to Neon (or local DB) via `DATABASE_URL`
@@ -59,7 +59,7 @@ Automated reminders: `src/lib/reminders.ts` exports `isReminderDay(dueDate, toda
 ```
 src/app/
   admin/            # Admin dashboard (users, companies, templates, activity logs, settings)
-  api/              # Route handlers — auth, documents, folders, scan, shorturl, health, admin/*, customer/*, customer/admin/* (Customer Admin only), signoff/*
+  api/              # Route handlers — auth, documents, folders, scan, shorturl, health, admin/*, customer/*, customer/admin/* (Customer Admin only), signoff/*; customer/assignments/[id]/upload-file and signoff/[companyId]/[assignmentId]/upload-file handle multipart uploads for 'file' form fields
   customer/         # Customer-facing pages (documents/assignments view); customer/admin/ for Customer Admin-only views (team completions)
   signoff/          # Public kiosk pages — no auth required; GET /signoff/[companyId] lists workers + assignments; POST /signoff/[companyId]/[assignmentId]/complete records sign-off
   documents/        # Consultancy staff file browser UI
@@ -68,9 +68,11 @@ src/app/
   s/                # Short URL redirects
   auth/             # Sign-in, error, forgot-password, reset-password pages
 src/components/
-  admin/            # Admin UI (includes edit-template-dialog with form field builder, publish-version-dialog, template-version-history, version-diff-view)
+  admin/            # Admin UI (includes edit-template-dialog with drag-and-drop form field builder, publish-version-dialog, template-version-history, version-diff-view)
+  admin/form-builder/ # Form builder sub-components: field-type-palette (click/drag-to-add), sortable-field-card (@dnd-kit drag handle), starter-template-picker
   providers/        # RBAC, Auth, Theme context providers
   ui/               # Radix UI-based reusable components (includes Textarea, Separator)
+  form-field-renderer.tsx # Shared field renderer (customer/kiosk complete pages + admin preview) — one component per FormFieldType
 src/lib/
   file-system/      # File/folder operation abstractions
   pdf/              # Server-side PDF generation (completion-pdf.tsx uses @react-pdf/renderer)
@@ -78,7 +80,7 @@ src/lib/
 
 ### Key Patterns
 - Path alias `@/*` maps to `src/*`
-- Tailwind CSS v4 for styling; Radix UI for accessible primitives
+- Tailwind CSS v4 for styling; Radix UI for accessible primitives; `@dnd-kit/core` + `@dnd-kit/sortable` for the form builder's drag-and-drop field reordering and palette drag-to-add
 - `next.config.mjs` sets `output: 'standalone'` for Docker deployment
 - `src/proxy.ts` is the Next.js 16 proxy (formerly middleware) — guards `/documents` and `/scan` routes with auth; named `proxy` not `middleware`
 - All activity is logged to Azure Table Storage for auditing
@@ -170,6 +172,7 @@ Core document model:
   - Compliance KPIs: `GET /api/admin/dashboard/compliance-kpis` (auth, 200 with full KPI object, 500); lib unit tests cover: empty data, 12-month span, completion rates sorted ascending, monthly bucketing, template avg-days, coverage gaps, overdue user counting and deduplication
   - Outstanding completions: `GET /api/admin/completions/outstanding` (admin-only, 200 with rows, 500); lib unit tests cover: assignments with no outstanding users excluded, individual vs company-wide `assignedTo` labelling (job role list or "All staff"), overdue flagging + days-overdue calculation, `lastReminderSentAt` passthrough, due-date sort with nulls last
   - Auto-enrolment (P16): `POST /api/admin/companies/[id]/assignments` (`autoEnroll` passthrough, enrolls matching existing users on company-wide creation, skipped for individual assignments); `POST /api/auth/register` (enrolls a newly created customer user, skipped when no `customerCompanyId`); `PATCH /api/admin/users/[id]` and `PATCH /api/profile` (re-run matching on `jobRole` change, skipped when `jobRole` untouched or no `customerCompanyId`); lib unit tests cover `enrollMatchingUsersForAssignment`/`enrollUserInMatchingAssignments`: role match/no-match, null `targetJobRoles` (all staff), no-`jobRole` user does not match a role-restricted assignment, already-enrolled dedup, error paths
+  - Form builder field types (P16b): `getMissingRequiredFields`/`getVisibleFormData` (`src/lib/form-validation.ts`) unit tests cover text/checkbox/number/select/file required-field checks and `section` exclusion; `starter-templates.ts` unit tests cover preset shape and unique ids; `completion-pdf.tsx` unit test renders a PDF covering every field type including `file`/`section`; both completion routes (`customer/assignments/[id]/complete`, `signoff/[companyId]/[assignmentId]`) have tests for the new field types' required-field validation; new `upload-file` routes (customer + kiosk) covered for auth, field-type validation, 10MB size limit, and success
 - E2E: not yet started
 
 **TDD workflow:** define interface types → write tests → implement to pass tests. Always request tests before implementation. Target >90% coverage on `src/lib/`.

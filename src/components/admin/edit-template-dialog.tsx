@@ -1,8 +1,29 @@
 'use client'
 
-import { ChevronDown, ChevronUp, Loader2, Plus, Trash2 } from 'lucide-react'
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable'
+import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import {
+  FIELD_TYPE_LABELS,
+  FieldTypePalette
+} from '@/components/admin/form-builder/field-type-palette'
+import { SortableFieldCard } from '@/components/admin/form-builder/sortable-field-card'
+import { StarterTemplatePicker } from '@/components/admin/form-builder/starter-template-picker'
 import { PublishVersionDialog } from '@/components/admin/publish-version-dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -48,15 +69,30 @@ interface EditTemplateDialogProps {
   readonly onTemplateSaved: (publishedNewVersion?: boolean) => void
 }
 
-const FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
-  text: 'Short text',
-  textarea: 'Long text',
-  checkbox: 'Checkbox (yes/no)',
-  date: 'Date'
-}
-
 function generateId() {
   return Math.random().toString(36).slice(2, 10)
+}
+
+function createField(type: FormFieldType): FormField {
+  const base: FormField = { id: generateId(), label: '', type, required: false }
+  return type === 'select' ? { ...base, options: ['', ''] } : base
+}
+
+function FieldsCanvas({
+  items,
+  children
+}: {
+  readonly items: string[]
+  readonly children: React.ReactNode
+}) {
+  const { setNodeRef } = useDroppable({ id: 'fields-canvas' })
+  return (
+    <div ref={setNodeRef} className='grid gap-3 min-h-[2.5rem]'>
+      <SortableContext items={items} strategy={verticalListSortingStrategy}>
+        {children}
+      </SortableContext>
+    </div>
+  )
 }
 
 export function EditTemplateDialog({
@@ -82,11 +118,62 @@ export function EditTemplateDialog({
     }
   }, [template])
 
-  function addField() {
-    setFields((prev) => [
-      ...prev,
-      { id: generateId(), label: '', type: 'text', required: false }
-    ])
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  function clearOrphanedConditions(next: FormField[]): FormField[] {
+    return next.map((f, i) => {
+      if (!f.condition) return f
+      const condIdx = next.findIndex((c) => c.id === f.condition!.fieldId)
+      return condIdx < i ? f : { ...f, condition: undefined }
+    })
+  }
+
+  function appendField(type: FormFieldType = 'text') {
+    setFields((prev) => [...prev, createField(type)])
+  }
+
+  function insertFieldBefore(beforeId: string, type: FormFieldType) {
+    setFields((prev) => {
+      const idx = prev.findIndex((f) => f.id === beforeId)
+      if (idx === -1) return [...prev, createField(type)]
+      const next = [...prev]
+      next.splice(idx, 0, createField(type))
+      return next
+    })
+  }
+
+  function loadStarterTemplate(starterFields: FormField[]) {
+    setFields(starterFields)
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over) return
+
+    const activeId = String(active.id)
+
+    if (activeId.startsWith('palette-')) {
+      const type = active.data.current?.paletteType as FormFieldType
+      const overId = String(over.id)
+      if (overId === 'fields-canvas') {
+        appendField(type)
+      } else {
+        insertFieldBefore(overId, type)
+      }
+      return
+    }
+
+    if (active.id === over.id) return
+
+    setFields((prev) => {
+      const oldIndex = prev.findIndex((f) => f.id === active.id)
+      const newIndex = prev.findIndex((f) => f.id === over.id)
+      if (oldIndex === -1 || newIndex === -1) return prev
+      return clearOrphanedConditions(arrayMove(prev, oldIndex, newIndex))
+    })
   }
 
   function availableConditionFields(fieldId: string): FormField[] {
@@ -94,20 +181,41 @@ export function EditTemplateDialog({
     return fields.slice(0, idx).filter(isCheckboxField)
   }
 
-  function moveField(id: string, direction: 'up' | 'down') {
-    setFields((prev) => {
-      const idx = prev.findIndex((f) => f.id === id)
-      const swapIdx = direction === 'up' ? idx - 1 : idx + 1
-      if (swapIdx < 0 || swapIdx >= prev.length) return prev
-      const next = [...prev]
-      ;[next[idx], next[swapIdx]] = [next[swapIdx], next[idx]]
-      // Clear conditions that now reference a field that is no longer before them
-      return next.map((f, i) => {
-        if (!f.condition) return f
-        const condIdx = next.findIndex((c) => c.id === f.condition!.fieldId)
-        return condIdx < i ? f : { ...f, condition: undefined }
+  function addFieldOption(fieldId: string) {
+    setFields((prev) =>
+      prev.map((f) =>
+        f.id === fieldId ? { ...f, options: [...(f.options ?? []), ''] } : f
+      )
+    )
+  }
+
+  function updateFieldOption(
+    fieldId: string,
+    optionIndex: number,
+    value: string
+  ) {
+    setFields((prev) =>
+      prev.map((f) => {
+        if (f.id !== fieldId) return f
+        const options = (f.options ?? []).map((o, i) =>
+          i === optionIndex ? value : o
+        )
+        return { ...f, options }
       })
-    })
+    )
+  }
+
+  function removeFieldOption(fieldId: string, optionIndex: number) {
+    setFields((prev) =>
+      prev.map((f) =>
+        f.id === fieldId
+          ? {
+              ...f,
+              options: (f.options ?? []).filter((_, i) => i !== optionIndex)
+            }
+          : f
+      )
+    )
   }
 
   function removeField(id: string) {
@@ -207,6 +315,22 @@ export function EditTemplateDialog({
       toast({
         title: 'Validation Error',
         description: 'All form fields must have a label',
+        variant: 'destructive'
+      })
+      return false
+    }
+
+    const invalidSelectFields = fields.filter(
+      (f) =>
+        f.type === 'select' &&
+        ((f.options ?? []).length < 2 ||
+          (f.options ?? []).some((o) => !o.trim()))
+    )
+    if (invalidSelectFields.length > 0) {
+      toast({
+        title: 'Validation Error',
+        description:
+          'Each dropdown field must have at least 2 non-empty options',
         variant: 'destructive'
       })
       return false
@@ -391,7 +515,7 @@ export function EditTemplateDialog({
                   type='button'
                   variant='outline'
                   size='sm'
-                  onClick={addField}
+                  onClick={() => appendField('text')}
                   disabled={isLoading}
                 >
                   <Plus className='mr-1 h-3 w-3' />
@@ -400,179 +524,243 @@ export function EditTemplateDialog({
               </div>
 
               {fields.length === 0 && (
-                <p className='text-sm text-muted-foreground'>
-                  No form fields yet. Add fields for customers to fill in when
-                  completing this document.
-                </p>
+                <>
+                  <p className='text-sm text-muted-foreground'>
+                    No form fields yet. Add fields for customers to fill in when
+                    completing this document.
+                  </p>
+                  <StarterTemplatePicker onSelect={loadStarterTemplate} />
+                </>
               )}
 
-              {fields.map((field, index, arr) => (
-                <div
-                  key={field.id}
-                  className='rounded-md border p-3 grid gap-3'
-                >
-                  <div className='flex items-center justify-between'>
-                    <span className='text-sm font-medium text-muted-foreground'>
-                      Field {index + 1}
-                    </span>
-                    <div className='flex items-center gap-1'>
-                      <Button
-                        type='button'
-                        variant='ghost'
-                        size='sm'
-                        onClick={() => moveField(field.id, 'up')}
-                        disabled={isLoading || index === 0}
-                      >
-                        <ChevronUp className='h-3 w-3' />
-                      </Button>
-                      <Button
-                        type='button'
-                        variant='ghost'
-                        size='sm'
-                        onClick={() => moveField(field.id, 'down')}
-                        disabled={isLoading || index === arr.length - 1}
-                      >
-                        <ChevronDown className='h-3 w-3' />
-                      </Button>
-                      <Button
-                        type='button'
-                        variant='ghost'
-                        size='sm'
-                        onClick={() => removeField(field.id)}
-                        disabled={isLoading}
-                      >
-                        <Trash2 className='h-3 w-3' />
-                      </Button>
-                    </div>
-                  </div>
+              <DndContext sensors={dndSensors} onDragEnd={handleDragEnd}>
+                <div className='grid gap-4 md:grid-cols-[1fr_180px] items-start'>
+                  <FieldsCanvas items={fields.map((f) => f.id)}>
+                    {fields.map((field, index) => (
+                      <SortableFieldCard key={field.id} id={field.id}>
+                        <div className='rounded-md border p-3 grid gap-3'>
+                          <div className='flex items-center justify-between'>
+                            <span className='text-sm font-medium text-muted-foreground'>
+                              Field {index + 1}
+                            </span>
+                            <Button
+                              type='button'
+                              variant='ghost'
+                              size='sm'
+                              onClick={() => removeField(field.id)}
+                              disabled={isLoading}
+                            >
+                              <Trash2 className='h-3 w-3' />
+                            </Button>
+                          </div>
 
-                  <div className='grid gap-2'>
-                    <Label htmlFor={`label-${field.id}`}>Label</Label>
-                    <Input
-                      id={`label-${field.id}`}
-                      value={field.label}
-                      onChange={(e) =>
-                        updateField(field.id, { label: e.target.value })
-                      }
-                      placeholder='e.g. Are fire exits clear and unobstructed?'
-                      disabled={isLoading}
-                    />
-                  </div>
+                          <div className='grid gap-2'>
+                            <Label htmlFor={`label-${field.id}`}>Label</Label>
+                            <Input
+                              id={`label-${field.id}`}
+                              value={field.label}
+                              onChange={(e) =>
+                                updateField(field.id, { label: e.target.value })
+                              }
+                              placeholder='e.g. Are fire exits clear and unobstructed?'
+                              disabled={isLoading}
+                            />
+                          </div>
 
-                  <div className='grid grid-cols-2 gap-3'>
-                    <div className='grid gap-2'>
-                      <Label htmlFor={`type-${field.id}`}>Type</Label>
-                      <Select
-                        value={field.type}
-                        onValueChange={(value) => {
-                          const newType = value as FormFieldType
-                          updateField(field.id, {
-                            type: newType,
-                            ...(newType === 'checkbox' && { required: false })
-                          })
-                        }}
-                        disabled={isLoading}
-                      >
-                        <SelectTrigger id={`type-${field.id}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(
-                            Object.entries(FIELD_TYPE_LABELS) as [
-                              FormFieldType,
-                              string
-                            ][]
-                          ).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
-                              {label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                          <div className='grid grid-cols-2 gap-3'>
+                            <div className='grid gap-2'>
+                              <Label htmlFor={`type-${field.id}`}>Type</Label>
+                              <Select
+                                value={field.type}
+                                onValueChange={(value) => {
+                                  const newType = value as FormFieldType
+                                  updateField(field.id, {
+                                    type: newType,
+                                    ...((newType === 'checkbox' ||
+                                      newType === 'section') && {
+                                      required: false
+                                    }),
+                                    options:
+                                      newType === 'select'
+                                        ? (field.options ?? ['', ''])
+                                        : undefined
+                                  })
+                                }}
+                                disabled={isLoading}
+                              >
+                                <SelectTrigger id={`type-${field.id}`}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {(
+                                    Object.entries(FIELD_TYPE_LABELS) as [
+                                      FormFieldType,
+                                      string
+                                    ][]
+                                  ).map(([value, label]) => (
+                                    <SelectItem key={value} value={value}>
+                                      {label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
 
-                    {field.type !== 'checkbox' && (
-                      <div className='flex items-end gap-2 pb-1'>
-                        <Checkbox
-                          id={`required-${field.id}`}
-                          checked={field.required}
-                          onCheckedChange={(checked) =>
-                            updateField(field.id, {
-                              required: checked === true
-                            })
-                          }
-                          disabled={isLoading}
-                        />
-                        <Label
-                          htmlFor={`required-${field.id}`}
-                          className='cursor-pointer'
-                        >
-                          Required
-                        </Label>
-                      </div>
-                    )}
-                  </div>
+                            {field.type !== 'checkbox' &&
+                              field.type !== 'section' && (
+                                <div className='flex items-end gap-2 pb-1'>
+                                  <Checkbox
+                                    id={`required-${field.id}`}
+                                    checked={field.required}
+                                    onCheckedChange={(checked) =>
+                                      updateField(field.id, {
+                                        required: checked === true
+                                      })
+                                    }
+                                    disabled={isLoading}
+                                  />
+                                  <Label
+                                    htmlFor={`required-${field.id}`}
+                                    className='cursor-pointer'
+                                  >
+                                    Required
+                                  </Label>
+                                </div>
+                              )}
+                          </div>
 
-                  {availableConditionFields(field.id).length > 0 && (
-                    <div className='grid gap-2'>
-                      <Label>Show only when</Label>
-                      <div className='flex gap-2'>
-                        <Select
-                          value={field.condition?.fieldId ?? 'none'}
-                          onValueChange={(value) => {
-                            if (value === 'none') {
-                              updateField(field.id, { condition: undefined })
-                            } else {
-                              updateField(field.id, {
-                                condition: {
-                                  fieldId: value,
-                                  value: field.condition?.value ?? true
-                                }
-                              })
-                            }
-                          }}
-                          disabled={isLoading}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value='none'>Always show</SelectItem>
-                            {availableConditionFields(field.id).map((cf) => (
-                              <SelectItem key={cf.id} value={cf.id}>
-                                {cf.label ||
-                                  `Checkbox ${fields.indexOf(cf) + 1}`}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {field.condition && (
-                          <Select
-                            value={field.condition.value ? 'true' : 'false'}
-                            onValueChange={(value) =>
-                              updateField(field.id, {
-                                condition: {
-                                  fieldId: field.condition!.fieldId,
-                                  value: value === 'true'
-                                }
-                              })
-                            }
-                            disabled={isLoading}
-                          >
-                            <SelectTrigger className='w-28'>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value='true'>is Yes</SelectItem>
-                              <SelectItem value='false'>is No</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                          {field.type === 'select' && (
+                            <div className='grid gap-2'>
+                              <div className='flex items-center justify-between'>
+                                <Label>Dropdown options</Label>
+                                <Button
+                                  type='button'
+                                  variant='ghost'
+                                  size='sm'
+                                  onClick={() => addFieldOption(field.id)}
+                                  disabled={isLoading}
+                                >
+                                  <Plus className='mr-1 h-3 w-3' />
+                                  Add Option
+                                </Button>
+                              </div>
+                              {(field.options ?? []).map((option, optIdx) => (
+                                <div
+                                  key={optIdx}
+                                  className='flex items-center gap-2'
+                                >
+                                  <Input
+                                    value={option}
+                                    onChange={(e) =>
+                                      updateFieldOption(
+                                        field.id,
+                                        optIdx,
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder={`Option ${optIdx + 1}`}
+                                    disabled={isLoading}
+                                    className='flex-1 h-8 text-sm'
+                                  />
+                                  {(field.options ?? []).length > 2 && (
+                                    <Button
+                                      type='button'
+                                      variant='ghost'
+                                      size='sm'
+                                      onClick={() =>
+                                        removeFieldOption(field.id, optIdx)
+                                      }
+                                      disabled={isLoading}
+                                    >
+                                      <Trash2 className='h-3 w-3' />
+                                    </Button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {availableConditionFields(field.id).length > 0 && (
+                            <div className='grid gap-2'>
+                              <Label>Show only when</Label>
+                              <div className='flex gap-2'>
+                                <Select
+                                  value={field.condition?.fieldId ?? 'none'}
+                                  onValueChange={(value) => {
+                                    if (value === 'none') {
+                                      updateField(field.id, {
+                                        condition: undefined
+                                      })
+                                    } else {
+                                      updateField(field.id, {
+                                        condition: {
+                                          fieldId: value,
+                                          value: field.condition?.value ?? true
+                                        }
+                                      })
+                                    }
+                                  }}
+                                  disabled={isLoading}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value='none'>
+                                      Always show
+                                    </SelectItem>
+                                    {availableConditionFields(field.id).map(
+                                      (cf) => (
+                                        <SelectItem key={cf.id} value={cf.id}>
+                                          {cf.label ||
+                                            `Checkbox ${fields.indexOf(cf) + 1}`}
+                                        </SelectItem>
+                                      )
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                                {field.condition && (
+                                  <Select
+                                    value={
+                                      field.condition.value ? 'true' : 'false'
+                                    }
+                                    onValueChange={(value) =>
+                                      updateField(field.id, {
+                                        condition: {
+                                          fieldId: field.condition!.fieldId,
+                                          value: value === 'true'
+                                        }
+                                      })
+                                    }
+                                    disabled={isLoading}
+                                  >
+                                    <SelectTrigger className='w-28'>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value='true'>
+                                        is Yes
+                                      </SelectItem>
+                                      <SelectItem value='false'>
+                                        is No
+                                      </SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </SortableFieldCard>
+                    ))}
+                  </FieldsCanvas>
+
+                  <FieldTypePalette
+                    onAppend={appendField}
+                    disabled={isLoading}
+                  />
                 </div>
-              ))}
+              </DndContext>
             </div>
 
             <Separator />
