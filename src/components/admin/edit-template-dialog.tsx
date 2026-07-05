@@ -67,6 +67,7 @@ interface EditTemplateDialogProps {
   readonly onOpenChange: (open: boolean) => void
   readonly template: Template | null
   readonly onTemplateSaved: (publishedNewVersion?: boolean) => void
+  readonly apiBasePath?: string
 }
 
 function generateId() {
@@ -99,7 +100,8 @@ export function EditTemplateDialog({
   open,
   onOpenChange,
   template,
-  onTemplateSaved
+  onTemplateSaved,
+  apiBasePath = '/api/admin/templates'
 }: EditTemplateDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
@@ -382,7 +384,7 @@ export function EditTemplateDialog({
     setIsLoading(true)
 
     try {
-      const response = await fetch(`/api/admin/templates/${template?.id}`, {
+      const response = await fetch(`${apiBasePath}/${template?.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -421,7 +423,7 @@ export function EditTemplateDialog({
 
     try {
       const response = await fetch(
-        `/api/admin/templates/${template?.id}/publish-version`,
+        `${apiBasePath}/${template?.id}/publish-version`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

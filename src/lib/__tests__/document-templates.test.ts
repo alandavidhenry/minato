@@ -5,6 +5,7 @@ import {
   deleteDocumentTemplate,
   getAllDocumentTemplates,
   getDocumentTemplateById,
+  getDocumentTemplatesByOwnerCompany,
   publishNewTemplateVersion,
   updateDocumentTemplate
 } from '../document-templates'
@@ -36,6 +37,7 @@ const BASE_TEMPLATE = {
   questions: null,
   version: 1,
   tenantId: null,
+  ownerCompanyId: null,
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
   updatedAt: new Date('2024-01-01T00:00:00.000Z')
 }
@@ -67,13 +69,16 @@ describe('createDocumentTemplate', () => {
 })
 
 describe('getAllDocumentTemplates', () => {
-  it('returns mapped list of templates', async () => {
+  it('returns mapped list of templates, scoped to the tenant library', async () => {
     mockPrisma.documentTemplate.findMany.mockResolvedValue([BASE_TEMPLATE])
 
     const result = await getAllDocumentTemplates()
 
     expect(result).toHaveLength(1)
     expect(result[0].title).toBe('Farmyard Safety Checklist')
+    expect(mockPrisma.documentTemplate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { ownerCompanyId: null } })
+    )
   })
 
   it('returns empty array on error', async () => {
@@ -81,6 +86,28 @@ describe('getAllDocumentTemplates', () => {
       new Error('db error')
     )
     expect(await getAllDocumentTemplates()).toEqual([])
+  })
+})
+
+describe('getDocumentTemplatesByOwnerCompany', () => {
+  it('returns mapped list scoped to the owning company', async () => {
+    const companyTemplate = { ...BASE_TEMPLATE, ownerCompanyId: 'company_1' }
+    mockPrisma.documentTemplate.findMany.mockResolvedValue([companyTemplate])
+
+    const result = await getDocumentTemplatesByOwnerCompany('company_1')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].ownerCompanyId).toBe('company_1')
+    expect(mockPrisma.documentTemplate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { ownerCompanyId: 'company_1' } })
+    )
+  })
+
+  it('returns empty array on error', async () => {
+    mockPrisma.documentTemplate.findMany.mockRejectedValue(
+      new Error('db error')
+    )
+    expect(await getDocumentTemplatesByOwnerCompany('company_1')).toEqual([])
   })
 })
 

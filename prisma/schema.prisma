@@ -85,29 +85,35 @@ model CustomerCompany {
   folderPath String? // blob storage folder path; auto-set on creation
   createdAt  DateTime @default(now())
 
-  tenant      Tenant?      @relation(fields: [tenantId], references: [id])
-  users       User[]
-  assignments Assignment[]
+  tenant         Tenant?            @relation(fields: [tenantId], references: [id])
+  users          User[]
+  assignments    Assignment[]
+  ownedTemplates DocumentTemplate[]
 }
 
-// A reusable H&S document maintained by the consultancy.
+// A reusable H&S document maintained by the consultancy, or a company-specific
+// document created by a Customer Admin (P17 self-serve portal).
 // blobPath is the path to the template file in Azure Blob Storage; nullable
 // because form-based templates may not have a backing file initially.
 // formSchema is a JSON array of FormField objects (see src/types/form-schema.ts)
 // that defines the fields the customer must fill in to complete this template.
+// ownerCompanyId null = tenant-managed (Simon's library, visible to every company);
+// set = created by that CustomerCompany's admin, visible only within that company.
 model DocumentTemplate {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  blobPath    String? // path in Azure Blob Storage; null for form-only templates
-  formSchema  Json? // array of FormField; null means no form fields defined
-  questions   Json? // array of ComprehensionQuestion; null means no questions defined
-  version     Int      @default(1) // incremented each time a new version is published
-  tenantId    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  title          String
+  description    String?
+  blobPath       String? // path in Azure Blob Storage; null for form-only templates
+  formSchema     Json? // array of FormField; null means no form fields defined
+  questions      Json? // array of ComprehensionQuestion; null means no questions defined
+  version        Int      @default(1) // incremented each time a new version is published
+  tenantId       String?
+  ownerCompanyId String? // set when created by a company admin via the self-serve portal
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   tenant         Tenant?                   @relation(fields: [tenantId], references: [id])
+  ownerCompany   CustomerCompany?          @relation(fields: [ownerCompanyId], references: [id])
   assignments    Assignment[]
   versionHistory TemplateVersionHistory[]
 }

@@ -1,7 +1,7 @@
 // src/app/customer/layout.tsx
 'use client'
 
-import { FileCheck, FileText, Users } from 'lucide-react'
+import { FileCheck, FilePlus2, FileText, Users } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -34,6 +34,11 @@ export default function CustomerLayout({
             name: 'Team Compliance',
             href: '/customer/admin/completions',
             icon: <Users className='h-5 w-5' />
+          },
+          {
+            name: 'Company Templates',
+            href: '/customer/admin/templates',
+            icon: <FilePlus2 className='h-5 w-5' />
           }
         ]
       : [])

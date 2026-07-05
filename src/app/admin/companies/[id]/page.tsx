@@ -55,11 +55,22 @@ interface UserWithAssignments {
   assignments: Assignment[]
 }
 
+interface CompanyTemplate {
+  id: string
+  title: string
+  description: string | null
+  version: number
+  createdAt: string
+}
+
 export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [company, setCompany] = useState<Company | null>(null)
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [userAssignments, setUserAssignments] = useState<UserWithAssignments[]>(
+    []
+  )
+  const [companyTemplates, setCompanyTemplates] = useState<CompanyTemplate[]>(
     []
   )
   const [isLoading, setIsLoading] = useState(true)
@@ -71,28 +82,32 @@ export default function CompanyDetailPage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [companyRes, assignmentsRes, userAssignmentsRes] =
+      const [companyRes, assignmentsRes, userAssignmentsRes, templatesRes] =
         await Promise.all([
           fetch(`/api/admin/companies/${id}`),
           fetch(`/api/admin/companies/${id}/assignments`),
-          fetch(`/api/admin/companies/${id}/user-assignments`)
+          fetch(`/api/admin/companies/${id}/user-assignments`),
+          fetch(`/api/admin/companies/${id}/templates`)
         ])
 
       if (!companyRes.ok) throw new Error('Company not found')
       if (!assignmentsRes.ok) throw new Error('Failed to load assignments')
       if (!userAssignmentsRes.ok)
         throw new Error('Failed to load user assignments')
+      if (!templatesRes.ok) throw new Error('Failed to load company templates')
 
-      const [companyData, assignmentsData, userAssignmentsData] =
+      const [companyData, assignmentsData, userAssignmentsData, templatesData] =
         await Promise.all([
           companyRes.json(),
           assignmentsRes.json(),
-          userAssignmentsRes.json()
+          userAssignmentsRes.json(),
+          templatesRes.json()
         ])
 
       setCompany(companyData.company)
       setAssignments(assignmentsData.assignments)
       setUserAssignments(userAssignmentsData.userAssignments)
+      setCompanyTemplates(templatesData.templates)
     } catch {
       toast({
         title: 'Error',
@@ -471,6 +486,50 @@ export default function CompanyDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Company-created templates (P17 self-serve portal) — read-only */}
+      {companyTemplates.length > 0 && (
+        <div>
+          <div className='mb-4'>
+            <h2 className='text-xl font-semibold'>Company-Created Templates</h2>
+            <p className='text-sm text-muted-foreground mt-1'>
+              Created by this company&apos;s own admin via the self-serve
+              portal. Read-only — managed by the company, not the consultancy.
+            </p>
+          </div>
+
+          <div className='rounded-md border'>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Version</TableHead>
+                  <TableHead>Created</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {companyTemplates.map((t) => (
+                  <TableRow key={t.id}>
+                    <TableCell className='font-medium'>{t.title}</TableCell>
+                    <TableCell className='text-muted-foreground'>
+                      {t.description ?? '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant='secondary' className='text-xs'>
+                        v{t.version}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className='text-muted-foreground'>
+                      {new Date(t.createdAt).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
 
       <AssignTemplateDialog
         open={showAssignDialog}
