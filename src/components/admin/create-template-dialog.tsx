@@ -20,12 +20,14 @@ interface CreateTemplateDialogProps {
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
   readonly onTemplateCreated: () => void
+  readonly apiBasePath?: string
 }
 
 export function CreateTemplateDialog({
   open,
   onOpenChange,
-  onTemplateCreated
+  onTemplateCreated,
+  apiBasePath = '/api/admin/templates'
 }: CreateTemplateDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({ title: '', description: '' })
@@ -49,7 +51,7 @@ export function CreateTemplateDialog({
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/admin/templates', {
+      const response = await fetch(apiBasePath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

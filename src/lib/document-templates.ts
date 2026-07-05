@@ -13,6 +13,7 @@ export interface DocumentTemplateData {
   questions: ComprehensionQuestion[] | null
   version: number
   tenantId: string | null
+  ownerCompanyId: string | null
   createdAt: string
   updatedAt: string
 }
@@ -26,6 +27,7 @@ type PrismaDocumentTemplate = {
   questions: unknown
   version: number
   tenantId: string | null
+  ownerCompanyId: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -42,6 +44,7 @@ function toDocumentTemplateData(
     questions: (template.questions as ComprehensionQuestion[] | null) ?? null,
     version: template.version,
     tenantId: template.tenantId,
+    ownerCompanyId: template.ownerCompanyId ?? null,
     createdAt: template.createdAt.toISOString(),
     updatedAt: template.updatedAt.toISOString()
   }
@@ -61,7 +64,8 @@ export async function createDocumentTemplate({
   blobPath,
   formSchema,
   questions,
-  tenantId
+  tenantId,
+  ownerCompanyId
 }: {
   title: string
   description?: string
@@ -69,6 +73,7 @@ export async function createDocumentTemplate({
   formSchema?: FormSchema
   questions?: ComprehensionQuestion[]
   tenantId?: string
+  ownerCompanyId?: string
 }): Promise<DocumentTemplateData | null> {
   try {
     const template = await prisma.documentTemplate.create({
@@ -78,7 +83,8 @@ export async function createDocumentTemplate({
         blobPath,
         formSchema: toJsonValue(formSchema),
         questions: toJsonValue(questions),
-        tenantId
+        tenantId,
+        ownerCompanyId
       }
     })
     return toDocumentTemplateData(template)
@@ -88,16 +94,35 @@ export async function createDocumentTemplate({
   }
 }
 
+// Tenant-managed template library only (Simon's consultancy-wide templates).
+// Company-created templates (P17) are excluded — see getDocumentTemplatesByOwnerCompany.
 export async function getAllDocumentTemplates(): Promise<
   DocumentTemplateData[]
 > {
   try {
     const templates = await prisma.documentTemplate.findMany({
+      where: { ownerCompanyId: null },
       orderBy: { title: 'asc' }
     })
     return templates.map(toDocumentTemplateData)
   } catch (error) {
     console.error('Error getting document templates:', error)
+    return []
+  }
+}
+
+// Templates created by a specific company's admin (P17 self-serve portal).
+export async function getDocumentTemplatesByOwnerCompany(
+  ownerCompanyId: string
+): Promise<DocumentTemplateData[]> {
+  try {
+    const templates = await prisma.documentTemplate.findMany({
+      where: { ownerCompanyId },
+      orderBy: { title: 'asc' }
+    })
+    return templates.map(toDocumentTemplateData)
+  } catch (error) {
+    console.error('Error getting company-owned document templates:', error)
     return []
   }
 }

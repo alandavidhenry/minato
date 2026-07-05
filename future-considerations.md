@@ -317,29 +317,22 @@ Key files: `src/types/form-schema.ts`, `src/lib/form-schema-utils.ts`, `src/lib/
 
 ---
 
-### P17 — Self-Serve Portal: Company Admins Create and Assign Forms
+### P17 — Self-Serve Portal: Company Admins Create and Assign Forms ✅ Done
 
 **Goal:** Reduce Simon's workload by allowing company admins to create their own internal forms (e.g. site-specific induction checklists, internal risk assessments) and assign them to their own employees. Simon manages the canonical H&S template library; company admins manage their company-specific additions.
 
-**Scope:**
-- Company-created templates are owned by the `CustomerCompany`, not the tenant
-- Visible only within that company — they do not appear in Simon's template library or other companies' views
-- All existing assignment, completion, version, reminder, and PDF flows apply unchanged to company-created templates
+**Implemented:**
+- ✅ `DocumentTemplate.ownerCompanyId String?` — null = tenant-managed (Simon's library); set = created by that `CustomerCompany`'s admin. `getAllDocumentTemplates` (Simon's library listing) filters `WHERE ownerCompanyId IS NULL`; `getDocumentTemplatesByOwnerCompany(companyId)` is the company-scoped equivalent, reused by both the company admin's own list and Simon's read-only view
+- ✅ Company admin UI at `/customer/admin/templates` — template list (company-owned only, with an "Assigned" badge and version badge), reusing `CreateTemplateDialog`/`EditTemplateDialog` (both gained an optional `apiBasePath` prop, defaulting to `/api/admin/templates`, so the same form-field-builder + comprehension-question-builder UI works unmodified against `/api/customer/admin/templates`) and a new company-scoped `AssignCompanyTemplateDialog` (`src/components/customer/`) — a per-row "Assign" action (due date, job-role restriction, auto-enroll) rather than the main admin's per-company template dropdown, since the template is already known from the row and the company is always the session's own
+- ✅ New API routes, all gated on `UserRole.CUSTOMER_ADMIN` + `session.user.customerCompanyId`, never accepting a company/owner id from the client:
+  - `GET/POST /api/customer/admin/templates`, `GET/PATCH/DELETE /api/customer/admin/templates/[id]` (ownership-checked — 404 if the template belongs to another company or the tenant library), `POST /api/customer/admin/templates/[id]/publish-version` (identical to the main admin publish-version route, scoped)
+  - `GET/POST /api/customer/admin/assignments` — company-wide only; rejects `templateId`s not owned by the session company (400) — assigning tenant-library templates is still Simon's job via the main admin portal; reuses `createAssignment`, `enrollMatchingUsersForAssignment`, `resolveEmailRecipients`, `sendAssignmentNotification` (same behaviour as `POST /api/admin/companies/[id]/assignments`)
+  - `GET /api/customer/admin/users` — id/displayName/jobRole only, for the assign dialog's job-role dropdown
+- ✅ "Company Templates" nav item added to the customer sidebar (Customer Admin only), alongside the existing "Team Compliance" (P15) link
+- ✅ Consultancy read-only view: `GET /api/admin/companies/[id]/templates` (admin-only) + a "Company-Created Templates" table on `/admin/companies/[id]` — title/description/version/created date only, no edit/delete actions
+- ✅ Versioning and completions work unchanged — `publishNewTemplateVersion`/`createAssignmentsForNewVersion`/`TemplateVersionHistory` are keyed by `templateId` regardless of `ownerCompanyId`; P15's `/customer/admin/completions` already reports on all of a company's assignments including self-serve ones
 
-**Schema change:**
-Add `ownerCompanyId String?` to `DocumentTemplate`. If set, this template was created by a company admin; if null, it belongs to the tenant (Simon's managed library). All tenant-managed template queries add `WHERE ownerCompanyId IS NULL`; company admin queries add `WHERE ownerCompanyId = {companyId}`.
-
-**Company admin UI — new section at `/customer/admin/templates`:**
-- Template list (company-owned only)
-- Create/edit template dialog — reuse the existing form field builder and comprehension question builder components
-- Assign to employees — same assign dialog as the main admin, scoped to their company
-- View completions (P15)
-
-**Consultancy admin UI changes:**
-- Simon's template library and workflow are unchanged
-- Simon can optionally view company-created templates from the company detail page for support and auditing purposes (read-only)
-
-**Versioning:** company-created templates follow the same `publishNewTemplateVersion` / `createAssignmentsForNewVersion` pattern. The `TemplateVersionHistory` table (P13) applies equally.
+Key files: `src/lib/document-templates.ts`, `src/app/api/customer/admin/templates/`, `src/app/api/customer/admin/assignments/route.ts`, `src/app/api/customer/admin/users/route.ts`, `src/app/api/admin/companies/[id]/templates/route.ts`, `src/app/customer/admin/templates/page.tsx`, `src/components/customer/assign-company-template-dialog.tsx`, `src/components/admin/create-template-dialog.tsx`, `src/components/admin/edit-template-dialog.tsx`, `src/app/customer/layout.tsx`, `src/app/admin/companies/[id]/page.tsx`
 
 ---
 
