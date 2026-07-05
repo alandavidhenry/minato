@@ -31,7 +31,8 @@ export async function GET(
         id: u.id,
         displayName: u.displayName,
         email: u.email,
-        role: u.role
+        role: u.role,
+        jobRole: u.jobRole
       }))
     })
   } catch (error) {
