@@ -159,11 +159,16 @@ export async function deleteDocumentTemplate(id: string): Promise<boolean> {
   }
 }
 
-// Increments the template version and optionally applies content updates.
+// Snapshots the current (about-to-be-replaced) content into
+// TemplateVersionHistory, then increments the template version and
+// optionally applies content updates — both in one transaction so a version
+// is never incremented without its predecessor being recorded.
 // Returns the updated template (with the new version number) or null if not found.
 export async function publishNewTemplateVersion(
   id: string,
-  updates?: {
+  params: {
+    changeReason?: string
+    publishedBy?: string
     title?: string
     description?: string
     blobPath?: string
@@ -172,23 +177,44 @@ export async function publishNewTemplateVersion(
   }
 ): Promise<DocumentTemplateData | null> {
   try {
-    const template = await prisma.documentTemplate.update({
-      where: { id },
-      data: {
-        version: { increment: 1 },
-        ...(updates?.title !== undefined && { title: updates.title }),
-        ...(updates?.description !== undefined && {
-          description: updates.description
-        }),
-        ...(updates?.blobPath !== undefined && { blobPath: updates.blobPath }),
-        ...('formSchema' in (updates ?? {}) && {
-          formSchema: toJsonValue(updates!.formSchema)
-        }),
-        ...('questions' in (updates ?? {}) && {
-          questions: toJsonValue(updates!.questions)
-        })
-      }
+    const existing = await prisma.documentTemplate.findUnique({
+      where: { id }
     })
+    if (!existing) return null
+
+    const [, template] = await prisma.$transaction([
+      prisma.templateVersionHistory.create({
+        data: {
+          templateId: id,
+          version: existing.version,
+          changeReason: params.changeReason,
+          snapshot: {
+            title: existing.title,
+            description: existing.description,
+            formSchema: existing.formSchema,
+            questions: existing.questions
+          } as Prisma.InputJsonValue,
+          publishedBy: params.publishedBy
+        }
+      }),
+      prisma.documentTemplate.update({
+        where: { id },
+        data: {
+          version: { increment: 1 },
+          ...(params.title !== undefined && { title: params.title }),
+          ...(params.description !== undefined && {
+            description: params.description
+          }),
+          ...(params.blobPath !== undefined && { blobPath: params.blobPath }),
+          ...('formSchema' in params && {
+            formSchema: toJsonValue(params.formSchema)
+          }),
+          ...('questions' in params && {
+            questions: toJsonValue(params.questions)
+          })
+        }
+      })
+    ])
     return toDocumentTemplateData(template)
   } catch (error) {
     console.error('Error publishing new template version:', error)

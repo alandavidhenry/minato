@@ -28,12 +28,13 @@ Document management platform built on **Next.js 16 App Router** with **Azure** a
 - **Azure Table Storage** — one table: `activityLogs` (audit trail only); accessed via `@azure/data-tables` (`src/lib/activity-logger.ts`)
 - **Neon PostgreSQL + Prisma** — all relational data
   - Schema: `prisma/schema.prisma`; client generated to `src/generated/prisma/`; singleton at `src/lib/prisma.ts`; driver: `@prisma/adapter-pg`
-  - Models: `Tenant`, `User`, `PasswordReset`, `CustomerCompany`, `DocumentTemplate`, `Assignment`, `CompletionRecord`
+  - Models: `Tenant`, `User`, `PasswordReset`, `CustomerCompany`, `DocumentTemplate`, `TemplateVersionHistory`, `Assignment`, `CompletionRecord`
   - `User`: nullable `email?` and `passwordHash?` (no-email workers cannot log in); nullable `jobRole?`; nullable `lineManagerId?` self-ref FK → `User.id` (routes notifications to line manager)
   - `DocumentTemplate`: `formSchema Json?`; `questions Json?` — each question is `{ id, question, options: string[], answer: string }`; `version Int @default(1)` — incremented on each publish
+  - `TemplateVersionHistory`: `templateId` FK, `version Int`, `changeReason String?`, `snapshot Json` (`{title, description, formSchema, questions}`), `publishedAt`, `publishedBy String?` (userId) — only ever holds *superseded* versions; the live version's content lives on `DocumentTemplate` itself
   - `Assignment`: nullable `userId` (individual vs company-wide); nullable `dueDate?`; nullable `targetJobRoles Json?` (string array); `templateVersion Int @default(1)` — snapshot at assignment creation; partial unique indexes include `templateVersion`; nullable `lastReminderSentAt DateTime?` — set by the reminders cron each time a reminder is sent for that assignment
-  - Lib: `src/lib/customer-companies.ts`, `src/lib/document-templates.ts`, `src/lib/assignments.ts`, `src/lib/completion-records.ts`, `src/lib/outstanding-completions.ts`
-  - Key functions: `getAssignmentStatusSummary` (completed records + outstanding users + isOverdue); `getAssignmentsForUser` (filters by `targetJobRoles`, deduplicates by highest-version per templateId — individual beats company-wide at same version); `publishNewTemplateVersion` (increments version, applies content updates); `createAssignmentsForNewVersion` (replicates all previous-version assignments at new version); `getOutstandingCompletions` (cross-company, one row per assignment with `outstandingCount > 0`, sorted by due date ascending)
+  - Lib: `src/lib/customer-companies.ts`, `src/lib/document-templates.ts`, `src/lib/template-version-history.ts`, `src/lib/template-version-diff.ts`, `src/lib/assignments.ts`, `src/lib/completion-records.ts`, `src/lib/outstanding-completions.ts`
+  - Key functions: `getAssignmentStatusSummary` (completed records + outstanding users + isOverdue); `getAssignmentsForUser` (filters by `targetJobRoles`, deduplicates by highest-version per templateId — individual beats company-wide at same version); `publishNewTemplateVersion` (requires `changeReason`; in one `$transaction`, snapshots the current content into `TemplateVersionHistory` then increments `version` and applies content updates); `createAssignmentsForNewVersion` (replicates all previous-version assignments at new version); `getOutstandingCompletions` (cross-company, one row per assignment with `outstandingCount > 0`, sorted by due date ascending); `diffTemplateSnapshots` (pure — structural diff of two `TemplateSnapshot`s by field/question `id`: added/removed/changed/unchanged)
   - Prisma nullable JSON fields: use `Prisma.NullableJsonNullValueInput` / `Prisma.InputJsonValue` (imported from `@/generated/prisma/client`)
 - **Azurite emulator** — set `USE_AZURITE=true` in `.env.local` for Azure Storage local development; PostgreSQL connects to Neon (or local DB) via `DATABASE_URL`
 
@@ -67,7 +68,7 @@ src/app/
   s/                # Short URL redirects
   auth/             # Sign-in, error, forgot-password, reset-password pages
 src/components/
-  admin/            # Admin UI (includes edit-template-dialog with form field builder)
+  admin/            # Admin UI (includes edit-template-dialog with form field builder, publish-version-dialog, template-version-history, version-diff-view)
   providers/        # RBAC, Auth, Theme context providers
   ui/               # Radix UI-based reusable components (includes Textarea, Separator)
 src/lib/
@@ -161,7 +162,8 @@ Core document model:
   - Customer Admin (company-scoped): completions list (auth, role check, company scope from session), assignment status (cross-company 404, blobPath→hasPdf stripping), PDF download (assignment+company chain validation, missing blobPath 404, success SAS URL)
   - Cron: reminders (auth, zero sends, send count, 500 error, `lastReminderSentAt` update skipped/called)
   - Kiosk sign-off: `GET /api/signoff/[companyId]`, `POST /api/signoff/[companyId]/[assignmentId]` (worker validation, comprehension check, completion recording)
-  - Document version cycle: `POST /api/admin/templates/[id]/publish-version` (auth, 404, success, 500); `templateVersion` on assignment creation; `publishNewTemplateVersion`; `createAssignmentsForNewVersion`; version-aware deduplication in `getAssignmentsForUser`
+  - Document version cycle: `POST /api/admin/templates/[id]/publish-version` (auth, 404, 400 when `changeReason` missing/blank, success, 500); `templateVersion` on assignment creation; `publishNewTemplateVersion`; `createAssignmentsForNewVersion`; version-aware deduplication in `getAssignmentsForUser`
+  - Template version history: `GET /api/admin/templates/[id]/version-history` (auth, 404, current-only when no history, combined current+history sorted desc with resolved author names, 500); lib unit tests cover `createTemplateVersionHistoryEntry`/`getTemplateVersionHistory` and the pure `diffTemplateSnapshots` diff logic (title/description/form field/question added/removed/changed/unchanged)
   - Dashboard: `GET /api/admin/dashboard/stats` (auth, 200 with KPIs, 500); `GET /api/admin/dashboard/completions` (auth, empty list, recent completions, limit param, cap at 20, 500)
   - Admin users list: `GET /api/admin/users` returns `customerCompanyName` (resolved via parallel company fetch); tests cover name resolution and null fallback
   - Activity logs: `GET /api/admin/activity` (auth, role access for Tenant Staff, basic list, userId filter, companyId→userIds resolution, empty company, date range normalisation, limit, 500)

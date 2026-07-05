@@ -17,7 +17,11 @@ const { mockPrisma } = vi.hoisted(() => ({
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn()
-    }
+    },
+    templateVersionHistory: {
+      create: vi.fn()
+    },
+    $transaction: vi.fn()
   }
 }))
 
@@ -163,11 +167,21 @@ describe('deleteDocumentTemplate', () => {
 })
 
 describe('publishNewTemplateVersion', () => {
+  beforeEach(() => {
+    mockPrisma.documentTemplate.findUnique.mockResolvedValue(BASE_TEMPLATE)
+    mockPrisma.$transaction.mockImplementation(
+      async (ops: Promise<unknown>[]) => Promise.all(ops)
+    )
+  })
+
   it('increments version and returns updated template', async () => {
     const v2 = { ...BASE_TEMPLATE, version: 2 }
+    mockPrisma.templateVersionHistory.create.mockResolvedValue({})
     mockPrisma.documentTemplate.update.mockResolvedValue(v2)
 
-    const result = await publishNewTemplateVersion('template_123')
+    const result = await publishNewTemplateVersion('template_123', {
+      changeReason: 'New COSHH regulation April 2026'
+    })
 
     expect(result).not.toBeNull()
     expect(result?.version).toBe(2)
@@ -179,11 +193,41 @@ describe('publishNewTemplateVersion', () => {
     )
   })
 
+  it('records a history entry snapshotting the pre-existing content', async () => {
+    mockPrisma.templateVersionHistory.create.mockResolvedValue({})
+    mockPrisma.documentTemplate.update.mockResolvedValue({
+      ...BASE_TEMPLATE,
+      version: 2
+    })
+
+    await publishNewTemplateVersion('template_123', {
+      changeReason: 'New COSHH regulation April 2026',
+      publishedBy: 'user_1'
+    })
+
+    expect(mockPrisma.templateVersionHistory.create).toHaveBeenCalledWith({
+      data: {
+        templateId: 'template_123',
+        version: 1,
+        changeReason: 'New COSHH regulation April 2026',
+        snapshot: {
+          title: BASE_TEMPLATE.title,
+          description: BASE_TEMPLATE.description,
+          formSchema: BASE_TEMPLATE.formSchema,
+          questions: BASE_TEMPLATE.questions
+        },
+        publishedBy: 'user_1'
+      }
+    })
+  })
+
   it('applies content updates alongside version increment', async () => {
     const v2 = { ...BASE_TEMPLATE, version: 2, title: 'Updated Title' }
+    mockPrisma.templateVersionHistory.create.mockResolvedValue({})
     mockPrisma.documentTemplate.update.mockResolvedValue(v2)
 
     const result = await publishNewTemplateVersion('template_123', {
+      changeReason: 'Corrected question wording',
       title: 'Updated Title'
     })
 
@@ -199,8 +243,20 @@ describe('publishNewTemplateVersion', () => {
     )
   })
 
+  it('returns null when the template does not exist', async () => {
+    mockPrisma.documentTemplate.findUnique.mockResolvedValue(null)
+    expect(
+      await publishNewTemplateVersion('missing', { changeReason: 'reason' })
+    ).toBeNull()
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+  })
+
   it('returns null on error', async () => {
-    mockPrisma.documentTemplate.update.mockRejectedValue(new Error('not found'))
-    expect(await publishNewTemplateVersion('missing')).toBeNull()
+    mockPrisma.$transaction.mockRejectedValue(new Error('db error'))
+    expect(
+      await publishNewTemplateVersion('template_123', {
+        changeReason: 'reason'
+      })
+    ).toBeNull()
   })
 })

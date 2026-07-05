@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronUp, Loader2, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { PublishVersionDialog } from '@/components/admin/publish-version-dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -66,6 +67,7 @@ export function EditTemplateDialog({
 }: EditTemplateDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
+  const [showPublishDialog, setShowPublishDialog] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [fields, setFields] = useState<FormField[]>([])
@@ -285,16 +287,12 @@ export function EditTemplateDialog({
     }
   }
 
-  async function handlePublishAsNewVersion() {
+  function handlePublishAsNewVersion() {
     if (!validateForm()) return
+    setShowPublishDialog(true)
+  }
 
-    if (
-      !confirm(
-        'Publishing a new version will create fresh assignment cycles for all currently assigned companies. Old completions remain as historical records. Continue?'
-      )
-    )
-      return
-
+  async function confirmPublishAsNewVersion(changeReason: string) {
     setIsPublishing(true)
 
     try {
@@ -304,6 +302,7 @@ export function EditTemplateDialog({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            changeReason,
             title: title.trim(),
             description: description.trim() || null,
             formSchema: fields.length > 0 ? fields : null,
@@ -322,6 +321,7 @@ export function EditTemplateDialog({
         title: 'New version published',
         description: `Now v${data.newVersion}. ${data.assignmentsCreated} new assignment${data.assignmentsCreated === 1 ? '' : 's'} created.`
       })
+      setShowPublishDialog(false)
       onTemplateSaved(true)
     } catch (error) {
       toast({
@@ -707,14 +707,7 @@ export function EditTemplateDialog({
               disabled={isLoading || isPublishing}
               onClick={handlePublishAsNewVersion}
             >
-              {isPublishing ? (
-                <>
-                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                  Publishing...
-                </>
-              ) : (
-                'Publish as New Version'
-              )}
+              Publish as New Version
             </Button>
             <Button type='submit' disabled={isLoading || isPublishing}>
               {isLoading ? (
@@ -729,6 +722,14 @@ export function EditTemplateDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <PublishVersionDialog
+        open={showPublishDialog}
+        onOpenChange={setShowPublishDialog}
+        templateTitle={title}
+        isSubmitting={isPublishing}
+        onConfirm={confirmPublishAsNewVersion}
+      />
     </Dialog>
   )
 }
