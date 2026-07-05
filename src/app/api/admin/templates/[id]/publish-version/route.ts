@@ -15,17 +15,19 @@ import {
 } from '@/lib/user-database'
 import { ADMIN_ROLES } from '@/types/rbac'
 
-async function checkAdminPermission() {
+async function getAdminSession() {
   const session = await getServerSession(authOptions)
   const roles = session?.user?.roles ?? []
-  return roles.some((r) => ADMIN_ROLES.includes(r))
+  if (!roles.some((r) => ADMIN_ROLES.includes(r))) return null
+  return session
 }
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await checkAdminPermission())) {
+  const session = await getAdminSession()
+  if (!session) {
     return NextResponse.json(
       { error: 'Unauthorized. Admin access required.' },
       { status: 403 }
@@ -50,7 +52,20 @@ export async function POST(
       // no body is fine
     }
 
+    const changeReason =
+      typeof updates.changeReason === 'string'
+        ? updates.changeReason.trim()
+        : ''
+    if (!changeReason) {
+      return NextResponse.json(
+        { error: 'A reason for the change is required' },
+        { status: 400 }
+      )
+    }
+
     const template = await publishNewTemplateVersion(id, {
+      changeReason,
+      publishedBy: session.user.id,
       title: updates.title as string | undefined,
       description: updates.description as string | undefined,
       blobPath: updates.blobPath as string | undefined,

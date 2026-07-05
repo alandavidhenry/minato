@@ -199,34 +199,18 @@ Key files: `src/lib/outstanding-completions.ts` (`getOutstandingCompletions`), `
 
 ---
 
-### P13 — Template Version History: Change Log and Diff View
+### P13 — Template Version History: Change Log and Diff View ✅ Done
 
 **Goal:** When Simon publishes a new version of a template (e.g. following new HSE legislation), there is currently no record of what changed or why. Auditors and company admins need to see the full version history with reasons.
 
-**Schema addition — `TemplateVersionHistory` table:**
-```
-TemplateVersionHistory {
-  id           String   @id @default(cuid())
-  templateId   String
-  template     DocumentTemplate @relation(...)
-  version      Int
-  changeReason String?           -- "New COSHH regulation April 2026"
-  snapshot     Json              -- {title, description, formSchema, questions} at this version
-  publishedAt  DateTime @default(now())
-  publishedBy  String?           -- userId of admin who published
-}
-```
+- ✅ `TemplateVersionHistory` table — `templateId`, `version`, `changeReason?`, `snapshot Json` (`{title, description, formSchema, questions}`), `publishedAt`, `publishedBy?` (userId). Only ever holds *superseded* versions — the live version's content stays on `DocumentTemplate` itself, so there's no redundant "current" row
+- ✅ `publishNewTemplateVersion` now requires `changeReason`; in one `prisma.$transaction`, it snapshots the current (about-to-be-replaced) content into `TemplateVersionHistory` and then increments the version + applies any content updates — atomic so a version is never incremented without its predecessor being recorded
+- ✅ `POST /api/admin/templates/[id]/publish-version` returns 400 if `changeReason` is missing/blank; passes `session.user.id` as `publishedBy`
+- ✅ "Publish as New Version" (both the templates list row action and the Edit Template dialog) now opens a shared `PublishVersionDialog` requiring a "Reason for change" field instead of a plain `confirm()`
+- ✅ `GET /api/admin/templates/[id]/version-history` — combines the synthesized current version with past `TemplateVersionHistory` rows, resolves `publishedBy` to a display name, sorted by version descending
+- ✅ Template preview dialog (`ViewTemplateDialog`) now has "Preview" and "Version History" tabs; the history tab lists all versions (date, author, reason), expandable to show the snapshot, plus a "Compare versions" control that renders a structured diff (title/description before→after, form fields and comprehension questions as added/removed/changed/unchanged) via the pure `diffTemplateSnapshots` function — additions green, removals red/strikethrough, unchanged grey, changed shown as a removed+added pair
 
-On `publishNewTemplateVersion`: save the current content snapshot to this table with the `changeReason` the admin provides before incrementing the version number.
-
-**"Publish as New Version" dialog changes:**
-- Add a required "Reason for change" text field (examples shown: "New legislation", "Corrected question wording", "Added hazard section")
-- The reason is stored on the history record and displayed in version history views
-
-**Template detail panel — new "Version History" tab:**
-- List of all versions with publish date, author, and change reason
-- Click any version to view the full snapshot
-- "Compare" — select two versions to see a structured side-by-side diff of title, description, form fields, and comprehension questions (additions in green, removals in red, unchanged in grey)
+Key files: `src/lib/template-version-history.ts`, `src/lib/template-version-diff.ts`, `src/app/api/admin/templates/[id]/version-history/route.ts`, `src/components/admin/publish-version-dialog.tsx`, `src/components/admin/template-version-history.tsx`, `src/components/admin/version-diff-view.tsx`, `src/components/admin/view-template-dialog.tsx`
 
 ---
 

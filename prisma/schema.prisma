@@ -107,8 +107,25 @@ model DocumentTemplate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant      Tenant?      @relation(fields: [tenantId], references: [id])
-  assignments Assignment[]
+  tenant         Tenant?                   @relation(fields: [tenantId], references: [id])
+  assignments    Assignment[]
+  versionHistory TemplateVersionHistory[]
+}
+
+// Records the content of a DocumentTemplate as it was at a superseded version.
+// Written by publishNewTemplateVersion just before the version number is
+// incremented, so this table only ever holds past (replaced) versions — the
+// live version's content lives on DocumentTemplate itself.
+model TemplateVersionHistory {
+  id           String   @id @default(cuid())
+  templateId   String
+  version      Int
+  changeReason String? // reason the admin gave for replacing this version
+  snapshot     Json // {title, description, formSchema, questions} as they were at this version
+  publishedAt  DateTime @default(now())
+  publishedBy  String? // userId of the admin who published the next version
+
+  template DocumentTemplate @relation(fields: [templateId], references: [id])
 }
 
 // Links a DocumentTemplate to a CustomerCompany (company-wide) or to a specific

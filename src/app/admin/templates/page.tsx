@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 
 import { CreateTemplateDialog } from '@/components/admin/create-template-dialog'
 import { EditTemplateDialog } from '@/components/admin/edit-template-dialog'
+import { PublishVersionDialog } from '@/components/admin/publish-version-dialog'
 import { ViewTemplateDialog } from '@/components/admin/view-template-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -38,6 +39,10 @@ export default function TemplatesPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
   const [viewingTemplate, setViewingTemplate] = useState<Template | null>(null)
+  const [publishingTemplate, setPublishingTemplate] = useState<Template | null>(
+    null
+  )
+  const [isPublishing, setIsPublishing] = useState(false)
 
   useEffect(() => {
     fetchTemplates()
@@ -61,18 +66,19 @@ export default function TemplatesPage() {
     }
   }
 
-  async function handlePublishNewVersion(id: string, title: string) {
-    if (
-      !confirm(
-        `Publish a new version of "${title}"?\n\nThis will create fresh assignment cycles for all currently assigned companies. Old completions remain as historical records.`
-      )
-    )
-      return
+  async function confirmPublishNewVersion(changeReason: string) {
+    if (!publishingTemplate) return
+    const { id, title } = publishingTemplate
 
+    setIsPublishing(true)
     try {
       const response = await fetch(
         `/api/admin/templates/${id}/publish-version`,
-        { method: 'POST' }
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ changeReason })
+        }
       )
 
       if (!response.ok) {
@@ -85,6 +91,7 @@ export default function TemplatesPage() {
         title: 'New version published',
         description: `"${title}" is now v${data.newVersion}. ${data.assignmentsCreated} new assignment${data.assignmentsCreated === 1 ? '' : 's'} created.`
       })
+      setPublishingTemplate(null)
       fetchTemplates()
     } catch (error) {
       toast({
@@ -95,6 +102,8 @@ export default function TemplatesPage() {
             : 'Failed to publish new version',
         variant: 'destructive'
       })
+    } finally {
+      setIsPublishing(false)
     }
   }
 
@@ -192,9 +201,7 @@ export default function TemplatesPage() {
               variant='ghost'
               size='sm'
               title='Publish new version'
-              onClick={() =>
-                handlePublishNewVersion(template.id, template.title)
-              }
+              onClick={() => setPublishingTemplate(template)}
             >
               <RefreshCw className='h-4 w-4' />
             </Button>
@@ -264,6 +271,16 @@ export default function TemplatesPage() {
         }}
         template={editingTemplate}
         onTemplateSaved={handleTemplateSaved}
+      />
+
+      <PublishVersionDialog
+        open={publishingTemplate !== null}
+        onOpenChange={(open) => {
+          if (!open) setPublishingTemplate(null)
+        }}
+        templateTitle={publishingTemplate?.title ?? ''}
+        isSubmitting={isPublishing}
+        onConfirm={confirmPublishNewVersion}
       />
     </div>
   )

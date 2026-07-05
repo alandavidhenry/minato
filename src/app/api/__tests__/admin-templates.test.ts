@@ -84,7 +84,7 @@ vi.mock('@/lib/email', () => ({
 // Helpers
 // ---------------------------------------------------------------------------
 
-const ADMIN_SESSION = { user: { roles: ['Tenant Admin'] } }
+const ADMIN_SESSION = { user: { id: 'admin_1', roles: ['Tenant Admin'] } }
 const NON_ADMIN_SESSION = { user: { roles: ['Customer User'] } }
 
 const BASE_TEMPLATE = {
@@ -347,6 +347,34 @@ describe('POST /api/admin/templates/[id]/publish-version', () => {
     expect(res.status).toBe(404)
   })
 
+  it('returns 400 when changeReason is missing', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetById.mockResolvedValue(BASE_TEMPLATE)
+
+    const req = jsonRequest(
+      'http://localhost/api/admin/templates/template_123/publish-version',
+      'POST',
+      {}
+    )
+    const res = await publishVersion(req, params('template_123'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/reason/i)
+    expect(mockPublishNewVersion).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when changeReason is blank', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetById.mockResolvedValue(BASE_TEMPLATE)
+
+    const req = jsonRequest(
+      'http://localhost/api/admin/templates/template_123/publish-version',
+      'POST',
+      { changeReason: '   ' }
+    )
+    const res = await publishVersion(req, params('template_123'))
+    expect(res.status).toBe(400)
+  })
+
   it('returns 200 with new version and assignments created', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
     mockGetById.mockResolvedValue(BASE_TEMPLATE)
@@ -365,9 +393,10 @@ describe('POST /api/admin/templates/[id]/publish-version', () => {
       }
     ])
 
-    const req = new NextRequest(
+    const req = jsonRequest(
       'http://localhost/api/admin/templates/template_123/publish-version',
-      { method: 'POST' }
+      'POST',
+      { changeReason: 'New COSHH regulation April 2026' }
     )
     const res = await publishVersion(req, params('template_123'))
     expect(res.status).toBe(200)
@@ -375,6 +404,13 @@ describe('POST /api/admin/templates/[id]/publish-version', () => {
     expect(body.newVersion).toBe(2)
     expect(body.previousVersion).toBe(1)
     expect(body.assignmentsCreated).toBe(1)
+    expect(mockPublishNewVersion).toHaveBeenCalledWith(
+      'template_123',
+      expect.objectContaining({
+        changeReason: 'New COSHH regulation April 2026',
+        publishedBy: 'admin_1'
+      })
+    )
   })
 
   it('publishes with no existing assignments (assignmentsCreated = 0)', async () => {
@@ -383,9 +419,10 @@ describe('POST /api/admin/templates/[id]/publish-version', () => {
     mockPublishNewVersion.mockResolvedValue({ ...BASE_TEMPLATE, version: 2 })
     mockCreateAssignmentsForNewVersion.mockResolvedValue([])
 
-    const req = new NextRequest(
+    const req = jsonRequest(
       'http://localhost/api/admin/templates/template_123/publish-version',
-      { method: 'POST' }
+      'POST',
+      { changeReason: 'New COSHH regulation April 2026' }
     )
     const res = await publishVersion(req, params('template_123'))
     expect(res.status).toBe(200)
@@ -398,9 +435,10 @@ describe('POST /api/admin/templates/[id]/publish-version', () => {
     mockGetById.mockResolvedValue(BASE_TEMPLATE)
     mockPublishNewVersion.mockResolvedValue(null)
 
-    const req = new NextRequest(
+    const req = jsonRequest(
       'http://localhost/api/admin/templates/template_123/publish-version',
-      { method: 'POST' }
+      'POST',
+      { changeReason: 'New COSHH regulation April 2026' }
     )
     const res = await publishVersion(req, params('template_123'))
     expect(res.status).toBe(500)
