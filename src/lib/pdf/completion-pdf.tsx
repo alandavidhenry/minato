@@ -9,7 +9,11 @@ import {
   renderToBuffer
 } from '@react-pdf/renderer'
 
-import type { FormField, FormSchema } from '@/types/form-schema'
+import type {
+  FormField,
+  FormSchema,
+  UploadedFileValue
+} from '@/types/form-schema'
 
 const styles = StyleSheet.create({
   page: {
@@ -118,6 +122,10 @@ export interface CompletionPDFProps {
 }
 
 function formatFieldValue(field: FormField, value: unknown): string {
+  if (field.type === 'file') {
+    const fileName = (value as UploadedFileValue | undefined)?.fileName
+    return fileName ? `📎 ${fileName}` : '—'
+  }
   if (value === undefined || value === null || value === '') return '—'
   if (field.type === 'checkbox') return value === true ? 'Yes ✓' : 'No ✗'
   if (field.type === 'date' && typeof value === 'string') {
@@ -180,14 +188,20 @@ export function CompletionDocument({
         {formSchema.length > 0 && (
           <View style={styles.fieldsSection}>
             <Text style={styles.sectionTitle}>Responses</Text>
-            {formSchema.map((field) => (
-              <View key={field.id} style={styles.fieldRow}>
-                <Text style={styles.fieldLabel}>{field.label}</Text>
-                <Text style={styles.fieldValue}>
-                  {formatFieldValue(field, formData[field.id])}
+            {formSchema.map((field) =>
+              field.type === 'section' ? (
+                <Text key={field.id} style={styles.sectionTitle}>
+                  {field.label}
                 </Text>
-              </View>
-            ))}
+              ) : (
+                <View key={field.id} style={styles.fieldRow}>
+                  <Text style={styles.fieldLabel}>{field.label}</Text>
+                  <Text style={styles.fieldValue}>
+                    {formatFieldValue(field, formData[field.id])}
+                  </Text>
+                </View>
+              )
+            )}
           </View>
         )}
 

@@ -14,19 +14,15 @@ import {
 } from '@/lib/completion-records'
 import { getCustomerCompanyById } from '@/lib/customer-companies'
 import { getDocumentTemplateById } from '@/lib/document-templates'
+import { isFieldVisible } from '@/lib/form-schema-utils'
+import {
+  getMissingRequiredFields,
+  getVisibleFormData
+} from '@/lib/form-validation'
 import { generateCompletionPDF } from '@/lib/pdf/completion-pdf'
 import { getUserById } from '@/lib/user-database'
 import { generateVersionId } from '@/lib/version-manager'
 import type { ComprehensionQuestion } from '@/types/comprehension-question'
-import type { FormField } from '@/types/form-schema'
-
-function isFieldVisible(
-  field: FormField,
-  formData: Record<string, unknown>
-): boolean {
-  if (!field.condition) return true
-  return (formData[field.condition.fieldId] === true) === field.condition.value
-}
 
 function sanitizeFilename(title: string): string {
   return title.replace(/[/\\:*?"<>|]/g, '-').trim()
@@ -163,14 +159,7 @@ export async function POST(
 
     // Validate required form fields
     const schema = assignment.template.formSchema ?? []
-    const missingFields = schema
-      .filter((field) => field.required && isFieldVisible(field, formData))
-      .filter((field) => {
-        const value = formData[field.id]
-        if (field.type === 'checkbox') return value !== true
-        return value === undefined || value === null || value === ''
-      })
-      .map((field) => field.label)
+    const missingFields = getMissingRequiredFields(schema, formData)
 
     if (missingFields.length > 0) {
       return NextResponse.json(
@@ -179,11 +168,7 @@ export async function POST(
       )
     }
 
-    const visibleFormData = Object.fromEntries(
-      schema
-        .filter((field) => isFieldVisible(field, formData))
-        .map((field) => [field.id, formData[field.id]])
-    )
+    const visibleFormData = getVisibleFormData(schema, formData)
 
     const record = await createCompletionRecord({
       assignmentId,

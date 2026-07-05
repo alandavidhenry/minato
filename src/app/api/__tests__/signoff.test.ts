@@ -235,6 +235,50 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
     )
   })
 
+  it('returns 400 when number/select/file fields are missing, but not the section heading', async () => {
+    mockGetAssignmentWithTemplate.mockResolvedValue({
+      ...ASSIGNMENT,
+      template: {
+        ...ASSIGNMENT.template,
+        formSchema: [
+          {
+            id: 'heading',
+            label: 'Section A',
+            type: 'section',
+            required: false
+          },
+          {
+            id: 'weight',
+            label: 'Load weight (kg)',
+            type: 'number',
+            required: true
+          },
+          {
+            id: 'severity',
+            label: 'Severity',
+            type: 'select',
+            required: true,
+            options: ['Low', 'High']
+          },
+          { id: 'photo', label: 'Hazard photo', type: 'file', required: true }
+        ]
+      }
+    })
+    const req = makePostRequest('co_1', 'asgn_1', {
+      workerId: 'worker_1',
+      declarationName: 'Bob Smith'
+    })
+    const res = await completeKiosk(req, {
+      params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/Load weight \(kg\)/)
+    expect(body.error).toMatch(/Severity/)
+    expect(body.error).toMatch(/Hazard photo/)
+    expect(body.error).not.toMatch(/Section A/)
+  })
+
   it('returns 400 when declarationName is missing', async () => {
     const req = makePostRequest('co_1', 'asgn_1', { workerId: 'worker_1' })
     const res = await completeKiosk(req, {

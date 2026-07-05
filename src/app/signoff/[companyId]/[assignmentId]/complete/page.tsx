@@ -4,24 +4,20 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
 
+import { FormFieldRenderer } from '@/components/form-field-renderer'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Separator } from '@/components/ui/separator'
-import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/use-toast'
+import { isFieldVisible } from '@/lib/form-schema-utils'
 import type { ComprehensionQuestionForClient } from '@/types/comprehension-question'
-import type { FormField, FormSchema } from '@/types/form-schema'
-
-function isFieldVisible(
-  field: FormField,
-  values: Record<string, unknown>
-): boolean {
-  if (!field.condition) return true
-  return (values[field.condition.fieldId] === true) === field.condition.value
-}
+import type {
+  FormField,
+  FormSchema,
+  UploadedFileValue
+} from '@/types/form-schema'
 
 interface AssignmentTemplate {
   id: string
@@ -101,6 +97,26 @@ export default function KioskCompletePage() {
 
   function setValue(fieldId: string, value: unknown) {
     setFormValues((prev) => ({ ...prev, [fieldId]: value }))
+  }
+
+  async function uploadFieldFile(
+    fieldId: string,
+    file: File
+  ): Promise<UploadedFileValue> {
+    const body = new FormData()
+    body.append('file', file)
+    body.append('fieldId', fieldId)
+    body.append('workerId', workerId)
+
+    const res = await fetch(
+      `/api/signoff/${companyId}/${assignmentId}/upload-file`,
+      { method: 'POST', body }
+    )
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}))
+      throw new Error(error.error || 'Failed to upload file')
+    }
+    return res.json()
   }
 
   function setAnswer(questionId: string, value: string) {
@@ -245,53 +261,14 @@ export default function KioskCompletePage() {
             {fields
               .filter((f) => isFieldVisible(f, formValues))
               .map((field) => (
-                <div key={field.id} className='grid gap-2'>
-                  {field.type === 'checkbox' ? (
-                    <div className='flex items-start gap-3'>
-                      <Checkbox
-                        id={field.id}
-                        checked={formValues[field.id] === true}
-                        onCheckedChange={(checked) =>
-                          setValue(field.id, checked === true)
-                        }
-                        disabled={isSubmitting}
-                        className='mt-0.5'
-                      />
-                      <Label htmlFor={field.id} className='cursor-pointer'>
-                        {field.label}
-                        {field.required && (
-                          <span className='ml-1 text-destructive'>*</span>
-                        )}
-                      </Label>
-                    </div>
-                  ) : (
-                    <>
-                      <Label htmlFor={field.id}>
-                        {field.label}
-                        {field.required && (
-                          <span className='ml-1 text-destructive'>*</span>
-                        )}
-                      </Label>
-                      {field.type === 'textarea' ? (
-                        <Textarea
-                          id={field.id}
-                          value={(formValues[field.id] as string) ?? ''}
-                          onChange={(e) => setValue(field.id, e.target.value)}
-                          disabled={isSubmitting}
-                          rows={3}
-                        />
-                      ) : (
-                        <Input
-                          id={field.id}
-                          type={field.type === 'date' ? 'date' : 'text'}
-                          value={(formValues[field.id] as string) ?? ''}
-                          onChange={(e) => setValue(field.id, e.target.value)}
-                          disabled={isSubmitting}
-                        />
-                      )}
-                    </>
-                  )}
-                </div>
+                <FormFieldRenderer
+                  key={field.id}
+                  field={field}
+                  value={formValues[field.id]}
+                  onChange={(value) => setValue(field.id, value)}
+                  disabled={isSubmitting}
+                  onUploadFile={(file) => uploadFieldFile(field.id, file)}
+                />
               ))}
           </div>
         )}

@@ -278,38 +278,42 @@ Key files: `src/lib/assignments.ts`, `src/app/api/admin/companies/[id]/assignmen
 
 ---
 
-### P16b — Drag-and-Drop Form Builder with Starter Templates
+### P16b — Drag-and-Drop Form Builder with Starter Templates ✅ Done
 
-**Goal:** The existing form field builder in the "Edit Template" dialog is functional but list-based — fields are added and reordered via buttons, which becomes tedious for forms with many fields. A drag-and-drop interface with pre-built starter templates makes form creation significantly faster for Simon and is a prerequisite for making the self-serve portal (P17) usable by non-technical company admins.
+**Goal:** The existing form field builder in the "Edit Template" dialog was functional but list-based — fields were added and reordered via buttons, which became tedious for forms with many fields. A drag-and-drop interface with pre-built starter templates makes form creation significantly faster for Simon and is a prerequisite for making the self-serve portal (P17) usable by non-technical company admins.
 
-**Drag-and-drop reordering:**
-- Fields in the builder can be grabbed by a drag handle and reordered freely
-- Recommended library: `@dnd-kit/core` + `@dnd-kit/sortable` — lightweight, accessible (keyboard-navigable), actively maintained, and works well in React dialogs. Prefer over `react-beautiful-dnd` (deprecated) or `react-dnd` (heavier)
-- No change to the underlying `formSchema` JSON format — this is a UI-only enhancement
+**Drag-and-drop reordering — ✅ Done:**
+- ✅ Fields in the builder are grabbed by a drag handle (`GripVertical` icon) and reordered freely
+- ✅ `@dnd-kit/core` + `@dnd-kit/sortable` — a single `DndContext` in `edit-template-dialog.tsx` wraps the field list (`SortableContext` + `verticalListSortingStrategy`); `KeyboardSensor` with `sortableKeyboardCoordinates` gives keyboard-navigable reordering alongside pointer drag
+- ✅ No change to the underlying `formSchema` JSON format — reordering only changes array order; conditions (`Show only when`) that would end up referencing a field no longer earlier in the array are cleared automatically, same as the old up/down-button behaviour
 
-**Field palette (drag-to-add):**
-- A panel alongside the canvas showing available field types: Text, Long text, Number, Date, Yes/No, Dropdown, File upload, Section heading
-- Dragging a field type from the palette onto the canvas inserts it at the drop position
-- Clicking a field type in the palette appends it to the end (existing behaviour preserved)
+**Field palette (click and drag-to-add) — ✅ Done:**
+- ✅ `FieldTypePalette` (`src/components/admin/form-builder/field-type-palette.tsx`) — a panel alongside the canvas showing all 8 field types: Text, Long text, Number, Date, Yes/No, Dropdown, File upload, Section heading
+- ✅ Clicking a palette item appends a field of that type to the end of the canvas
+- ✅ Dragging a palette item onto the canvas (via `useDraggable`) inserts it before the field it's dropped on, or appends it if dropped on the empty canvas area (`useDroppable` id `fields-canvas`)
+- ✅ **Schema extended** beyond the original four types to support the full palette: `FormFieldType` (`src/types/form-schema.ts`) now includes `number`, `select` (carries `options: string[]`), `file` (stores `{ blobPath, fileName }` once uploaded), and `section` (heading-only — no value, never required, excluded from stored `formData` and from PDF field rows)
+- ✅ `select` fields get an inline options editor (add/remove/edit, minimum 2 non-empty options enforced in `validateForm`)
+- ✅ `file` fields — full end-to-end support, not just a builder-only stub: new multipart upload endpoints `POST /api/customer/assignments/[id]/upload-file` and `POST /api/signoff/[companyId]/[assignmentId]/upload-file` (10MB limit, validates the field exists and is type `file`) upload to Blob Storage under `form-uploads/{assignmentId}/{userId}/{fieldId}-{timestamp}-{filename}` and return `{ blobPath, fileName }`; the customer/kiosk complete pages upload immediately on file selection via the shared `FormFieldRenderer` (`src/components/form-field-renderer.tsx`); the completion PDF shows the filename (`📎 filename.ext`) rather than embedding the file — reviewing the original uploaded file itself is not yet exposed in any admin UI (no download link), which is a known gap if that becomes necessary later
 
-**Starter templates:**
-Pre-populated field sets for common H&S document types that Simon can load as a starting point rather than building from scratch:
+**Starter templates — ✅ Done:**
+`src/lib/starter-templates.ts` — hardcoded, client-side-only presets (`STARTER_TEMPLATES`), loaded via `StarterTemplatePicker` (shown only when the field list is empty, per the original spec) which regenerates field ids on load so a preset can never collide with another loaded earlier in the session:
 
 | Template name | Pre-populated fields |
 |---|---|
-| COSHH Assessment | Substance name, supplier, hazard classification, exposure route, PPE required, emergency procedure, assessor name |
-| Manual Handling | Task description, load weight (kg), frequency, posture assessment, controls in place, residual risk rating |
-| Risk Assessment | Hazard description, who is at risk, likelihood (1–5), severity (1–5), existing controls, further actions |
-| Induction Checklist | Site rules acknowledged, PPE issued, emergency exits shown, fire assembly point confirmed, first aider contact known |
-| Toolbox Talk Record | Topic, presenter, date, site/location, attendee names (multi-entry) |
-
-Starter templates are client-side only — no server storage needed. They are hardcoded presets that populate the form builder canvas; Simon can then add, remove, or modify fields before saving.
+| COSHH Assessment | Substance name, supplier, hazard classification (dropdown), exposure route (dropdown), PPE required, emergency procedure, assessor name |
+| Manual Handling | Task description, load weight (kg) (number), frequency (dropdown), posture assessment, controls in place, residual risk rating (dropdown) |
+| Risk Assessment | Hazard description, who is at risk, likelihood 1–5 (dropdown), severity 1–5 (dropdown), existing controls, further actions |
+| Induction Checklist | Site rules acknowledged, PPE issued, emergency exits shown, fire assembly point confirmed, first aider contact known (all Yes/No) |
+| Toolbox Talk Record | Topic, presenter, date, site/location, attendee names (long text, one per line — no dedicated multi-entry/repeater field type exists yet) |
 
 **Implementation notes:**
-- The builder lives entirely within `src/components/admin/edit-template-dialog.tsx` and its child components — no API changes
-- `formSchema` JSON format is unchanged; drag-and-drop affects only field ordering within the array
-- Starter template selection appears as a "Start from template" dropdown at the top of a blank form builder; dismissed once any field is added (to avoid accidental overwrites)
+- The builder lives in `src/components/admin/edit-template-dialog.tsx` plus `src/components/admin/form-builder/` (`field-type-palette.tsx`, `sortable-field-card.tsx`, `starter-template-picker.tsx`)
+- `isFieldVisible` (condition logic) was consolidated into `src/lib/form-schema-utils.ts`, shared by the customer complete page, kiosk complete page, and admin preview dialog (previously duplicated four times)
+- Required-field and visible-data server-side validation was consolidated into `src/lib/form-validation.ts` (`getMissingRequiredFields`, `getVisibleFormData`), shared by both completion API routes (previously duplicated)
+- `FormFieldRenderer` (`src/components/form-field-renderer.tsx`) is a single component rendering all 8 field types, used by the customer complete page, kiosk complete page, and the admin preview dialog — replacing three near-identical render blocks
 - This enhancement is also the foundation for the self-serve portal (P17) — company admins creating their own forms need the same builder, and the starter templates reduce the learning curve considerably
+
+Key files: `src/types/form-schema.ts`, `src/lib/form-schema-utils.ts`, `src/lib/form-validation.ts`, `src/lib/starter-templates.ts`, `src/lib/pdf/completion-pdf.tsx`, `src/components/form-field-renderer.tsx`, `src/components/admin/edit-template-dialog.tsx`, `src/components/admin/form-builder/`, `src/app/api/customer/assignments/[id]/upload-file/route.ts`, `src/app/api/signoff/[companyId]/[assignmentId]/upload-file/route.ts`
 
 ---
 

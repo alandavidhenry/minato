@@ -11,19 +11,15 @@ import {
 } from '@/lib/completion-records'
 import { getCustomerCompanyById } from '@/lib/customer-companies'
 import { getDocumentTemplateById } from '@/lib/document-templates'
+import { isFieldVisible } from '@/lib/form-schema-utils'
+import {
+  getMissingRequiredFields,
+  getVisibleFormData
+} from '@/lib/form-validation'
 import { generateCompletionPDF } from '@/lib/pdf/completion-pdf'
 import { generateVersionId } from '@/lib/version-manager'
 import type { ComprehensionQuestion } from '@/types/comprehension-question'
-import type { FormField } from '@/types/form-schema'
 import { CUSTOMER_ROLES } from '@/types/rbac'
-
-function isFieldVisible(
-  field: FormField,
-  formData: Record<string, unknown>
-): boolean {
-  if (!field.condition) return true
-  return (formData[field.condition.fieldId] === true) === field.condition.value
-}
 
 function sanitizeFilename(title: string): string {
   return title.replace(/[/\\:*?"<>|]/g, '-').trim()
@@ -149,14 +145,7 @@ export async function POST(
     // Validate required fields defined in the template's form schema,
     // skipping fields whose condition is not met (they were hidden from the customer)
     const schema = assignment.template.formSchema ?? []
-    const missingFields = schema
-      .filter((field) => field.required && isFieldVisible(field, formData))
-      .filter((field) => {
-        const value = formData[field.id]
-        if (field.type === 'checkbox') return value !== true
-        return value === undefined || value === null || value === ''
-      })
-      .map((field) => field.label)
+    const missingFields = getMissingRequiredFields(schema, formData)
 
     if (missingFields.length > 0) {
       return NextResponse.json(
@@ -165,12 +154,9 @@ export async function POST(
       )
     }
 
-    // Only persist values for visible fields (hidden fields were never shown)
-    const visibleFormData = Object.fromEntries(
-      schema
-        .filter((field) => isFieldVisible(field, formData))
-        .map((field) => [field.id, formData[field.id]])
-    )
+    // Only persist values for visible, non-section fields (hidden fields
+    // were never shown; section fields have no value)
+    const visibleFormData = getVisibleFormData(schema, formData)
 
     // Create the completion record first so it is always persisted
     const record = await createCompletionRecord({

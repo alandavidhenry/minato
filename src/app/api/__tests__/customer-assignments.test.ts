@@ -209,6 +209,31 @@ const TEMPLATE_WITH_QUESTIONS = {
   updatedAt: '2024-01-01T00:00:00.000Z'
 }
 
+// Schema exercising the newer field types (number, select, file, section)
+const ASSIGNMENT_WITH_NEW_FIELD_TYPES = {
+  ...BASE_ASSIGNMENT,
+  template: {
+    ...BASE_ASSIGNMENT.template,
+    formSchema: [
+      { id: 'heading', label: 'Section A', type: 'section', required: false },
+      {
+        id: 'weight',
+        label: 'Load weight (kg)',
+        type: 'number',
+        required: true
+      },
+      {
+        id: 'severity',
+        label: 'Severity',
+        type: 'select',
+        required: true,
+        options: ['Low', 'High']
+      },
+      { id: 'photo', label: 'Hazard photo', type: 'file', required: true }
+    ]
+  }
+}
+
 // Schema with a conditional field: q2 is only shown (and required) when q1 is No (false)
 const ASSIGNMENT_WITH_CONDITIONAL_SCHEMA = {
   ...BASE_ASSIGNMENT,
@@ -518,6 +543,48 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(400)
     expect((await res.json()).error).toMatch(/Describe what is blocking exits/)
+  })
+
+  it('returns 400 when number/select/file fields are missing', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(ASSIGNMENT_WITH_NEW_FIELD_TYPES)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { formData: {}, declarationName: 'Jane Smith' }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/Load weight \(kg\)/)
+    expect(body.error).toMatch(/Severity/)
+    expect(body.error).toMatch(/Hazard photo/)
+    expect(body.error).not.toMatch(/Section A/)
+  })
+
+  it('returns 200 when number/select/file fields are provided and excludes the section field from stored data', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(ASSIGNMENT_WITH_NEW_FIELD_TYPES)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      {
+        formData: {
+          weight: '25',
+          severity: 'High',
+          photo: {
+            blobPath: 'form-uploads/assignment_123/user_123/photo-1-a.png',
+            fileName: 'a.png'
+          }
+        },
+        declarationName: 'Jane Smith'
+      }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(200)
+    expect(mockCreateCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        formData: expect.not.objectContaining({ heading: expect.anything() })
+      })
+    )
   })
 
   it('returns 200 for template with no form schema', async () => {
