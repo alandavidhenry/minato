@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 
 import {
   createAssignment,
+  enrollMatchingUsersForAssignment,
   getAssignmentByTemplateAndCompany,
   getAssignmentByTemplateAndUser,
   getAssignmentsForCompany
@@ -62,12 +63,14 @@ export async function POST(
   try {
     const { id: customerCompanyId } = await params
     const body = await request.json()
-    const { templateId, userId, dueDate, targetJobRoles } = body as {
-      templateId?: string
-      userId?: string
-      dueDate?: string
-      targetJobRoles?: string[]
-    }
+    const { templateId, userId, dueDate, targetJobRoles, autoEnroll } =
+      body as {
+        templateId?: string
+        userId?: string
+        dueDate?: string
+        targetJobRoles?: string[]
+        autoEnroll?: boolean
+      }
 
     if (!templateId) {
       return NextResponse.json(
@@ -117,7 +120,8 @@ export async function POST(
       userId,
       dueDate,
       targetJobRoles,
-      templateVersion: currentVersion
+      templateVersion: currentVersion,
+      autoEnroll
     })
 
     if (!assignment) {
@@ -125,6 +129,12 @@ export async function POST(
         { error: 'Failed to create assignment' },
         { status: 500 }
       )
+    }
+
+    // Auto-enroll existing matching users now — future user creations/jobRole
+    // changes are enrolled via their own hooks (register, admin PATCH, profile PATCH)
+    if (assignment.autoEnroll) {
+      await enrollMatchingUsersForAssignment(assignment)
     }
 
     // Fire-and-forget — email errors must not affect the API response

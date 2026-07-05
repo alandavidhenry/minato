@@ -256,21 +256,25 @@ This is a read-only feature — company admins cannot create assignments, manage
 
 ---
 
-### P16 — Auto-Assign Templates to Job Roles
+### P16 — Auto-Assign Templates to Job Roles ✅ Done (Option B)
 
-**Goal:** Reduce manual assignment work by automatically matching templates to users when their job role aligns with the template's `targetJobRoles`. Currently, company-wide assignments with `targetJobRoles` filter the *view* for matching users — but there is no automatic record of "this user was enrolled in this template on this date."
+**Goal:** Reduce manual assignment work by automatically matching templates to users when their job role aligns with the template's `targetJobRoles`, and leave a durable "enrolled on [date]" audit record rather than relying solely on view-layer filtering.
 
-**Two models to choose from:**
+**Implemented — Option B (explicit per-user auto-enrolment):**
+- ✅ `Assignment.autoEnroll Boolean @default(false)` — set on a company-wide assignment (never on an individual one; `createAssignment` forces it to `false` whenever `userId` is set)
+- ✅ `enrollMatchingUsersForAssignment(assignment)` in `src/lib/assignments.ts` — for a company-wide `autoEnroll` assignment, creates an individual enrolment `Assignment` for every company user whose `jobRole` matches `targetJobRoles` (or all users when `targetJobRoles` is null). Skips users already individually enrolled at that `templateVersion`
+- ✅ `enrollUserInMatchingAssignments(userId, customerCompanyId, jobRole)` — for a single user, creates enrolment records for every matching `autoEnroll` company-wide assignment in their company
+- ✅ Matching is stricter than the view-layer `isVisibleToJobRole` rule: a user with no `jobRole` does **not** match a role-restricted `autoEnroll` assignment (enrolment requires an explicit role match; viewing still falls back to "no role = sees everything")
+- ✅ Hooked in at every point a user's enrolment eligibility can change:
+  - `POST /api/admin/companies/[id]/assignments` — creating a company-wide assignment with `autoEnroll: true` immediately enrols all current matching users
+  - `POST /api/auth/register` — a new customer user with a `customerCompanyId` is enrolled in matching assignments at creation
+  - `PATCH /api/admin/users/[id]` — admin-driven `jobRole` changes re-run matching
+  - `PATCH /api/profile` — self-service `jobRole` changes re-run matching
+- ✅ `createAssignmentsForNewVersion` carries `autoEnroll` forward so a new template version keeps auto-enrolling matching users
+- ✅ Enrolment creates an ordinary individual `Assignment` row (`autoEnroll: false`), so it naturally wins the existing "individual beats company-wide at the same version" dedup rule in `getAssignmentsForUser`, and its `createdAt` serves as the enrolment date for P15 company admin reporting
+- ✅ "Auto-enroll matching users" checkbox added to `assign-template-dialog.tsx` (company-wide assignment dialog only — the individual `assign-to-user-dialog.tsx` has no need for it)
 
-**Option A — Keep view-layer filtering (current approach, no schema change):**
-The existing `targetJobRoles` on company-wide assignments already handles this. No per-user assignment records are created; the document simply appears in the matching user's list. Simple and already working.
-
-**Option B — Explicit per-user auto-enrolment (stronger audit trail):**
-Add `autoEnroll Boolean @default(false)` to `Assignment`. When a company-wide assignment has `autoEnroll=true`:
-- On user creation or `jobRole` update, query all `autoEnroll=true` assignments for that company where the user's role matches `targetJobRoles`, and create individual `Assignment` records for the user
-- Creates a durable "enrolled on [date]" record per user — useful for audit evidence and for P15 company admin reporting
-
-Option B is recommended once the self-serve portal (P17) is in use, as company admins will expect to see explicit enrolment dates. Implement Option B at the same time as P17.
+Key files: `src/lib/assignments.ts`, `src/app/api/admin/companies/[id]/assignments/route.ts`, `src/app/api/auth/register/route.ts`, `src/app/api/admin/users/[id]/route.ts`, `src/app/api/profile/route.ts`, `src/components/admin/assign-template-dialog.tsx`
 
 ---
 

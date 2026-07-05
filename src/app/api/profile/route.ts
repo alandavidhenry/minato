@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 
+import { enrollUserInMatchingAssignments } from '@/lib/assignments'
 import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import {
@@ -114,6 +115,17 @@ export async function PATCH(req: NextRequest) {
           ? 400
           : 500
     return Response.json({ error: result.error }, { status })
+  }
+
+  if ('jobRole' in updates) {
+    const updatedUser = await getUserById(session.user.id)
+    if (updatedUser?.customerCompanyId) {
+      await enrollUserInMatchingAssignments(
+        session.user.id,
+        updatedUser.customerCompanyId,
+        updatedUser.jobRole
+      )
+    }
   }
 
   return Response.json({ success: true })

@@ -24,14 +24,16 @@ const {
   mockGetByTemplateAndCompany,
   mockGetByTemplateAndUser,
   mockGetById,
-  mockDelete
+  mockDelete,
+  mockEnrollMatchingUsers
 } = vi.hoisted(() => ({
   mockGetForCompany: vi.fn(),
   mockCreate: vi.fn(),
   mockGetByTemplateAndCompany: vi.fn(),
   mockGetByTemplateAndUser: vi.fn(),
   mockGetById: vi.fn(),
-  mockDelete: vi.fn()
+  mockDelete: vi.fn(),
+  mockEnrollMatchingUsers: vi.fn()
 }))
 
 vi.mock('@/lib/assignments', () => ({
@@ -40,7 +42,8 @@ vi.mock('@/lib/assignments', () => ({
   getAssignmentByTemplateAndCompany: mockGetByTemplateAndCompany,
   getAssignmentByTemplateAndUser: mockGetByTemplateAndUser,
   getAssignmentById: mockGetById,
-  deleteAssignment: mockDelete
+  deleteAssignment: mockDelete,
+  enrollMatchingUsersForAssignment: mockEnrollMatchingUsers
 }))
 
 const { mockGetDocumentTemplateById } = vi.hoisted(() => ({
@@ -99,6 +102,7 @@ const BASE_ASSIGNMENT = {
   targetJobRoles: null,
   templateVersion: 1,
   createdAt: '2024-01-01T00:00:00.000Z',
+  autoEnroll: false,
   template: {
     id: 'template_123',
     title: 'Farmyard Safety Checklist',
@@ -148,6 +152,7 @@ beforeEach(() => {
   mockGetByTemplateAndUser.mockResolvedValue(null)
   mockGetById.mockResolvedValue(null)
   mockDelete.mockResolvedValue(true)
+  mockEnrollMatchingUsers.mockResolvedValue([])
   mockGetDocumentTemplateById.mockResolvedValue(BASE_TEMPLATE)
   mockGetUsersByCompany.mockResolvedValue([BASE_USER])
   mockGetUserById.mockResolvedValue(BASE_USER)
@@ -466,6 +471,47 @@ describe('POST /api/admin/companies/[id]/assignments (company-wide)', () => {
     )
   })
 
+  it('passes autoEnroll to createAssignment when provided', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockCreate.mockResolvedValue({ ...BASE_ASSIGNMENT, autoEnroll: true })
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123', autoEnroll: true }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ autoEnroll: true })
+    )
+  })
+
+  it('enrolls matching existing users when autoEnroll assignment is created', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const autoEnrollAssignment = { ...BASE_ASSIGNMENT, autoEnroll: true }
+    mockCreate.mockResolvedValue(autoEnrollAssignment)
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123', autoEnroll: true }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    expect(mockEnrollMatchingUsers).toHaveBeenCalledWith(autoEnrollAssignment)
+  })
+
+  it('does not enroll users when autoEnroll is not set', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123' }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    expect(mockEnrollMatchingUsers).not.toHaveBeenCalled()
+  })
+
   it('does not fail assignment creation when notification throws', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
     mockSendAssignmentNotification.mockRejectedValueOnce(new Error('ACS down'))
@@ -568,6 +614,20 @@ describe('POST /api/admin/companies/[id]/assignments (individual user)', () => {
     // Allow fire-and-forget to settle, then confirm no send
     await new Promise((r) => setTimeout(r, 10))
     expect(mockSendAssignmentNotification).not.toHaveBeenCalled()
+  })
+
+  it('does not attempt enrollment for an individual assignment', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockCreate.mockResolvedValue(USER_ASSIGNMENT)
+
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123', userId: 'user_123' }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    expect(mockEnrollMatchingUsers).not.toHaveBeenCalled()
   })
 })
 

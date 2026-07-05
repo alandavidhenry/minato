@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
+import { enrollUserInMatchingAssignments } from '@/lib/assignments'
 import { authOptions } from '@/lib/auth'
 import { createUser } from '@/lib/user-database'
 import { ADMIN_ROLES } from '@/types/rbac'
@@ -65,6 +66,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'User already exists or could not be created' },
         { status: 400 }
+      )
+    }
+
+    if (user.customerCompanyId) {
+      await enrollUserInMatchingAssignments(
+        user.id,
+        user.customerCompanyId,
+        user.jobRole
       )
     }
 

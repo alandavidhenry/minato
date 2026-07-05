@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
+import { enrollUserInMatchingAssignments } from '@/lib/assignments'
 import { authOptions } from '@/lib/auth'
 import { getUserById, updateUser, deleteUser } from '@/lib/user-database'
 import { ADMIN_ROLES } from '@/types/rbac'
@@ -93,6 +94,17 @@ export async function PATCH(
 
     if (!success) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    if ('jobRole' in userUpdates) {
+      const updatedUser = await getUserById(userId)
+      if (updatedUser?.customerCompanyId) {
+        await enrollUserInMatchingAssignments(
+          userId,
+          updatedUser.customerCompanyId,
+          updatedUser.jobRole
+        )
+      }
     }
 
     return NextResponse.json({ success: true })
