@@ -1,11 +1,12 @@
 // src/app/admin/completions/page.tsx
 'use client'
 
-import { Building2 } from 'lucide-react'
+import { AlertTriangle, Building2 } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -89,7 +90,15 @@ export default function CompletionsPage() {
 
   return (
     <div className='space-y-6'>
-      <h1 className='text-3xl font-bold'>Completions</h1>
+      <div className='flex flex-wrap items-center justify-between gap-4'>
+        <h1 className='text-3xl font-bold'>Completions</h1>
+        <Link href='/admin/completions/outstanding'>
+          <Button variant='outline'>
+            <AlertTriangle className='mr-2 h-4 w-4' />
+            View Outstanding
+          </Button>
+        </Link>
+      </div>
 
       <div className='rounded-md border'>
         <Table>

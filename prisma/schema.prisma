@@ -22,7 +22,7 @@ model Tenant {
   id                 String   @id @default(cuid())
   name               String
   createdAt          DateTime @default(now())
-  profilePermissions Json?    // ProfilePermissions: which fields customer users may self-edit
+  profilePermissions Json? // ProfilePermissions: which fields customer users may self-edit
 
   users             User[]
   customerCompanies CustomerCompany[]
@@ -40,21 +40,21 @@ model User {
   id                String   @id @default(cuid())
   email             String?  @unique // null for no-email workers who sign off via kiosk
   displayName       String
-  passwordHash      String?           // null for no-email workers (no login possible)
+  passwordHash      String? // null for no-email workers (no login possible)
   role              String   @default("Customer User")
-  jobRole           String?  // freeform job role string used for assignment filtering
-  lineManagerId     String?           // no-email workers point to their manager for email routing
+  jobRole           String? // freeform job role string used for assignment filtering
+  lineManagerId     String? // no-email workers point to their manager for email routing
   createdAt         DateTime @default(now())
   tenantId          String? // null = default single-tenant; required when multi-tenancy is enforced
   customerCompanyId String? // null for consultancy staff; required for customer-role users
 
-  tenant          Tenant?          @relation(fields: [tenantId], references: [id])
-  customerCompany CustomerCompany? @relation(fields: [customerCompanyId], references: [id])
-  lineManager     User?            @relation("LineManagement", fields: [lineManagerId], references: [id])
-  directReports   User[]           @relation("LineManagement")
+  tenant          Tenant?            @relation(fields: [tenantId], references: [id])
+  customerCompany CustomerCompany?   @relation(fields: [customerCompanyId], references: [id])
+  lineManager     User?              @relation("LineManagement", fields: [lineManagerId], references: [id])
+  directReports   User[]             @relation("LineManagement")
   passwordReset   PasswordReset?
   completions     CompletionRecord[]
-  userAssignments Assignment[]     @relation("UserAssignment")
+  userAssignments Assignment[]       @relation("UserAssignment")
 }
 
 // ---------------------------------------------------------------------------
@@ -118,18 +118,19 @@ model DocumentTemplate {
 //   - (templateId, customerCompanyId) WHERE userId IS NULL  (one company-wide assignment per template)
 //   - (templateId, userId) WHERE userId IS NOT NULL          (one individual assignment per user per template)
 model Assignment {
-  id                String    @id @default(cuid())
-  templateId        String
-  customerCompanyId String
-  userId            String?   // null = company-wide; set = individual user
-  dueDate           DateTime? // optional deadline; null = no due date
-  targetJobRoles    Json?     // string[] of job roles that can see this assignment; null = visible to all
-  templateVersion   Int       @default(1) // snapshot of template version at assignment creation
-  createdAt         DateTime  @default(now())
+  id                 String    @id @default(cuid())
+  templateId         String
+  customerCompanyId  String
+  userId             String? // null = company-wide; set = individual user
+  dueDate            DateTime? // optional deadline; null = no due date
+  targetJobRoles     Json? // string[] of job roles that can see this assignment; null = visible to all
+  templateVersion    Int       @default(1) // snapshot of template version at assignment creation
+  createdAt          DateTime  @default(now())
+  lastReminderSentAt DateTime? // set by the reminders cron job each time a reminder is sent for this assignment
 
-  template        DocumentTemplate @relation(fields: [templateId], references: [id])
-  customerCompany CustomerCompany  @relation(fields: [customerCompanyId], references: [id])
-  user            User?            @relation("UserAssignment", fields: [userId], references: [id])
+  template        DocumentTemplate   @relation(fields: [templateId], references: [id])
+  customerCompany CustomerCompany    @relation(fields: [customerCompanyId], references: [id])
+  user            User?              @relation("UserAssignment", fields: [userId], references: [id])
   completions     CompletionRecord[]
 }
 
