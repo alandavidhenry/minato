@@ -13,6 +13,7 @@ export interface AssignmentData {
   targetJobRoles: string[] | null
   templateVersion: number
   createdAt: string
+  autoEnroll: boolean
 }
 
 export interface AssignmentWithTemplate extends AssignmentData {
@@ -35,6 +36,7 @@ type PrismaAssignment = {
   targetJobRoles: unknown
   templateVersion: number
   createdAt: Date
+  autoEnroll: boolean
 }
 
 type PrismaAssignmentWithTemplate = PrismaAssignment & {
@@ -87,7 +89,8 @@ function toAssignmentData(a: PrismaAssignment): AssignmentData {
       ? (a.targetJobRoles as string[])
       : null,
     templateVersion: a.templateVersion,
-    createdAt: a.createdAt.toISOString()
+    createdAt: a.createdAt.toISOString(),
+    autoEnroll: a.autoEnroll
   }
 }
 
@@ -122,7 +125,8 @@ export async function createAssignment({
   userId,
   dueDate,
   targetJobRoles,
-  templateVersion = 1
+  templateVersion = 1,
+  autoEnroll = false
 }: {
   templateId: string
   customerCompanyId: string
@@ -130,6 +134,7 @@ export async function createAssignment({
   dueDate?: string
   targetJobRoles?: string[]
   templateVersion?: number
+  autoEnroll?: boolean
 }): Promise<AssignmentData | null> {
   try {
     const assignment = await prisma.assignment.create({
@@ -141,7 +146,9 @@ export async function createAssignment({
         targetJobRoles: toJsonValue(
           targetJobRoles && targetJobRoles.length > 0 ? targetJobRoles : null
         ),
-        templateVersion
+        templateVersion,
+        // autoEnroll only makes sense for company-wide assignments
+        autoEnroll: userId ? false : autoEnroll
       }
     })
     return toAssignmentData(assignment)
@@ -355,7 +362,8 @@ export async function createAssignmentsForNewVersion(
           dueDate: null, // new version starts without a due date
           targetJobRoles: prev.targetJobRoles as
             Prisma.InputJsonValue | undefined,
-          templateVersion: newVersion
+          templateVersion: newVersion,
+          autoEnroll: prev.autoEnroll
         }
       })
       created.push(toAssignmentData(assignment))
@@ -363,6 +371,115 @@ export async function createAssignmentsForNewVersion(
     return created
   } catch (error) {
     console.error('Error creating assignments for new version:', error)
+    return []
+  }
+}
+
+// Auto-enrollment (P16): company-wide assignments with autoEnroll=true create an
+// individual Assignment record (audit trail: "enrolled on [date]") for each user
+// whose jobRole matches targetJobRoles. Unlike the permissive isVisibleToJobRole
+// used for viewing, a user with no jobRole does not match a role-restricted
+// autoEnroll assignment — enrollment requires an explicit role match.
+function jobRoleMatchesForAutoEnroll(
+  targetJobRoles: string[] | null,
+  userJobRole: string | null | undefined
+): boolean {
+  if (!targetJobRoles || targetJobRoles.length === 0) return true
+  if (!userJobRole) return false
+  return targetJobRoles.includes(userJobRole)
+}
+
+// Creates an individual enrolment Assignment for `userId` for every autoEnroll=true
+// company-wide assignment in their company whose targetJobRoles matches jobRole.
+// Skips templates the user is already individually assigned to at that version.
+export async function enrollUserInMatchingAssignments(
+  userId: string,
+  customerCompanyId: string,
+  jobRole: string | null
+): Promise<AssignmentData[]> {
+  try {
+    const candidates = await prisma.assignment.findMany({
+      where: { customerCompanyId, userId: null, autoEnroll: true }
+    })
+
+    const created: AssignmentData[] = []
+    for (const candidate of candidates) {
+      const targetJobRoles = Array.isArray(candidate.targetJobRoles)
+        ? (candidate.targetJobRoles as string[])
+        : null
+      if (!jobRoleMatchesForAutoEnroll(targetJobRoles, jobRole)) continue
+
+      const existing = await prisma.assignment.findFirst({
+        where: {
+          templateId: candidate.templateId,
+          userId,
+          templateVersion: candidate.templateVersion
+        }
+      })
+      if (existing) continue
+
+      const assignment = await prisma.assignment.create({
+        data: {
+          templateId: candidate.templateId,
+          customerCompanyId,
+          userId,
+          dueDate: candidate.dueDate,
+          templateVersion: candidate.templateVersion,
+          autoEnroll: false
+        }
+      })
+      created.push(toAssignmentData(assignment))
+    }
+    return created
+  } catch (error) {
+    console.error('Error enrolling user in matching assignments:', error)
+    return []
+  }
+}
+
+// Creates an individual enrolment Assignment for every user in the company whose
+// jobRole matches `assignment.targetJobRoles`, when `assignment` is a company-wide
+// autoEnroll assignment. No-op for individual assignments or autoEnroll=false.
+export async function enrollMatchingUsersForAssignment(
+  assignment: AssignmentData
+): Promise<AssignmentData[]> {
+  if (assignment.userId || !assignment.autoEnroll) return []
+
+  try {
+    const users = await prisma.user.findMany({
+      where: { customerCompanyId: assignment.customerCompanyId },
+      select: { id: true, jobRole: true }
+    })
+
+    const created: AssignmentData[] = []
+    for (const user of users) {
+      if (!jobRoleMatchesForAutoEnroll(assignment.targetJobRoles, user.jobRole))
+        continue
+
+      const existing = await prisma.assignment.findFirst({
+        where: {
+          templateId: assignment.templateId,
+          userId: user.id,
+          templateVersion: assignment.templateVersion
+        }
+      })
+      if (existing) continue
+
+      const newAssignment = await prisma.assignment.create({
+        data: {
+          templateId: assignment.templateId,
+          customerCompanyId: assignment.customerCompanyId,
+          userId: user.id,
+          dueDate: assignment.dueDate ? new Date(assignment.dueDate) : null,
+          templateVersion: assignment.templateVersion,
+          autoEnroll: false
+        }
+      })
+      created.push(toAssignmentData(newAssignment))
+    }
+    return created
+  } catch (error) {
+    console.error('Error enrolling matching users for assignment:', error)
     return []
   }
 }

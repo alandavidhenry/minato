@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,7 @@ export function AssignTemplateDialog({
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [targetJobRoles, setTargetJobRoles] = useState('')
+  const [autoEnroll, setAutoEnroll] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isFetching, setIsFetching] = useState(false)
 
@@ -57,6 +59,7 @@ export function AssignTemplateDialog({
       setSelectedTemplateId('')
       setDueDate('')
       setTargetJobRoles('')
+      setAutoEnroll(false)
     }
   }, [open])
 
@@ -103,7 +106,8 @@ export function AssignTemplateDialog({
                 .split(',')
                 .map((r) => r.trim())
                 .filter(Boolean)
-            : undefined
+            : undefined,
+          autoEnroll
         })
       })
 
@@ -167,6 +171,22 @@ export function AssignTemplateDialog({
                 Comma-separated. Leave blank to show to all users.
               </p>
             </div>
+            <div className='flex items-center gap-2'>
+              <Checkbox
+                id='auto-enroll'
+                checked={autoEnroll}
+                onCheckedChange={(checked) => setAutoEnroll(checked === true)}
+                disabled={isLoading}
+              />
+              <Label htmlFor='auto-enroll' className='font-normal'>
+                Auto-enroll matching users
+              </Label>
+            </div>
+            <p className='-mt-2 text-xs text-muted-foreground'>
+              Automatically creates an individual assignment record for every
+              current and future user whose job role matches, giving each an
+              explicit enrolment date.
+            </p>
             <div className='grid gap-2'>
               <Label htmlFor='template'>Template</Label>
               {isFetching ? (

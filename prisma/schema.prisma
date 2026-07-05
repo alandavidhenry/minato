@@ -144,6 +144,7 @@ model Assignment {
   templateVersion    Int       @default(1) // snapshot of template version at assignment creation
   createdAt          DateTime  @default(now())
   lastReminderSentAt DateTime? // set by the reminders cron job each time a reminder is sent for this assignment
+  autoEnroll         Boolean   @default(false) // company-wide only: auto-creates an individual Assignment (enrolment record) for each matching user on creation, and for new/updated users going forward
 
   template        DocumentTemplate   @relation(fields: [templateId], references: [id])
   customerCompany CustomerCompany    @relation(fields: [customerCompanyId], references: [id])

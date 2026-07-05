@@ -4,6 +4,8 @@ import {
   createAssignment,
   createAssignmentsForNewVersion,
   deleteAssignment,
+  enrollMatchingUsersForAssignment,
+  enrollUserInMatchingAssignments,
   getAssignmentById,
   getAssignmentByTemplateAndCompany,
   getAssignmentByTemplateAndUser,
@@ -20,6 +22,9 @@ const { mockPrisma } = vi.hoisted(() => ({
       findFirst: vi.fn(),
       create: vi.fn(),
       delete: vi.fn()
+    },
+    user: {
+      findMany: vi.fn()
     }
   }
 }))
@@ -34,7 +39,22 @@ const BASE_ASSIGNMENT = {
   dueDate: null,
   targetJobRoles: null,
   templateVersion: 1,
-  createdAt: new Date('2024-01-01T00:00:00.000Z')
+  createdAt: new Date('2024-01-01T00:00:00.000Z'),
+  autoEnroll: false
+}
+
+// AssignmentData shape (string dates) as returned by createAssignment/toAssignmentData —
+// used as the input to enrollMatchingUsersForAssignment
+const ASSIGNMENT_DATA = {
+  id: 'assignment_123',
+  templateId: 'template_123',
+  customerCompanyId: 'company_123',
+  userId: null,
+  dueDate: null,
+  targetJobRoles: null,
+  templateVersion: 1,
+  createdAt: '2024-01-01T00:00:00.000Z',
+  autoEnroll: false
 }
 
 const USER_ASSIGNMENT = {
@@ -45,7 +65,8 @@ const USER_ASSIGNMENT = {
   dueDate: null,
   targetJobRoles: null,
   templateVersion: 1,
-  createdAt: new Date('2024-01-02T00:00:00.000Z')
+  createdAt: new Date('2024-01-02T00:00:00.000Z'),
+  autoEnroll: false
 }
 
 const BASE_ASSIGNMENT_WITH_TEMPLATE = {
@@ -112,6 +133,42 @@ describe('createAssignment', () => {
         customerCompanyId: 'company_123'
       })
     ).toBeNull()
+  })
+
+  it('passes autoEnroll through for a company-wide assignment', async () => {
+    mockPrisma.assignment.create.mockResolvedValue({
+      ...BASE_ASSIGNMENT,
+      autoEnroll: true
+    })
+
+    await createAssignment({
+      templateId: 'template_123',
+      customerCompanyId: 'company_123',
+      autoEnroll: true
+    })
+
+    expect(mockPrisma.assignment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ autoEnroll: true })
+      })
+    )
+  })
+
+  it('forces autoEnroll to false for an individual assignment', async () => {
+    mockPrisma.assignment.create.mockResolvedValue(USER_ASSIGNMENT)
+
+    await createAssignment({
+      templateId: 'template_456',
+      customerCompanyId: 'company_123',
+      userId: 'user_123',
+      autoEnroll: true
+    })
+
+    expect(mockPrisma.assignment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ autoEnroll: false })
+      })
+    )
   })
 })
 
@@ -465,6 +522,192 @@ describe('getAssignmentsForUser — version-aware deduplication', () => {
 
     expect(result).toHaveLength(1)
     expect(result[0].id).toBe('company_v2')
+  })
+})
+
+describe('enrollUserInMatchingAssignments', () => {
+  it('creates an individual assignment for a matching autoEnroll assignment', async () => {
+    const autoEnrollAssignment = {
+      ...BASE_ASSIGNMENT,
+      autoEnroll: true,
+      targetJobRoles: ['Site Manager']
+    }
+    mockPrisma.assignment.findMany.mockResolvedValue([autoEnrollAssignment])
+    mockPrisma.assignment.findFirst.mockResolvedValue(null) // not already enrolled
+    mockPrisma.assignment.create.mockResolvedValue({
+      ...BASE_ASSIGNMENT,
+      id: 'new_enrollment',
+      userId: 'user_123'
+    })
+
+    const result = await enrollUserInMatchingAssignments(
+      'user_123',
+      'company_123',
+      'Site Manager'
+    )
+
+    expect(result).toHaveLength(1)
+    expect(mockPrisma.assignment.create).toHaveBeenCalledWith({
+      data: {
+        templateId: 'template_123',
+        customerCompanyId: 'company_123',
+        userId: 'user_123',
+        dueDate: null,
+        templateVersion: 1,
+        autoEnroll: false
+      }
+    })
+  })
+
+  it('skips assignments whose targetJobRoles does not match the user job role', async () => {
+    const autoEnrollAssignment = {
+      ...BASE_ASSIGNMENT,
+      autoEnroll: true,
+      targetJobRoles: ['Site Manager']
+    }
+    mockPrisma.assignment.findMany.mockResolvedValue([autoEnrollAssignment])
+
+    const result = await enrollUserInMatchingAssignments(
+      'user_123',
+      'company_123',
+      'Labourer'
+    )
+
+    expect(result).toEqual([])
+    expect(mockPrisma.assignment.create).not.toHaveBeenCalled()
+  })
+
+  it('skips a role-restricted assignment when the user has no job role', async () => {
+    const autoEnrollAssignment = {
+      ...BASE_ASSIGNMENT,
+      autoEnroll: true,
+      targetJobRoles: ['Site Manager']
+    }
+    mockPrisma.assignment.findMany.mockResolvedValue([autoEnrollAssignment])
+
+    const result = await enrollUserInMatchingAssignments(
+      'user_123',
+      'company_123',
+      null
+    )
+
+    expect(result).toEqual([])
+    expect(mockPrisma.assignment.create).not.toHaveBeenCalled()
+  })
+
+  it('matches when targetJobRoles is null (applies to all staff)', async () => {
+    const autoEnrollAssignment = { ...BASE_ASSIGNMENT, autoEnroll: true }
+    mockPrisma.assignment.findMany.mockResolvedValue([autoEnrollAssignment])
+    mockPrisma.assignment.findFirst.mockResolvedValue(null)
+    mockPrisma.assignment.create.mockResolvedValue({
+      ...BASE_ASSIGNMENT,
+      userId: 'user_123'
+    })
+
+    const result = await enrollUserInMatchingAssignments(
+      'user_123',
+      'company_123',
+      null
+    )
+
+    expect(result).toHaveLength(1)
+  })
+
+  it('skips a template the user is already individually enrolled in at that version', async () => {
+    const autoEnrollAssignment = { ...BASE_ASSIGNMENT, autoEnroll: true }
+    mockPrisma.assignment.findMany.mockResolvedValue([autoEnrollAssignment])
+    mockPrisma.assignment.findFirst.mockResolvedValue({
+      ...USER_ASSIGNMENT,
+      templateId: 'template_123'
+    })
+
+    const result = await enrollUserInMatchingAssignments(
+      'user_123',
+      'company_123',
+      null
+    )
+
+    expect(result).toEqual([])
+    expect(mockPrisma.assignment.create).not.toHaveBeenCalled()
+  })
+
+  it('returns empty array on error', async () => {
+    mockPrisma.assignment.findMany.mockRejectedValue(new Error('db error'))
+    expect(
+      await enrollUserInMatchingAssignments('user_123', 'company_123', null)
+    ).toEqual([])
+  })
+})
+
+describe('enrollMatchingUsersForAssignment', () => {
+  it('creates enrolments for matching users in the company', async () => {
+    mockPrisma.user.findMany.mockResolvedValue([
+      { id: 'user_1', jobRole: 'Site Manager' },
+      { id: 'user_2', jobRole: 'Labourer' }
+    ])
+    mockPrisma.assignment.findFirst.mockResolvedValue(null)
+    mockPrisma.assignment.create.mockResolvedValue({
+      ...BASE_ASSIGNMENT,
+      userId: 'user_1'
+    })
+
+    const result = await enrollMatchingUsersForAssignment({
+      ...ASSIGNMENT_DATA,
+      autoEnroll: true,
+      targetJobRoles: ['Site Manager']
+    })
+
+    expect(result).toHaveLength(1)
+    expect(mockPrisma.assignment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ userId: 'user_1' })
+      })
+    )
+  })
+
+  it('returns empty array immediately when assignment is not autoEnroll', async () => {
+    const result = await enrollMatchingUsersForAssignment({
+      ...ASSIGNMENT_DATA,
+      autoEnroll: false
+    })
+
+    expect(result).toEqual([])
+    expect(mockPrisma.user.findMany).not.toHaveBeenCalled()
+  })
+
+  it('returns empty array immediately when assignment is individual (userId set)', async () => {
+    const result = await enrollMatchingUsersForAssignment({
+      ...ASSIGNMENT_DATA,
+      autoEnroll: true,
+      userId: 'user_123'
+    })
+
+    expect(result).toEqual([])
+    expect(mockPrisma.user.findMany).not.toHaveBeenCalled()
+  })
+
+  it('skips users already individually enrolled at that version', async () => {
+    mockPrisma.user.findMany.mockResolvedValue([
+      { id: 'user_1', jobRole: null }
+    ])
+    mockPrisma.assignment.findFirst.mockResolvedValue(USER_ASSIGNMENT)
+
+    const result = await enrollMatchingUsersForAssignment({
+      ...ASSIGNMENT_DATA,
+      autoEnroll: true
+    })
+
+    expect(result).toEqual([])
+    expect(mockPrisma.assignment.create).not.toHaveBeenCalled()
+  })
+
+  it('returns empty array on error', async () => {
+    mockPrisma.user.findMany.mockRejectedValue(new Error('db error'))
+    const result = await enrollMatchingUsersForAssignment({
+      ...ASSIGNMENT_DATA,
+      autoEnroll: true
+    })
+    expect(result).toEqual([])
   })
 })
 

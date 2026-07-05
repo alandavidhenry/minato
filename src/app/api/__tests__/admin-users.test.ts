@@ -44,6 +44,13 @@ const { mockPrisma, mockBcrypt } = vi.hoisted(() => {
 vi.mock('@/lib/prisma', () => ({ default: mockPrisma }))
 vi.mock('bcryptjs', () => ({ default: mockBcrypt }))
 
+const { mockEnrollUser } = vi.hoisted(() => ({
+  mockEnrollUser: vi.fn()
+}))
+vi.mock('@/lib/assignments', () => ({
+  enrollUserInMatchingAssignments: mockEnrollUser
+}))
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -90,6 +97,7 @@ beforeEach(() => {
   mockPrisma.customerCompany.findMany.mockResolvedValue([])
   mockBcrypt.hash.mockResolvedValue('$newhashed')
   mockBcrypt.compare.mockResolvedValue(false)
+  mockEnrollUser.mockResolvedValue([])
 })
 
 // ---------------------------------------------------------------------------
@@ -348,6 +356,56 @@ describe('PATCH /api/admin/users/[id]', () => {
     expect(res.status).toBe(200)
     const updateCall = mockPrisma.user.update.mock.calls[0][0]
     expect(updateCall.data.jobRole).toBeNull()
+  })
+
+  it('enrolls the user in matching auto-enroll assignments when jobRole changes', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...BASE_USER,
+      jobRole: 'Site Manager',
+      customerCompanyId: 'company_abc'
+    })
+    const req = jsonRequest(
+      'http://localhost/api/admin/users/cuid_abc123',
+      'PATCH',
+      { jobRole: 'Site Manager' }
+    )
+    const res = await updateUser(req, params('cuid_abc123'))
+    expect(res.status).toBe(200)
+    expect(mockEnrollUser).toHaveBeenCalledWith(
+      'cuid_abc123',
+      'company_abc',
+      'Site Manager'
+    )
+  })
+
+  it('does not attempt enrollment when the user has no company', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...BASE_USER,
+      jobRole: 'Site Manager',
+      customerCompanyId: null
+    })
+    const req = jsonRequest(
+      'http://localhost/api/admin/users/cuid_abc123',
+      'PATCH',
+      { jobRole: 'Site Manager' }
+    )
+    const res = await updateUser(req, params('cuid_abc123'))
+    expect(res.status).toBe(200)
+    expect(mockEnrollUser).not.toHaveBeenCalled()
+  })
+
+  it('does not attempt enrollment when jobRole is not part of the update', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest(
+      'http://localhost/api/admin/users/cuid_abc123',
+      'PATCH',
+      { displayName: 'Updated Name' }
+    )
+    const res = await updateUser(req, params('cuid_abc123'))
+    expect(res.status).toBe(200)
+    expect(mockEnrollUser).not.toHaveBeenCalled()
   })
 
   it('passes lineManagerId to updateUser when provided', async () => {

@@ -37,6 +37,13 @@ const { mockPrisma, mockBcrypt } = vi.hoisted(() => {
 vi.mock('@/lib/prisma', () => ({ default: mockPrisma }))
 vi.mock('bcryptjs', () => ({ default: mockBcrypt }))
 
+const { mockEnrollUser } = vi.hoisted(() => ({
+  mockEnrollUser: vi.fn()
+}))
+vi.mock('@/lib/assignments', () => ({
+  enrollUserInMatchingAssignments: mockEnrollUser
+}))
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -84,6 +91,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockBcrypt.hash.mockResolvedValue('$newhashed')
   mockBcrypt.compare.mockResolvedValue(false)
+  mockEnrollUser.mockResolvedValue([])
 })
 
 // ---------------------------------------------------------------------------
@@ -259,5 +267,61 @@ describe('PATCH /api/profile', () => {
     // email field is silently ignored (no update call with email)
     expect(res.status).toBe(200)
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
+  })
+
+  it('enrolls the user in matching auto-enroll assignments when jobRole changes', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce({ ...BASE_USER, tenant: { ...BASE_TENANT } }) // permissions
+      .mockResolvedValueOnce(BASE_USER) // updateUserProfile lookup
+      .mockResolvedValueOnce({
+        ...BASE_USER,
+        jobRole: 'Supervisor',
+        customerCompanyId: 'company_1'
+      }) // post-update getUserById
+    mockPrisma.user.update.mockResolvedValue(BASE_USER)
+
+    const res = await PATCH(
+      jsonRequest('/api/profile', 'PATCH', { jobRole: 'Supervisor' })
+    )
+    expect(res.status).toBe(200)
+    expect(mockEnrollUser).toHaveBeenCalledWith(
+      'user_1',
+      'company_1',
+      'Supervisor'
+    )
+  })
+
+  it('does not attempt enrollment when the user has no company', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce({ ...BASE_USER, tenant: { ...BASE_TENANT } })
+      .mockResolvedValueOnce(BASE_USER)
+      .mockResolvedValueOnce({
+        ...BASE_USER,
+        jobRole: 'Supervisor',
+        customerCompanyId: null
+      })
+    mockPrisma.user.update.mockResolvedValue(BASE_USER)
+
+    const res = await PATCH(
+      jsonRequest('/api/profile', 'PATCH', { jobRole: 'Supervisor' })
+    )
+    expect(res.status).toBe(200)
+    expect(mockEnrollUser).not.toHaveBeenCalled()
+  })
+
+  it('does not attempt enrollment when jobRole is not part of the update', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce({ ...BASE_USER, tenant: { ...BASE_TENANT } })
+      .mockResolvedValueOnce(BASE_USER)
+    mockPrisma.user.update.mockResolvedValue(BASE_USER)
+
+    const res = await PATCH(
+      jsonRequest('/api/profile', 'PATCH', { displayName: 'Alice Updated' })
+    )
+    expect(res.status).toBe(200)
+    expect(mockEnrollUser).not.toHaveBeenCalled()
   })
 })
