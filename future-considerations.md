@@ -109,11 +109,13 @@ When Simon uploads a new version of a document, the new version triggers a fresh
 
 Ordered by priority — quick wins and high-value UX first, then larger architectural features. Items later in the list may depend on earlier ones being in place.
 
-### P8 — Name Validation at Completion Signing
+### P8 — Name Validation at Completion Signing ✅ Done
 
 **Goal:** Prevent fraudulent sign-offs where an authenticated user enters someone else's name on a completion record.
 
-When an authenticated user submits a completion, the name field they enter must match `session.user.name` on record (case-insensitive, trimmed whitespace). A mismatch returns HTTP 400 with a clear message and the customer UI highlights the name field.
+- ✅ Customer complete page (`src/app/customer/documents/[assignmentId]/complete/page.tsx`) has a "Declaration" section with a `declarationName` free-text field the user must type to confirm sign-off
+- ✅ `POST /api/customer/assignments/[id]/complete` requires `declarationName` (400 if missing/blank) and compares it against `session.user.name` (case-insensitive, trimmed) — mismatch returns HTTP 400 with `nameError: true`; UI highlights the name field and shows a clear message
+- ✅ Tested in `src/app/api/__tests__/customer-assignments.test.ts` — missing/blank declarationName, mismatch, case-insensitive + whitespace match
 
 For kiosk sign-off (`/signoff/[companyId]`), the worker selects their own name from a dropdown, so no further name-matching is needed at this stage — the `workerId` is already validated server-side.
 
