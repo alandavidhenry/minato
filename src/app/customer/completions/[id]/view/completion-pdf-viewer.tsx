@@ -2,10 +2,10 @@
 'use client'
 
 import { ArrowLeft, Clock, Menu } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
-import { PDFRenderer } from '@/app/documents/view/[...name]/components/PDFRenderer'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
@@ -15,6 +15,14 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { toast } from '@/components/ui/use-toast'
+
+const PDFRenderer = dynamic(
+  () =>
+    import('@/app/documents/view/[...name]/components/PDFRenderer').then(
+      (m) => m.PDFRenderer
+    ),
+  { ssr: false }
+)
 
 interface CompletionVersion {
   id: string

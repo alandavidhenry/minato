@@ -10,11 +10,11 @@ import {
   Eye,
   Trash2
 } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
-import { PDFRenderer } from '@/app/documents/view/[...name]/components/PDFRenderer'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -33,6 +33,14 @@ import {
   TableRow
 } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
+
+const PDFRenderer = dynamic(
+  () =>
+    import('@/app/documents/view/[...name]/components/PDFRenderer').then(
+      (m) => m.PDFRenderer
+    ),
+  { ssr: false }
+)
 
 interface Completion {
   id: string
