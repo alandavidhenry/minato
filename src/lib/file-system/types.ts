@@ -32,10 +32,3 @@ export interface FileOperationResult {
   }
   error?: Error
 }
-
-export interface ActivityLogParams {
-  userId: string
-  userName: string
-  fileName: string
-  activityType: ActivityType
-}

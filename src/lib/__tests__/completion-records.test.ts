@@ -5,7 +5,6 @@ import {
   getAssignmentStatusSummary,
   getCompaniesWithCompletions,
   getCompletionGroupsByCompany,
-  getCompletionsForAssignment,
   getCompletionsForAssignmentForAdmin,
   getCompletionsForUser
 } from '../completion-records'
@@ -111,24 +110,6 @@ describe('createCompletionRecord', () => {
         signedById: 'user_123'
       })
     ).toBeNull()
-  })
-})
-
-describe('getCompletionsForAssignment', () => {
-  it('returns completion records for an assignment', async () => {
-    mockPrisma.completionRecord.findMany.mockResolvedValue([BASE_RECORD])
-
-    const result = await getCompletionsForAssignment('assignment_123')
-
-    expect(result).toHaveLength(1)
-    expect(result[0].signedById).toBe('user_123')
-  })
-
-  it('returns empty array on error', async () => {
-    mockPrisma.completionRecord.findMany.mockRejectedValue(
-      new Error('db error')
-    )
-    expect(await getCompletionsForAssignment('assignment_123')).toEqual([])
   })
 })
 

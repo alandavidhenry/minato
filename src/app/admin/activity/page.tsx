@@ -3,7 +3,7 @@
 import { Download, Eye, FileUp, Search } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
-import { ActivityDashboard } from '@/components/admin/activity-dashboard'
+import { ComplianceDashboard } from '@/components/admin/ComplianceDashboard'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -195,7 +195,7 @@ export default function ActivityLogsPage() {
       <h1 className='text-3xl font-bold'>Activity Logs</h1>
 
       {/* Compliance dashboard */}
-      <ActivityDashboard />
+      <ComplianceDashboard />
 
       {/* Filters */}
       <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3'>

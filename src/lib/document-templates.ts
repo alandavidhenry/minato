@@ -3,6 +3,7 @@ import type { ComprehensionQuestion } from '@/types/comprehension-question'
 import type { FormSchema } from '@/types/form-schema'
 
 import prisma from './prisma'
+import { toJsonValue } from './prisma-json'
 
 export interface DocumentTemplateData {
   id: string
@@ -48,14 +49,6 @@ function toDocumentTemplateData(
     createdAt: template.createdAt.toISOString(),
     updatedAt: template.updatedAt.toISOString()
   }
-}
-
-function toJsonValue(
-  value: unknown
-): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue | undefined {
-  if (value === undefined) return undefined
-  if (value === null) return 'DbNull'
-  return value as Prisma.InputJsonValue
 }
 
 export async function createDocumentTemplate({

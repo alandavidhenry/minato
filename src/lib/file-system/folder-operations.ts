@@ -10,6 +10,58 @@ import {
 } from './path-utils'
 import { ActivityType, FileOperationResult } from './types'
 
+// Copies every blob under `sourcePrefix` to the same relative path under
+// `targetPrefix`, deleting each source blob once its copy succeeds. Shared by
+// renameFolder and moveFolder; `operationLabel` ('rename' | 'move') only affects
+// the diagnostic log messages.
+async function copyBlobsToPrefix(
+  containerClient: ContainerClient,
+  blobNames: string[],
+  sourcePrefix: string,
+  targetPrefix: string,
+  operationLabel: string
+): Promise<{ copiedCount: number; errorCount: number }> {
+  let copiedCount = 0
+  let errorCount = 0
+
+  for (const blobName of blobNames) {
+    try {
+      const sourceBlobClient = containerClient.getBlobClient(blobName)
+      const relativePath = blobName.substring(sourcePrefix.length)
+      const targetBlobClient = containerClient.getBlobClient(
+        `${targetPrefix}${relativePath}`
+      )
+
+      const copyPoller = await targetBlobClient.beginCopyFromURL(
+        sourceBlobClient.url
+      )
+      const copyResult = await copyPoller.pollUntilDone()
+
+      if (copyResult.copyStatus === 'success') {
+        await sourceBlobClient.delete()
+        copiedCount++
+      } else {
+        errorCount++
+        console.error(
+          `Failed to copy blob during folder ${operationLabel}:`,
+          blobName,
+          'Status:',
+          copyResult.copyStatus
+        )
+      }
+    } catch (error) {
+      console.error(
+        `Error processing blob during folder ${operationLabel}:`,
+        blobName,
+        error
+      )
+      errorCount++
+    }
+  }
+
+  return { copiedCount, errorCount }
+}
+
 async function createFolderMarker(
   containerClient: ContainerClient,
   folderPath: string,
@@ -232,43 +284,13 @@ export async function renameFolder(
       }
     }
 
-    let copiedCount = 0
-    let errorCount = 0
-
-    for (const blobName of blobs) {
-      try {
-        const sourceBlobClient = containerClient.getBlobClient(blobName)
-        const relativePath = blobName.substring(sourcePrefix.length)
-        const targetBlobClient = containerClient.getBlobClient(
-          `${targetPrefix}${relativePath}`
-        )
-
-        const copyPoller = await targetBlobClient.beginCopyFromURL(
-          sourceBlobClient.url
-        )
-        const copyResult = await copyPoller.pollUntilDone()
-
-        if (copyResult.copyStatus === 'success') {
-          await sourceBlobClient.delete()
-          copiedCount++
-        } else {
-          errorCount++
-          console.error(
-            'Failed to copy blob during folder rename:',
-            blobName,
-            'Status:',
-            copyResult.copyStatus
-          )
-        }
-      } catch (error) {
-        console.error(
-          'Error processing blob during folder rename:',
-          blobName,
-          error
-        )
-        errorCount++
-      }
-    }
+    const { copiedCount, errorCount } = await copyBlobsToPrefix(
+      containerClient,
+      blobs,
+      sourcePrefix,
+      targetPrefix,
+      'rename'
+    )
 
     await createFolderMarker(containerClient, newPath, userId)
 
@@ -358,43 +380,13 @@ export async function moveFolder(
       }
     }
 
-    let movedCount = 0
-    let errorCount = 0
-
-    for (const blobName of blobs) {
-      try {
-        const sourceBlobClient = containerClient.getBlobClient(blobName)
-        const relativePath = blobName.substring(sourcePrefix.length)
-        const targetBlobClient = containerClient.getBlobClient(
-          `${targetPrefix}${relativePath}`
-        )
-
-        const copyPoller = await targetBlobClient.beginCopyFromURL(
-          sourceBlobClient.url
-        )
-        const copyResult = await copyPoller.pollUntilDone()
-
-        if (copyResult.copyStatus === 'success') {
-          await sourceBlobClient.delete()
-          movedCount++
-        } else {
-          errorCount++
-          console.error(
-            'Failed to copy blob during folder move:',
-            blobName,
-            'Status:',
-            copyResult.copyStatus
-          )
-        }
-      } catch (error) {
-        console.error(
-          'Error processing blob during folder move:',
-          blobName,
-          error
-        )
-        errorCount++
-      }
-    }
+    const { copiedCount: movedCount, errorCount } = await copyBlobsToPrefix(
+      containerClient,
+      blobs,
+      sourcePrefix,
+      targetPrefix,
+      'move'
+    )
 
     await createFolderMarker(containerClient, normalizedTargetPath, userId)
 
