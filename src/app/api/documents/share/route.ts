@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
+import { buildContentDisposition } from '@/lib/content-disposition'
 import { generateSasToken } from '@/lib/storage'
 
 export async function GET(request: NextRequest) {
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
         permissions: 'r', // Read-only permission
         startsOn: new Date(Date.now() - 60 * 1000), // Start 1 minute ago
         expiresOn: new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000), // Expire in specified days
-        contentDisposition: `inline; filename="${name}"`
+        contentDisposition: buildContentDisposition('inline', name)
       }
     )
 

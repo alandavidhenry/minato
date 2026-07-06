@@ -96,37 +96,43 @@ export interface ActivityLogFilters {
   endDate?: string
 }
 
+// OData string literals delimit with single quotes and escape an embedded
+// quote by doubling it. Escaping user-supplied values prevents them from
+// breaking out of the literal (OData injection).
+function escapeODataString(value: string): string {
+  return value.replace(/'/g, "''")
+}
+
 function buildODataFilter(filters: ActivityLogFilters): string | undefined {
   const parts: string[] = []
 
   if (filters.userId) {
-    parts.push(`PartitionKey eq '${filters.userId}'`)
+    parts.push(`PartitionKey eq '${escapeODataString(filters.userId)}'`)
   } else if (filters.userIds && filters.userIds.length > 0) {
     const userConditions = filters.userIds
-      .map((id) => `PartitionKey eq '${id}'`)
+      .map((id) => `PartitionKey eq '${escapeODataString(id)}'`)
       .join(' or ')
     parts.push(`(${userConditions})`)
   }
 
   if (filters.startDate) {
-    parts.push(`timestamp ge '${filters.startDate}'`)
+    parts.push(`timestamp ge '${escapeODataString(filters.startDate)}'`)
   }
 
   if (filters.endDate) {
-    parts.push(`timestamp le '${filters.endDate}'`)
+    parts.push(`timestamp le '${escapeODataString(filters.endDate)}'`)
   }
 
   return parts.length > 0 ? parts.join(' and ') : undefined
 }
 
 export async function getActivityLogs(
-  filters?: ActivityLogFilters | string
+  filters?: ActivityLogFilters
 ): Promise<ActivityLog[]> {
   const tableClient = getTableClient()
   const logs: ActivityLog[] = []
 
-  const resolvedFilters: ActivityLogFilters =
-    typeof filters === 'string' ? { userId: filters } : (filters ?? {})
+  const resolvedFilters: ActivityLogFilters = filters ?? {}
 
   try {
     const oDataFilter = buildODataFilter(resolvedFilters)
@@ -157,11 +163,4 @@ export async function getActivityLogs(
     console.error('Error getting activity logs:', error)
     return []
   }
-}
-
-export async function getRecentActivityLogs(
-  limit: number = 5
-): Promise<ActivityLog[]> {
-  const allLogs = await getActivityLogs()
-  return allLogs.slice(0, limit)
 }

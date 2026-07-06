@@ -1,4 +1,4 @@
-// src/app/documents/view/[name]/loading.tsx
+// src/app/documents/view/[...name]/loading.tsx
 export default function Loading() {
   return (
     <div className='container mx-auto py-4'>

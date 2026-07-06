@@ -309,21 +309,6 @@ export async function deleteCompletionRecord(id: string): Promise<boolean> {
   }
 }
 
-export async function getCompletionsForAssignment(
-  assignmentId: string
-): Promise<CompletionRecordData[]> {
-  try {
-    const records = await prisma.completionRecord.findMany({
-      where: { assignmentId },
-      orderBy: { signedAt: 'desc' }
-    })
-    return records.map(toCompletionRecordData)
-  } catch (error) {
-    console.error('Error getting completions for assignment:', error)
-    return []
-  }
-}
-
 export async function getAssignmentStatusSummary(
   assignmentId: string
 ): Promise<AssignmentStatusSummary | null> {

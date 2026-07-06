@@ -80,16 +80,6 @@ export function createVersionedFileName(
   return `${baseName}_v_${versionId}${extension}`
 }
 
-export function areRelatedDocuments(
-  fileName1: string,
-  fileName2: string
-): boolean {
-  const { baseName: baseName1 } = parseFileName(fileName1)
-  const { baseName: baseName2 } = parseFileName(fileName2)
-
-  return baseName1 === baseName2
-}
-
 export async function groupDocumentsByVersion(
   containerName: string,
   connectionString: string,
@@ -117,17 +107,13 @@ export async function groupDocumentsByVersion(
       const originalName = `${fileNameWithoutPath.replace(/_v_[^.]+(?=\.)/, '')}`
       const documentId = baseName
 
-      const properties = await containerClient
-        .getBlobClient(fileName)
-        .getProperties()
-
       const sizeBytes = blob.properties.contentLength ?? 0
 
       const version: DocumentVersion = {
         id: versionId ?? 'original',
         fileName,
         originalName,
-        uploadedAt: properties.lastModified ?? new Date(),
+        uploadedAt: blob.properties.lastModified ?? new Date(),
         size: formatSize(sizeBytes),
         sizeBytes,
         versionNumber: 1
@@ -184,17 +170,13 @@ export async function getDocumentVersions(
       const originalName =
         fileNameWithoutPath.replace(/_v_[^.]+(?=\.)/, '') + extension
 
-      const properties = await containerClient
-        .getBlobClient(fileName)
-        .getProperties()
-
       const sizeBytes = blob.properties.contentLength ?? 0
 
       versions.push({
         id: versionId ?? 'original',
         fileName,
         originalName,
-        uploadedAt: properties.lastModified ?? new Date(),
+        uploadedAt: blob.properties.lastModified ?? new Date(),
         size: formatSize(sizeBytes),
         sizeBytes,
         versionNumber: 1

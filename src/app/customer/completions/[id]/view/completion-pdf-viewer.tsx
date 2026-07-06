@@ -5,7 +5,7 @@ import { ArrowLeft, Clock, Menu } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
-import { PDFRenderer } from '@/app/documents/view/[name]/components/PDFRenderer'
+import { PDFRenderer } from '@/app/documents/view/[...name]/components/PDFRenderer'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {

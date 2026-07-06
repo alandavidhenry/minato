@@ -3,6 +3,7 @@ import type { ComprehensionQuestionForClient } from '@/types/comprehension-quest
 import type { FormSchema } from '@/types/form-schema'
 
 import prisma from './prisma'
+import { toJsonValue } from './prisma-json'
 
 export interface AssignmentData {
   id: string
@@ -48,14 +49,6 @@ type PrismaAssignmentWithTemplate = PrismaAssignment & {
     formSchema: unknown
     questions: unknown
   }
-}
-
-function toJsonValue(
-  value: unknown
-): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue | undefined {
-  if (value === undefined) return undefined
-  if (value === null) return 'DbNull'
-  return value as Prisma.InputJsonValue
 }
 
 function isVisibleToJobRole(

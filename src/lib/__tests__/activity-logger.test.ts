@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ActivityType,
   getActivityLogs,
-  getRecentActivityLogs,
   initActivityLogsTable,
   logActivity
 } from '../activity-logger'
@@ -144,10 +143,12 @@ describe('getActivityLogs', () => {
     expect(logs[1].id).toBe('a')
   })
 
-  it('filters by userId string (backward compat)', async () => {
-    await getActivityLogs('user-1')
+  it('escapes single quotes in filter values to prevent OData injection', async () => {
+    await getActivityLogs({ userId: "user' or PartitionKey eq 'x" })
     expect(mockTableClient.listEntities).toHaveBeenCalledWith({
-      queryOptions: { filter: "PartitionKey eq 'user-1'" }
+      queryOptions: {
+        filter: "PartitionKey eq 'user'' or PartitionKey eq ''x'"
+      }
     })
   })
 
@@ -201,39 +202,5 @@ describe('getActivityLogs', () => {
     })
     const logs = await getActivityLogs()
     expect(logs).toEqual([])
-  })
-})
-
-describe('getRecentActivityLogs', () => {
-  it('returns only the most recent N logs', async () => {
-    const entities = Array.from({ length: 10 }, (_, i) => ({
-      rowKey: `log-${i}`,
-      userId: 'u',
-      userName: 'U',
-      fileName: 'f',
-      activityType: ActivityType.VIEW,
-      timestamp: new Date(2024, 0, i + 1).toISOString(),
-      ipAddress: ''
-    }))
-    mockTableClient.listEntities.mockReturnValue(asyncOf(...entities))
-
-    const logs = await getRecentActivityLogs(3)
-    expect(logs).toHaveLength(3)
-  })
-
-  it('defaults to 5 results', async () => {
-    const entities = Array.from({ length: 10 }, (_, i) => ({
-      rowKey: `log-${i}`,
-      userId: 'u',
-      userName: 'U',
-      fileName: 'f',
-      activityType: ActivityType.VIEW,
-      timestamp: new Date(2024, 0, i + 1).toISOString(),
-      ipAddress: ''
-    }))
-    mockTableClient.listEntities.mockReturnValue(asyncOf(...entities))
-
-    const logs = await getRecentActivityLogs()
-    expect(logs).toHaveLength(5)
   })
 })

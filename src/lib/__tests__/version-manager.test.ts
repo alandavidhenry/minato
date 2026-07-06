@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  areRelatedDocuments,
   createVersionedFileName,
   generateVersionId,
   getDocumentVersions,
@@ -109,53 +108,13 @@ describe('createVersionedFileName', () => {
   })
 })
 
-describe('areRelatedDocuments', () => {
-  it('returns true for same base name at root', () => {
-    expect(
-      areRelatedDocuments('report.pdf', 'report_v_2024-01-01T00-00-00-000Z.pdf')
-    ).toBe(true)
-  })
-
-  it('returns true for two different versions', () => {
-    expect(
-      areRelatedDocuments(
-        'report_v_2024-01-01T00-00-00-000Z.pdf',
-        'report_v_2024-06-01T00-00-00-000Z.pdf'
-      )
-    ).toBe(true)
-  })
-
-  it('returns false for different file names', () => {
-    expect(areRelatedDocuments('report.pdf', 'summary.pdf')).toBe(false)
-  })
-
-  it('returns true for files in the same folder', () => {
-    expect(
-      areRelatedDocuments(
-        'docs/report.pdf',
-        'docs/report_v_2024-01-01T00-00-00-000Z.pdf'
-      )
-    ).toBe(true)
-  })
-
-  it('returns false for same name in different folders', () => {
-    expect(
-      areRelatedDocuments('folder1/report.pdf', 'folder2/report.pdf')
-    ).toBe(false)
-  })
-})
-
 // --- Azure-dependent tests ---
 
-const { mockBlobClient, mockContainerClient } = vi.hoisted(() => {
-  const mockBlobClient = {
-    getProperties: vi.fn()
-  }
+const { mockContainerClient } = vi.hoisted(() => {
   const mockContainerClient = {
-    getBlobClient: vi.fn(() => mockBlobClient),
     listBlobsFlat: vi.fn()
   }
-  return { mockBlobClient, mockContainerClient }
+  return { mockContainerClient }
 })
 
 vi.mock('@azure/storage-blob', () => ({
@@ -176,7 +135,6 @@ const uploadedAt = new Date('2024-06-01T10:00:00.000Z')
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockBlobClient.getProperties.mockResolvedValue({ lastModified: uploadedAt })
   mockContainerClient.listBlobsFlat.mockReturnValue(asyncOf())
 })
 
@@ -190,7 +148,7 @@ describe('groupDocumentsByVersion', () => {
     mockContainerClient.listBlobsFlat.mockReturnValue(
       asyncOf({
         name: 'report.pdf',
-        properties: { contentLength: 1024 }
+        properties: { contentLength: 1024, lastModified: uploadedAt }
       })
     )
 
@@ -208,14 +166,16 @@ describe('groupDocumentsByVersion', () => {
 
     mockContainerClient.listBlobsFlat.mockReturnValue(
       asyncOf(
-        { name: 'report_v_v1.pdf', properties: { contentLength: 512 } },
-        { name: 'report_v_v2.pdf', properties: { contentLength: 1024 } }
+        {
+          name: 'report_v_v1.pdf',
+          properties: { contentLength: 512, lastModified: v1Date }
+        },
+        {
+          name: 'report_v_v2.pdf',
+          properties: { contentLength: 1024, lastModified: v2Date }
+        }
       )
     )
-
-    mockBlobClient.getProperties
-      .mockResolvedValueOnce({ lastModified: v1Date })
-      .mockResolvedValueOnce({ lastModified: v2Date })
 
     const result = await groupDocumentsByVersion('container', 'conn', '')
 
@@ -239,8 +199,14 @@ describe('groupDocumentsByVersion', () => {
   it('respects the folderPath prefix when filtering files', async () => {
     mockContainerClient.listBlobsFlat.mockReturnValue(
       asyncOf(
-        { name: 'docs/report.pdf', properties: { contentLength: 1024 } },
-        { name: 'docs/sub/nested.pdf', properties: { contentLength: 512 } }
+        {
+          name: 'docs/report.pdf',
+          properties: { contentLength: 1024, lastModified: uploadedAt }
+        },
+        {
+          name: 'docs/sub/nested.pdf',
+          properties: { contentLength: 512, lastModified: uploadedAt }
+        }
       )
     )
 
@@ -264,14 +230,16 @@ describe('getDocumentVersions', () => {
 
     mockContainerClient.listBlobsFlat.mockReturnValue(
       asyncOf(
-        { name: 'report_v_v1.pdf', properties: { contentLength: 512 } },
-        { name: 'report_v_v2.pdf', properties: { contentLength: 1024 } }
+        {
+          name: 'report_v_v1.pdf',
+          properties: { contentLength: 512, lastModified: v1Date }
+        },
+        {
+          name: 'report_v_v2.pdf',
+          properties: { contentLength: 1024, lastModified: v2Date }
+        }
       )
     )
-
-    mockBlobClient.getProperties
-      .mockResolvedValueOnce({ lastModified: v1Date })
-      .mockResolvedValueOnce({ lastModified: v2Date })
 
     const versions = await getDocumentVersions('report', 'container', 'conn')
 
