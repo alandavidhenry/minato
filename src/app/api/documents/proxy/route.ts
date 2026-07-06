@@ -58,9 +58,10 @@ export async function GET(request: NextRequest) {
 
     const safeUrl = new URL(`https://${allowedHost}`)
     safeUrl.pathname = normalizedPath
-    for (const [key, value] of parsedUrl.searchParams) {
-      safeUrl.searchParams.set(key, value)
-    }
+    // Copy the raw query string rather than re-serializing via URLSearchParams,
+    // which re-encodes spaces as '+' instead of '%20' and invalidates the SAS
+    // signature (rscd/Content-Disposition is part of the signed string).
+    safeUrl.search = parsedUrl.search
     const response = await fetch(safeUrl)
 
     if (!response.ok) {

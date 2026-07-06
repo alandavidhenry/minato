@@ -14,7 +14,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
-import { PDFRenderer } from '@/app/documents/view/[name]/components/PDFRenderer'
+import { PDFRenderer } from '@/app/documents/view/[...name]/components/PDFRenderer'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'

@@ -5,6 +5,7 @@ import {
 } from '@azure/storage-blob'
 
 import { logActivity, ActivityType } from '../activity-logger'
+import { buildContentDisposition } from '../content-disposition'
 import { parseFileName } from '../version-manager'
 
 import { isValidName, normalizePath } from './path-utils'
@@ -173,7 +174,10 @@ export async function generateDownloadUrl(
     return blobClient.generateSasUrl({
       permissions: BlobSASPermissions.parse('r'),
       expiresOn,
-      contentDisposition: `attachment; filename="${filePath.split('/').pop()}"`,
+      contentDisposition: buildContentDisposition(
+        'attachment',
+        filePath.split('/').pop() ?? filePath
+      ),
       protocol: SASProtocol.Https
     })
   } catch (error) {
