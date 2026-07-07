@@ -1,17 +1,4 @@
-// src/app/admin/layout.tsx
 'use client'
-
-import {
-  Building2,
-  CheckCircle2,
-  Clock,
-  FileText,
-  Gauge,
-  Settings,
-  Users
-} from 'lucide-react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 
 import { AdminPageGuard } from '@/components/auth/permission-guard'
 
@@ -20,73 +7,5 @@ export default function AdminLayout({
 }: {
   readonly children: React.ReactNode
 }) {
-  const pathname = usePathname()
-
-  const navItems = [
-    {
-      name: 'Dashboard',
-      href: '/admin',
-      icon: <Gauge className='h-5 w-5' />
-    },
-    {
-      name: 'Users',
-      href: '/admin/users',
-      icon: <Users className='h-5 w-5' />
-    },
-    {
-      name: 'Companies',
-      href: '/admin/companies',
-      icon: <Building2 className='h-5 w-5' />
-    },
-    {
-      name: 'Templates',
-      href: '/admin/templates',
-      icon: <FileText className='h-5 w-5' />
-    },
-    {
-      name: 'Completions',
-      href: '/admin/completions',
-      icon: <CheckCircle2 className='h-5 w-5' />
-    },
-    {
-      name: 'Settings',
-      href: '/admin/settings',
-      icon: <Settings className='h-5 w-5' />
-    },
-    {
-      name: 'Activity Logs',
-      href: '/admin/activity',
-      icon: <Clock className='h-5 w-5' />
-    }
-  ]
-
-  return (
-    <AdminPageGuard>
-      <div className='flex flex-col md:flex-row'>
-        {/* Sidebar */}
-        <aside className='w-full md:w-64 bg-muted p-4 md:min-h-[calc(100vh-4rem)]'>
-          <h2 className='text-xl font-bold mb-6'>Admin Portal</h2>
-          <nav className='space-y-1'>
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  pathname === item.href
-                    ? 'bg-accent text-accent-foreground'
-                    : 'hover:bg-accent hover:text-accent-foreground'
-                }`}
-              >
-                {item.icon}
-                {item.name}
-              </Link>
-            ))}
-          </nav>
-        </aside>
-
-        {/* Main content */}
-        <main className='flex-1 p-4'>{children}</main>
-      </div>
-    </AdminPageGuard>
-  )
+  return <AdminPageGuard>{children}</AdminPageGuard>
 }

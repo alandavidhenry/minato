@@ -4,6 +4,7 @@ import { Download, FileCheck, Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { CustomerAdminPageGuard } from '@/components/auth/permission-guard'
+import { WelcomeHeader } from '@/components/customer/welcome-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -187,10 +188,20 @@ function TeamCompletionsContent() {
     }
   }
 
+  const outstandingCount = groups.reduce(
+    (sum, g) => sum + g.outstandingCount,
+    0
+  )
+  const subtitle = isLoading
+    ? undefined
+    : outstandingCount > 0
+      ? `Your team has ${outstandingCount} outstanding completion${outstandingCount === 1 ? '' : 's'}.`
+      : 'Your team is fully up to date.'
+
   return (
     <div className='space-y-6'>
       <div className='flex flex-wrap items-center justify-between gap-4'>
-        <h1 className='text-3xl font-bold'>Team Compliance</h1>
+        <WelcomeHeader title='Team Compliance' subtitle={subtitle} />
         <Button
           variant='outline'
           size='sm'

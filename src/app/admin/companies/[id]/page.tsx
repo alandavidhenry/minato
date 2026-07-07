@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { AssignTemplateDialog } from '@/components/admin/assign-template-dialog'
 import { AssignToUserDialog } from '@/components/admin/assign-to-user-dialog'
 import { EditCompanyDialog } from '@/components/admin/edit-company-dialog'
+import { useBreadcrumbLabel } from '@/components/providers/breadcrumb-provider'
 import { QrCodeModal } from '@/components/qr-code-modal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -78,6 +79,8 @@ export default function CompanyDetailPage() {
   const [showAssignToUserDialog, setShowAssignToUserDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
+
+  useBreadcrumbLabel(`/admin/companies/${id}`, company?.name)
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)

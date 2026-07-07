@@ -338,6 +338,35 @@ Key files: `src/lib/document-templates.ts`, `src/app/api/customer/admin/template
 
 ---
 
+### P18 — Navigation Shell: Unified Role-Aware Sidebar ✅ Done
+
+**Goal:** Fix the disjointed navigation. Previously there were three parallel systems (a global top navbar, a card-grid home page everyone landed on, and section-only sidebars inside `/admin` and `/customer`), so admins landed on a near-useless grid of links (Documents, Scan, "Future Feature 1/2") with the real dashboard buried a click away, and the primary menu looked different depending on where you were.
+
+**Implemented:**
+- ✅ Single global app shell (`src/components/app-shell.tsx`) — slim top bar + one role-aware left sidebar (`src/components/app-sidebar.tsx`), collapsible-to-icons on desktop (preference persisted in `localStorage` as `sidebar-collapsed`, tooltips on the icon rail) and a slide-out drawer on mobile. Rendered once in `src/app/layout.tsx`, replacing the old `NavBar` (deleted).
+- ✅ `app-sidebar.tsx` builds nav groups from the user's roles — admin (Dashboard, Users, Companies, Templates, Completions, Activity Logs, Settings + a low-prominence "Tools → Documents"), tenant staff (Documents), customer (My Documents, Completed Forms), customer admin (adds Team Compliance, Company Templates). It is the single source of truth for primary nav; the admin/customer layouts were reduced to just their page guards (`AdminPageGuard`/`CustomerPageGuard`), no longer carrying their own sidebars.
+- ✅ Public/kiosk routes (`/auth`, `/signoff`, `/shared`, `/s/`) and signed-out users get a minimal top-bar-only chrome (brand + theme + sign-in), not the sidebar.
+- ✅ Landing route: `src/app/page.tsx` (`/`) is now a server-side role redirect (admin → `/admin`, customer admin → `/customer/admin/completions`, customer user → `/customer/documents`, tenant staff → `/documents`, signed-out → `/auth/signin`) — the relevant dashboard/list is each role's home; the card-grid home page (and the Scan / "Future Feature" placeholders) is gone.
+- ✅ Document scanning (`/scan`) is built but intentionally unlinked from navigation — it will return to the nav later; the page, `/api/scan/upload`, and its proxy guard remain in place.
+
+Key files: `src/components/app-shell.tsx`, `src/components/app-sidebar.tsx`, `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/admin/layout.tsx`, `src/app/customer/layout.tsx`
+
+---
+
+### P18b — Navigation Shell Follow-ups: Breadcrumbs, Account Menu, Overdue Bell, Welcome Header ✅ Done
+
+**Goal:** Round out the P18 navigation shell with the remaining SaaS-standard affordances: orientation on deep pages, a conventional place for account actions, and surfacing the reminders system proactively instead of only on the dashboard KPI tiles.
+
+**Implemented:**
+- ✅ Breadcrumbs (`src/components/breadcrumbs.tsx` + `src/components/providers/breadcrumb-provider.tsx`) — rendered above page content in `AppShell`, shown only when there are 2+ crumbs. Static segments resolve via a `ROUTE_LABELS` map; dynamic id segments (company/template/completion names) resolve via a `useBreadcrumbLabel(path, label)` registry populated by the 5 detail pages once their data loads (`admin/companies/[id]`, `admin/completions/[companyId]`, `admin/completions/[companyId]/[assignmentId]`, `customer/completions/[id]/view`, `customer/documents/[assignmentId]/complete`). Trailing action segments (`view`, `complete`) fold into the preceding entity crumb. `/documents` is excluded since its file browser already has its own folder breadcrumb.
+- ✅ Account menu (`src/components/user-menu.tsx`) — avatar-initials dropdown in the top bar (Profile link + Sign Out), replacing the sidebar's old account footer. `app-sidebar.tsx`'s `SidebarRow` was simplified back to link-only (the button/`onClick` branch it needed for sign-out was dead code once removed).
+- ✅ Notification bell (`src/components/notification-bell.tsx`) — top bar bell with an overdue-completions count badge, polled every 5 minutes, visible only to Admin and Customer Admin (the roles who chase outstanding sign-offs — not individual customer users or tenant staff). Reuses existing endpoints rather than adding new ones: `/api/admin/dashboard/stats`'s `overdue` KPI for Admin, `/api/customer/admin/completions`'s `isOverdue` groups for Customer Admin. Links through to the relevant outstanding/overdue view.
+- ✅ Welcome header (`src/components/customer/welcome-header.tsx`) — one-line "Welcome back, {first name}" plus a status subtitle (pending/outstanding count) on `/customer/documents` and `/customer/admin/completions`, replacing their plain `<h1>`.
+
+Key files: `src/components/breadcrumbs.tsx`, `src/components/providers/breadcrumb-provider.tsx`, `src/components/user-menu.tsx`, `src/components/notification-bell.tsx`, `src/components/customer/welcome-header.tsx`, `src/components/app-shell.tsx`, `src/components/app-sidebar.tsx`
+
+---
+
 ## Document Model
 
 ### Current state (as of 2026-04)

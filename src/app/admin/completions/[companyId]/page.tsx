@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
+import { useBreadcrumbLabel } from '@/components/providers/breadcrumb-provider'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -33,6 +34,11 @@ export default function CompanyCompletionsPage() {
   const [groups, setGroups] = useState<CompletionGroup[]>([])
   const [companyName, setCompanyName] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
+
+  useBreadcrumbLabel(
+    `/admin/completions/${companyId}`,
+    companyName || undefined
+  )
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)

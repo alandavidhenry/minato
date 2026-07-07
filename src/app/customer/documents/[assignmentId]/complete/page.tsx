@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
 
 import { FormFieldRenderer } from '@/components/form-field-renderer'
+import { useBreadcrumbLabel } from '@/components/providers/breadcrumb-provider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -49,6 +50,11 @@ export default function CompleteDocumentPage() {
 
   const [declarationName, setDeclarationName] = useState('')
   const [declarationError, setDeclarationError] = useState<string | null>(null)
+
+  useBreadcrumbLabel(
+    `/customer/documents/${assignmentId}`,
+    assignment?.template.title
+  )
 
   useEffect(() => {
     async function fetchAssignment() {
