@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
+import { useBreadcrumbLabel } from '@/components/providers/breadcrumb-provider'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
@@ -56,6 +57,14 @@ export function CompletionPdfViewer({
   const [title, setTitle] = useState('')
   const [versions, setVersions] = useState<CompletionVersion[]>([])
   const [currentId, setCurrentId] = useState(completionId)
+
+  // Registered against the initial completionId (the actual page path) —
+  // switching versions below updates the URL via history.replaceState, not
+  // a real navigation, so the breadcrumb intentionally stays on this title.
+  useBreadcrumbLabel(
+    `/customer/completions/${completionId}`,
+    title || undefined
+  )
 
   const loadPdf = useCallback(async (id: string) => {
     setIsLoading(true)

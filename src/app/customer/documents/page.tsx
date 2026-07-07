@@ -5,6 +5,7 @@ import { CheckCircle2, Clock, Download, FileText } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+import { WelcomeHeader } from '@/components/customer/welcome-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -254,9 +255,14 @@ export default function CustomerDocumentsPage() {
     )
   }
 
+  const subtitle =
+    pendingAssignments.length > 0
+      ? `You have ${pendingAssignments.length} document${pendingAssignments.length === 1 ? '' : 's'} to complete.`
+      : "You're all caught up."
+
   return (
     <div className='space-y-8 p-6'>
-      <h1 className='text-3xl font-bold'>My Documents</h1>
+      <WelcomeHeader title='My Documents' subtitle={subtitle} />
 
       {pendingAssignments.length > 0 && (
         <section className='space-y-4'>

@@ -1,8 +1,8 @@
 // src/app/layout.tsx
 import { Inter } from 'next/font/google'
-import Link from 'next/link'
 
-import { NavBar } from '@/components/nav-bar'
+import { AppShell } from '@/components/app-shell'
+import { BreadcrumbProvider } from '@/components/providers/breadcrumb-provider'
 import { RBACProvider } from '@/components/providers/rbac-provider'
 import { AuthProvider } from '@/components/providers/session-provider'
 import { ThemeProvider } from '@/components/providers/theme-provider'
@@ -30,19 +30,9 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <RBACProvider>
-              <div className='min-h-screen bg-background flex flex-col'>
-                <NavBar />
-                <main className='flex-1'>
-                  <div className='container mx-auto py-4'>{children}</div>
-                </main>
-                <footer className='border-t py-4'>
-                  <div className='container mx-auto text-center text-sm text-muted-foreground'>
-                    <Link href='/privacy' className='hover:underline'>
-                      Privacy Policy
-                    </Link>
-                  </div>
-                </footer>
-              </div>
+              <BreadcrumbProvider>
+                <AppShell>{children}</AppShell>
+              </BreadcrumbProvider>
               <Toaster />
             </RBACProvider>
           </AuthProvider>

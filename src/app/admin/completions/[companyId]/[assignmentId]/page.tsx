@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
+import { useBreadcrumbLabel } from '@/components/providers/breadcrumb-provider'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -79,6 +80,15 @@ export default function AssignmentCompletionsPage() {
   } | null>(null)
   const [viewPdfData, setViewPdfData] = useState<Uint8Array | null>(null)
   const [viewLoading, setViewLoading] = useState(false)
+
+  useBreadcrumbLabel(
+    `/admin/completions/${companyId}`,
+    companyName || undefined
+  )
+  useBreadcrumbLabel(
+    `/admin/completions/${companyId}/${assignmentId}`,
+    templateTitle || undefined
+  )
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
