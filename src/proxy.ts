@@ -36,6 +36,8 @@ export const config = {
     '/scan/:path*',
     '/customer/:path*',
     '/profile/:path*',
-    '/profile'
+    '/profile',
+    '/settings/:path*',
+    '/settings'
   ]
 }

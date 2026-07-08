@@ -1,5 +1,5 @@
 // src/app/layout.tsx
-import { Inter } from 'next/font/google'
+import { Fira_Code, Poppins, PT_Serif } from 'next/font/google'
 
 import { AppShell } from '@/components/app-shell'
 import { BreadcrumbProvider } from '@/components/providers/breadcrumb-provider'
@@ -12,7 +12,22 @@ import type { Metadata } from 'next'
 
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'] })
+const fontSans = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-sans'
+})
+
+const fontSerif = PT_Serif({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-serif'
+})
+
+const fontMono = Fira_Code({
+  subsets: ['latin'],
+  variable: '--font-mono'
+})
 
 export const metadata: Metadata = {
   title: 'Minato',
@@ -26,7 +41,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang='en' suppressHydrationWarning>
-      <body className={inter.className}>
+      <body
+        className={`${fontSans.variable} ${fontSerif.variable} ${fontMono.variable} antialiased`}
+      >
         <ThemeProvider>
           <AuthProvider>
             <RBACProvider>
