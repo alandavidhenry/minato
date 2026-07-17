@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { POST as completeAssignment } from '../customer/assignments/[id]/complete/route'
+import { GET as documentAssignment } from '../customer/assignments/[id]/document/route'
 import { GET as downloadAssignment } from '../customer/assignments/[id]/download/route'
 import { GET as getAssignment } from '../customer/assignments/[id]/route'
 import { GET as listAssignments } from '../customer/assignments/route'
@@ -231,6 +232,18 @@ const ASSIGNMENT_WITH_NEW_FIELD_TYPES = {
       },
       { id: 'photo', label: 'Hazard photo', type: 'file', required: true }
     ]
+  }
+}
+
+// Upload-based template assignment with fill-and-return mode
+const FILL_AND_RETURN_ASSIGNMENT = {
+  ...BASE_ASSIGNMENT,
+  template: {
+    ...BASE_ASSIGNMENT.template,
+    sourceType: 'upload',
+    uploadMode: 'fill-and-return',
+    sourceDocBlobPath: 'templates/template_123/source.pdf',
+    sourceDocFileName: 'Return to Work Form.docx'
   }
 }
 
@@ -692,6 +705,69 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(200)
   })
+
+  it('returns 400 for a fill-and-return template when no submission is provided', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(FILL_AND_RETURN_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { declarationName: 'Jane Smith' }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/upload your completed copy/i)
+    expect(mockCreateCompletion).not.toHaveBeenCalled()
+  })
+
+  it('returns 200 for a fill-and-return template and passes submission fields through', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(FILL_AND_RETURN_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      {
+        declarationName: 'Jane Smith',
+        submission: {
+          blobPath:
+            'assignment-submissions/assignment_123/user_123-x/source.pdf',
+          originalBlobPath:
+            'assignment-submissions/assignment_123/user_123-x/source-original-completed.docx',
+          fileName: 'completed.docx'
+        }
+      }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(200)
+    expect(mockCreateCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        submittedBlobPath:
+          'assignment-submissions/assignment_123/user_123-x/source.pdf',
+        submittedOriginalBlobPath:
+          'assignment-submissions/assignment_123/user_123-x/source-original-completed.docx',
+        submittedFileName: 'completed.docx'
+      })
+    )
+  })
+
+  it('does not require a submission for a read-only upload template', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue({
+      ...BASE_ASSIGNMENT,
+      template: {
+        ...BASE_ASSIGNMENT.template,
+        sourceType: 'upload',
+        uploadMode: 'read-only'
+      }
+    })
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { declarationName: 'Jane Smith' }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(200)
+    expect(mockCreateCompletion).toHaveBeenCalledWith(
+      expect.not.objectContaining({ submittedBlobPath: expect.anything() })
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -800,6 +876,84 @@ describe('GET /api/customer/assignments/[id]/download', () => {
     const res = await downloadAssignment(req, params('assignment_123'))
     expect(res.status).toBe(200)
     expect((await res.json()).url).toBe('https://blob.example.com/sas-url')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// GET /api/customer/assignments/[id]/document
+// ---------------------------------------------------------------------------
+
+describe('GET /api/customer/assignments/[id]/document', () => {
+  const UPLOAD_ASSIGNMENT = {
+    ...BASE_ASSIGNMENT,
+    template: {
+      ...BASE_ASSIGNMENT.template,
+      sourceType: 'upload',
+      uploadMode: 'read-only',
+      sourceDocBlobPath: 'templates/template_123/source.pdf',
+      sourceDocFileName: 'Fire Safety Policy.docx'
+    }
+  }
+
+  it('returns 403 when not a customer', async () => {
+    mockGetServerSession.mockResolvedValue(null)
+    const req = new NextRequest(
+      'http://localhost/api/customer/assignments/assignment_123/document'
+    )
+    const res = await documentAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(403)
+  })
+
+  it('returns 404 when assignment not found', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(null)
+    const req = new NextRequest(
+      'http://localhost/api/customer/assignments/missing/document'
+    )
+    const res = await documentAssignment(req, params('missing'))
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 404 when assignment belongs to a different company', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue({
+      ...UPLOAD_ASSIGNMENT,
+      customerCompanyId: 'other_company'
+    })
+    const req = new NextRequest(
+      'http://localhost/api/customer/assignments/assignment_123/document'
+    )
+    const res = await documentAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 404 for a form-based template (no source document)', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
+    const req = new NextRequest(
+      'http://localhost/api/customer/assignments/assignment_123/document'
+    )
+    const res = await documentAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 200 with a view URL for an upload-based template', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(UPLOAD_ASSIGNMENT)
+    mockGenerateSasToken.mockResolvedValue(
+      'https://blob.example.com/source-sas-url'
+    )
+    const req = new NextRequest(
+      'http://localhost/api/customer/assignments/assignment_123/document'
+    )
+    const res = await documentAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(200)
+    expect((await res.json()).url).toBe(
+      'https://blob.example.com/source-sas-url'
+    )
+    const [, blobPath, options] = mockGenerateSasToken.mock.calls[0]
+    expect(blobPath).toBe('templates/template_123/source.pdf')
+    expect(options).toMatchObject({ permissions: 'r' })
   })
 })
 

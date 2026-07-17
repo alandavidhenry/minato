@@ -6,14 +6,16 @@ import {
   getCompaniesWithCompletions,
   getCompletionGroupsByCompany,
   getCompletionsForAssignmentForAdmin,
-  getCompletionsForUser
+  getCompletionsForUser,
+  updateCompletionSubmission
 } from '../completion-records'
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     completionRecord: {
       findMany: vi.fn(),
-      create: vi.fn()
+      create: vi.fn(),
+      update: vi.fn()
     },
     customerCompany: {
       findMany: vi.fn()
@@ -38,7 +40,10 @@ const BASE_RECORD = {
   signedById: 'user_123',
   signedAt: new Date('2024-01-01T00:00:00.000Z'),
   blobPath: null,
-  formData: null
+  formData: null,
+  submittedBlobPath: null,
+  submittedOriginalBlobPath: null,
+  submittedFileName: null
 }
 
 const BASE_RECORD_WITH_TEMPLATE = {
@@ -110,6 +115,74 @@ describe('createCompletionRecord', () => {
         signedById: 'user_123'
       })
     ).toBeNull()
+  })
+
+  it('passes submission fields when provided (fill-and-return)', async () => {
+    mockPrisma.completionRecord.create.mockResolvedValue({
+      ...BASE_RECORD,
+      submittedBlobPath: 'form-submissions/assignment_123/user_123/filled.pdf',
+      submittedOriginalBlobPath:
+        'form-submissions/assignment_123/user_123/filled-original.docx',
+      submittedFileName: 'Fire Safety Policy - completed.docx'
+    })
+
+    const result = await createCompletionRecord({
+      assignmentId: 'assignment_123',
+      signedById: 'user_123',
+      submittedBlobPath: 'form-submissions/assignment_123/user_123/filled.pdf',
+      submittedOriginalBlobPath:
+        'form-submissions/assignment_123/user_123/filled-original.docx',
+      submittedFileName: 'Fire Safety Policy - completed.docx'
+    })
+
+    expect(mockPrisma.completionRecord.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        submittedBlobPath:
+          'form-submissions/assignment_123/user_123/filled.pdf',
+        submittedOriginalBlobPath:
+          'form-submissions/assignment_123/user_123/filled-original.docx',
+        submittedFileName: 'Fire Safety Policy - completed.docx'
+      })
+    })
+    expect(result?.submittedFileName).toBe(
+      'Fire Safety Policy - completed.docx'
+    )
+  })
+})
+
+describe('updateCompletionSubmission', () => {
+  it('updates the submission fields and returns true', async () => {
+    mockPrisma.completionRecord.update.mockResolvedValue(BASE_RECORD)
+
+    const result = await updateCompletionSubmission('record_123', {
+      submittedBlobPath: 'form-submissions/assignment_123/user_123/filled.pdf',
+      submittedOriginalBlobPath:
+        'form-submissions/assignment_123/user_123/filled-original.docx',
+      submittedFileName: 'Fire Safety Policy - completed.docx'
+    })
+
+    expect(result).toBe(true)
+    expect(mockPrisma.completionRecord.update).toHaveBeenCalledWith({
+      where: { id: 'record_123' },
+      data: {
+        submittedBlobPath:
+          'form-submissions/assignment_123/user_123/filled.pdf',
+        submittedOriginalBlobPath:
+          'form-submissions/assignment_123/user_123/filled-original.docx',
+        submittedFileName: 'Fire Safety Policy - completed.docx'
+      }
+    })
+  })
+
+  it('returns false on error', async () => {
+    mockPrisma.completionRecord.update.mockRejectedValue(new Error('not found'))
+    expect(
+      await updateCompletionSubmission('missing', {
+        submittedBlobPath: 'x',
+        submittedOriginalBlobPath: 'y',
+        submittedFileName: 'z'
+      })
+    ).toBe(false)
   })
 })
 

@@ -116,3 +116,17 @@ variable "communication_service" {
     data_location = "Europe"
   }
 }
+
+variable "gotenberg" {
+  description = "Gotenberg document conversion service configuration"
+  type = object({
+    image  = string
+    cpu    = number
+    memory = number
+  })
+  default = {
+    image  = "docker.io/gotenberg/gotenberg:8"
+    cpu    = 1
+    memory = 2
+  }
+}

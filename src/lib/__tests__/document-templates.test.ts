@@ -38,6 +38,11 @@ const BASE_TEMPLATE = {
   version: 1,
   tenantId: null,
   ownerCompanyId: null,
+  sourceType: 'form',
+  uploadMode: null,
+  sourceDocBlobPath: null,
+  sourceDocOriginalBlobPath: null,
+  sourceDocFileName: null,
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
   updatedAt: new Date('2024-01-01T00:00:00.000Z')
 }
@@ -60,11 +65,50 @@ describe('createDocumentTemplate', () => {
     expect(result?.description).toBe('Annual farmyard safety review')
     expect(result?.blobPath).toBeNull()
     expect(result?.createdAt).toBe('2024-01-01T00:00:00.000Z')
+    expect(result?.sourceType).toBe('form')
+    expect(result?.uploadMode).toBeNull()
   })
 
   it('returns null on error', async () => {
     mockPrisma.documentTemplate.create.mockRejectedValue(new Error('db error'))
     expect(await createDocumentTemplate({ title: 'X' })).toBeNull()
+  })
+
+  it('creates an upload-based template with source doc fields', async () => {
+    const uploadTemplate = {
+      ...BASE_TEMPLATE,
+      sourceType: 'upload',
+      uploadMode: 'read-only',
+      sourceDocBlobPath: 'templates/template_123/v1/source.pdf',
+      sourceDocOriginalBlobPath:
+        'templates/template_123/v1/source-original.docx',
+      sourceDocFileName: 'Fire Safety Policy.docx'
+    }
+    mockPrisma.documentTemplate.create.mockResolvedValue(uploadTemplate)
+
+    const result = await createDocumentTemplate({
+      title: 'Fire Safety Policy',
+      sourceType: 'upload',
+      uploadMode: 'read-only',
+      sourceDocBlobPath: 'templates/template_123/v1/source.pdf',
+      sourceDocOriginalBlobPath:
+        'templates/template_123/v1/source-original.docx',
+      sourceDocFileName: 'Fire Safety Policy.docx'
+    })
+
+    expect(mockPrisma.documentTemplate.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        sourceType: 'upload',
+        uploadMode: 'read-only',
+        sourceDocBlobPath: 'templates/template_123/v1/source.pdf',
+        sourceDocOriginalBlobPath:
+          'templates/template_123/v1/source-original.docx',
+        sourceDocFileName: 'Fire Safety Policy.docx'
+      })
+    })
+    expect(result?.sourceType).toBe('upload')
+    expect(result?.uploadMode).toBe('read-only')
+    expect(result?.sourceDocFileName).toBe('Fire Safety Policy.docx')
   })
 })
 
@@ -176,6 +220,31 @@ describe('updateDocumentTemplate', () => {
     mockPrisma.documentTemplate.update.mockRejectedValue(new Error('not found'))
     expect(await updateDocumentTemplate('missing', { title: 'X' })).toBe(false)
   })
+
+  it('saves source doc fields when replacing an uploaded document', async () => {
+    mockPrisma.documentTemplate.update.mockResolvedValue(BASE_TEMPLATE)
+
+    await updateDocumentTemplate('template_123', {
+      sourceType: 'upload',
+      uploadMode: 'fill-and-return',
+      sourceDocBlobPath: 'templates/template_123/v2/source.pdf',
+      sourceDocOriginalBlobPath:
+        'templates/template_123/v2/source-original.docx',
+      sourceDocFileName: 'Fire Safety Policy v2.docx'
+    })
+
+    expect(mockPrisma.documentTemplate.update).toHaveBeenCalledWith({
+      where: { id: 'template_123' },
+      data: {
+        sourceType: 'upload',
+        uploadMode: 'fill-and-return',
+        sourceDocBlobPath: 'templates/template_123/v2/source.pdf',
+        sourceDocOriginalBlobPath:
+          'templates/template_123/v2/source-original.docx',
+        sourceDocFileName: 'Fire Safety Policy v2.docx'
+      }
+    })
+  })
 })
 
 describe('deleteDocumentTemplate', () => {
@@ -241,11 +310,47 @@ describe('publishNewTemplateVersion', () => {
           title: BASE_TEMPLATE.title,
           description: BASE_TEMPLATE.description,
           formSchema: BASE_TEMPLATE.formSchema,
-          questions: BASE_TEMPLATE.questions
+          questions: BASE_TEMPLATE.questions,
+          sourceType: BASE_TEMPLATE.sourceType,
+          uploadMode: BASE_TEMPLATE.uploadMode,
+          sourceDocBlobPath: BASE_TEMPLATE.sourceDocBlobPath,
+          sourceDocOriginalBlobPath: BASE_TEMPLATE.sourceDocOriginalBlobPath,
+          sourceDocFileName: BASE_TEMPLATE.sourceDocFileName
         },
         publishedBy: 'user_1'
       }
     })
+  })
+
+  it('applies source doc updates alongside version increment', async () => {
+    mockPrisma.templateVersionHistory.create.mockResolvedValue({})
+    mockPrisma.documentTemplate.update.mockResolvedValue({
+      ...BASE_TEMPLATE,
+      version: 2,
+      sourceDocBlobPath: 'templates/template_123/v2/source.pdf'
+    })
+
+    const result = await publishNewTemplateVersion('template_123', {
+      changeReason: 'Updated fire safety procedure',
+      sourceDocBlobPath: 'templates/template_123/v2/source.pdf',
+      sourceDocOriginalBlobPath:
+        'templates/template_123/v2/source-original.docx',
+      sourceDocFileName: 'Fire Safety Policy v2.docx'
+    })
+
+    expect(result?.sourceDocBlobPath).toBe(
+      'templates/template_123/v2/source.pdf'
+    )
+    expect(mockPrisma.documentTemplate.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          sourceDocBlobPath: 'templates/template_123/v2/source.pdf',
+          sourceDocOriginalBlobPath:
+            'templates/template_123/v2/source-original.docx',
+          sourceDocFileName: 'Fire Safety Policy v2.docx'
+        })
+      })
+    )
   })
 
   it('applies content updates alongside version increment', async () => {

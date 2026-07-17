@@ -15,8 +15,8 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable'
-import { Loader2, Plus, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Loader2, Plus, Trash2, Upload } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   FIELD_TYPE_LABELS,
@@ -48,10 +48,20 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/ui/use-toast'
 import type { ComprehensionQuestion } from '@/types/comprehension-question'
+import type {
+  DocumentTemplateSourceType,
+  DocumentTemplateUploadMode
+} from '@/types/document-template'
 import type { FormField, FormFieldType } from '@/types/form-schema'
 
 function isCheckboxField(f: FormField) {
   return f.type === 'checkbox'
+}
+
+interface UploadedDocument {
+  blobPath: string
+  originalBlobPath: string | null
+  fileName: string
 }
 
 interface Template {
@@ -60,6 +70,9 @@ interface Template {
   description: string | null
   formSchema: FormField[] | null
   questions: ComprehensionQuestion[] | null
+  sourceType?: DocumentTemplateSourceType
+  uploadMode?: DocumentTemplateUploadMode | null
+  sourceDocFileName?: string | null
 }
 
 interface EditTemplateDialogProps {
@@ -110,6 +123,16 @@ export function EditTemplateDialog({
   const [description, setDescription] = useState('')
   const [fields, setFields] = useState<FormField[]>([])
   const [questions, setQuestions] = useState<ComprehensionQuestion[]>([])
+  const [uploadMode, setUploadMode] =
+    useState<DocumentTemplateUploadMode>('read-only')
+  const [sourceDocFileName, setSourceDocFileName] = useState<string | null>(
+    null
+  )
+  const [newUpload, setNewUpload] = useState<UploadedDocument | null>(null)
+  const [isUploadingFile, setIsUploadingFile] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const isUploadTemplate = template?.sourceType === 'upload'
 
   useEffect(() => {
     if (template) {
@@ -117,8 +140,45 @@ export function EditTemplateDialog({
       setDescription(template.description ?? '')
       setFields(template.formSchema ?? [])
       setQuestions(template.questions ?? [])
+      setUploadMode(template.uploadMode ?? 'read-only')
+      setSourceDocFileName(template.sourceDocFileName ?? null)
+      setNewUpload(null)
     }
   }, [template])
+
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    setIsUploadingFile(true)
+    try {
+      const body = new FormData()
+      body.append('file', file)
+      const response = await fetch(`${apiBasePath}/upload-document`, {
+        method: 'POST',
+        body
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to upload document')
+      }
+
+      const uploaded = (await response.json()) as UploadedDocument
+      setNewUpload(uploaded)
+      setSourceDocFileName(uploaded.fileName)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error ? error.message : 'Failed to upload document',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsUploadingFile(false)
+    }
+  }
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -391,7 +451,13 @@ export function EditTemplateDialog({
           title: title.trim(),
           description: description.trim() || null,
           formSchema: fields.length > 0 ? fields : null,
-          questions: questions.length > 0 ? questions : null
+          questions: questions.length > 0 ? questions : null,
+          ...(isUploadTemplate && { uploadMode }),
+          ...(newUpload && {
+            sourceDocBlobPath: newUpload.blobPath,
+            sourceDocOriginalBlobPath: newUpload.originalBlobPath,
+            sourceDocFileName: newUpload.fileName
+          })
         })
       })
 
@@ -432,7 +498,12 @@ export function EditTemplateDialog({
             title: title.trim(),
             description: description.trim() || null,
             formSchema: fields.length > 0 ? fields : null,
-            questions: questions.length > 0 ? questions : null
+            questions: questions.length > 0 ? questions : null,
+            ...(newUpload && {
+              sourceDocBlobPath: newUpload.blobPath,
+              sourceDocOriginalBlobPath: newUpload.originalBlobPath,
+              sourceDocFileName: newUpload.fileName
+            })
           })
         }
       )
@@ -510,260 +581,340 @@ export function EditTemplateDialog({
 
             <Separator />
 
-            <div className='grid gap-3'>
-              <div className='flex items-center justify-between'>
-                <Label>Form Fields</Label>
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='sm'
-                  onClick={() => appendField('text')}
-                  disabled={isLoading}
-                >
-                  <Plus className='mr-1 h-3 w-3' />
-                  Add Field
-                </Button>
-              </div>
+            {!isUploadTemplate && (
+              <div className='grid gap-3'>
+                <div className='flex items-center justify-between'>
+                  <Label>Form Fields</Label>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    onClick={() => appendField('text')}
+                    disabled={isLoading}
+                  >
+                    <Plus className='mr-1 h-3 w-3' />
+                    Add Field
+                  </Button>
+                </div>
 
-              {fields.length === 0 && (
-                <>
-                  <p className='text-sm text-muted-foreground'>
-                    No form fields yet. Add fields for customers to fill in when
-                    completing this document.
-                  </p>
-                  <StarterTemplatePicker onSelect={loadStarterTemplate} />
-                </>
-              )}
+                {fields.length === 0 && (
+                  <>
+                    <p className='text-sm text-muted-foreground'>
+                      No form fields yet. Add fields for customers to fill in
+                      when completing this document.
+                    </p>
+                    <StarterTemplatePicker onSelect={loadStarterTemplate} />
+                  </>
+                )}
 
-              <DndContext sensors={dndSensors} onDragEnd={handleDragEnd}>
-                <div className='grid gap-4 md:grid-cols-[1fr_180px] items-start'>
-                  <FieldsCanvas items={fields.map((f) => f.id)}>
-                    {fields.map((field, index) => (
-                      <SortableFieldCard key={field.id} id={field.id}>
-                        <div className='rounded-md border p-3 grid gap-3'>
-                          <div className='flex items-center justify-between'>
-                            <span className='text-sm font-medium text-muted-foreground'>
-                              Field {index + 1}
-                            </span>
-                            <Button
-                              type='button'
-                              variant='ghost'
-                              size='sm'
-                              onClick={() => removeField(field.id)}
-                              disabled={isLoading}
-                            >
-                              <Trash2 className='h-3 w-3' />
-                            </Button>
-                          </div>
-
-                          <div className='grid gap-2'>
-                            <Label htmlFor={`label-${field.id}`}>Label</Label>
-                            <Input
-                              id={`label-${field.id}`}
-                              value={field.label}
-                              onChange={(e) =>
-                                updateField(field.id, { label: e.target.value })
-                              }
-                              placeholder='e.g. Are fire exits clear and unobstructed?'
-                              disabled={isLoading}
-                            />
-                          </div>
-
-                          <div className='grid grid-cols-2 gap-3'>
-                            <div className='grid gap-2'>
-                              <Label htmlFor={`type-${field.id}`}>Type</Label>
-                              <Select
-                                value={field.type}
-                                onValueChange={(value) => {
-                                  const newType = value as FormFieldType
-                                  updateField(field.id, {
-                                    type: newType,
-                                    ...((newType === 'checkbox' ||
-                                      newType === 'section') && {
-                                      required: false
-                                    }),
-                                    options:
-                                      newType === 'select'
-                                        ? (field.options ?? ['', ''])
-                                        : undefined
-                                  })
-                                }}
+                <DndContext sensors={dndSensors} onDragEnd={handleDragEnd}>
+                  <div className='grid gap-4 md:grid-cols-[1fr_180px] items-start'>
+                    <FieldsCanvas items={fields.map((f) => f.id)}>
+                      {fields.map((field, index) => (
+                        <SortableFieldCard key={field.id} id={field.id}>
+                          <div className='rounded-md border p-3 grid gap-3'>
+                            <div className='flex items-center justify-between'>
+                              <span className='text-sm font-medium text-muted-foreground'>
+                                Field {index + 1}
+                              </span>
+                              <Button
+                                type='button'
+                                variant='ghost'
+                                size='sm'
+                                onClick={() => removeField(field.id)}
                                 disabled={isLoading}
                               >
-                                <SelectTrigger id={`type-${field.id}`}>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {(
-                                    Object.entries(FIELD_TYPE_LABELS) as [
-                                      FormFieldType,
-                                      string
-                                    ][]
-                                  ).map(([value, label]) => (
-                                    <SelectItem key={value} value={value}>
-                                      {label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                                <Trash2 className='h-3 w-3' />
+                              </Button>
                             </div>
 
-                            {field.type !== 'checkbox' &&
-                              field.type !== 'section' && (
-                                <div className='flex items-end gap-2 pb-1'>
-                                  <Checkbox
-                                    id={`required-${field.id}`}
-                                    checked={field.required}
-                                    onCheckedChange={(checked) =>
-                                      updateField(field.id, {
-                                        required: checked === true
-                                      })
-                                    }
-                                    disabled={isLoading}
-                                  />
-                                  <Label
-                                    htmlFor={`required-${field.id}`}
-                                    className='cursor-pointer'
-                                  >
-                                    Required
-                                  </Label>
-                                </div>
-                              )}
-                          </div>
-
-                          {field.type === 'select' && (
                             <div className='grid gap-2'>
-                              <div className='flex items-center justify-between'>
-                                <Label>Dropdown options</Label>
-                                <Button
-                                  type='button'
-                                  variant='ghost'
-                                  size='sm'
-                                  onClick={() => addFieldOption(field.id)}
-                                  disabled={isLoading}
-                                >
-                                  <Plus className='mr-1 h-3 w-3' />
-                                  Add Option
-                                </Button>
-                              </div>
-                              {(field.options ?? []).map((option, optIdx) => (
-                                <div
-                                  key={optIdx}
-                                  className='flex items-center gap-2'
-                                >
-                                  <Input
-                                    value={option}
-                                    onChange={(e) =>
-                                      updateFieldOption(
-                                        field.id,
-                                        optIdx,
-                                        e.target.value
-                                      )
-                                    }
-                                    placeholder={`Option ${optIdx + 1}`}
-                                    disabled={isLoading}
-                                    className='flex-1 h-8 text-sm'
-                                  />
-                                  {(field.options ?? []).length > 2 && (
-                                    <Button
-                                      type='button'
-                                      variant='ghost'
-                                      size='sm'
-                                      onClick={() =>
-                                        removeFieldOption(field.id, optIdx)
-                                      }
-                                      disabled={isLoading}
-                                    >
-                                      <Trash2 className='h-3 w-3' />
-                                    </Button>
-                                  )}
-                                </div>
-                              ))}
+                              <Label htmlFor={`label-${field.id}`}>Label</Label>
+                              <Input
+                                id={`label-${field.id}`}
+                                value={field.label}
+                                onChange={(e) =>
+                                  updateField(field.id, {
+                                    label: e.target.value
+                                  })
+                                }
+                                placeholder='e.g. Are fire exits clear and unobstructed?'
+                                disabled={isLoading}
+                              />
                             </div>
-                          )}
 
-                          {availableConditionFields(field.id).length > 0 && (
-                            <div className='grid gap-2'>
-                              <Label>Show only when</Label>
-                              <div className='flex gap-2'>
+                            <div className='grid grid-cols-2 gap-3'>
+                              <div className='grid gap-2'>
+                                <Label htmlFor={`type-${field.id}`}>Type</Label>
                                 <Select
-                                  value={field.condition?.fieldId ?? 'none'}
+                                  value={field.type}
                                   onValueChange={(value) => {
-                                    if (value === 'none') {
-                                      updateField(field.id, {
-                                        condition: undefined
-                                      })
-                                    } else {
-                                      updateField(field.id, {
-                                        condition: {
-                                          fieldId: value,
-                                          value: field.condition?.value ?? true
-                                        }
-                                      })
-                                    }
+                                    const newType = value as FormFieldType
+                                    updateField(field.id, {
+                                      type: newType,
+                                      ...((newType === 'checkbox' ||
+                                        newType === 'section') && {
+                                        required: false
+                                      }),
+                                      options:
+                                        newType === 'select'
+                                          ? (field.options ?? ['', ''])
+                                          : undefined
+                                    })
                                   }}
                                   disabled={isLoading}
                                 >
-                                  <SelectTrigger>
+                                  <SelectTrigger id={`type-${field.id}`}>
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value='none'>
-                                      Always show
-                                    </SelectItem>
-                                    {availableConditionFields(field.id).map(
-                                      (cf) => (
-                                        <SelectItem key={cf.id} value={cf.id}>
-                                          {cf.label ||
-                                            `Checkbox ${fields.indexOf(cf) + 1}`}
-                                        </SelectItem>
-                                      )
-                                    )}
+                                    {(
+                                      Object.entries(FIELD_TYPE_LABELS) as [
+                                        FormFieldType,
+                                        string
+                                      ][]
+                                    ).map(([value, label]) => (
+                                      <SelectItem key={value} value={value}>
+                                        {label}
+                                      </SelectItem>
+                                    ))}
                                   </SelectContent>
                                 </Select>
-                                {field.condition && (
-                                  <Select
-                                    value={
-                                      field.condition.value ? 'true' : 'false'
-                                    }
-                                    onValueChange={(value) =>
-                                      updateField(field.id, {
-                                        condition: {
-                                          fieldId: field.condition!.fieldId,
-                                          value: value === 'true'
-                                        }
-                                      })
-                                    }
+                              </div>
+
+                              {field.type !== 'checkbox' &&
+                                field.type !== 'section' && (
+                                  <div className='flex items-end gap-2 pb-1'>
+                                    <Checkbox
+                                      id={`required-${field.id}`}
+                                      checked={field.required}
+                                      onCheckedChange={(checked) =>
+                                        updateField(field.id, {
+                                          required: checked === true
+                                        })
+                                      }
+                                      disabled={isLoading}
+                                    />
+                                    <Label
+                                      htmlFor={`required-${field.id}`}
+                                      className='cursor-pointer'
+                                    >
+                                      Required
+                                    </Label>
+                                  </div>
+                                )}
+                            </div>
+
+                            {field.type === 'select' && (
+                              <div className='grid gap-2'>
+                                <div className='flex items-center justify-between'>
+                                  <Label>Dropdown options</Label>
+                                  <Button
+                                    type='button'
+                                    variant='ghost'
+                                    size='sm'
+                                    onClick={() => addFieldOption(field.id)}
                                     disabled={isLoading}
                                   >
-                                    <SelectTrigger className='w-28'>
+                                    <Plus className='mr-1 h-3 w-3' />
+                                    Add Option
+                                  </Button>
+                                </div>
+                                {(field.options ?? []).map((option, optIdx) => (
+                                  <div
+                                    key={optIdx}
+                                    className='flex items-center gap-2'
+                                  >
+                                    <Input
+                                      value={option}
+                                      onChange={(e) =>
+                                        updateFieldOption(
+                                          field.id,
+                                          optIdx,
+                                          e.target.value
+                                        )
+                                      }
+                                      placeholder={`Option ${optIdx + 1}`}
+                                      disabled={isLoading}
+                                      className='flex-1 h-8 text-sm'
+                                    />
+                                    {(field.options ?? []).length > 2 && (
+                                      <Button
+                                        type='button'
+                                        variant='ghost'
+                                        size='sm'
+                                        onClick={() =>
+                                          removeFieldOption(field.id, optIdx)
+                                        }
+                                        disabled={isLoading}
+                                      >
+                                        <Trash2 className='h-3 w-3' />
+                                      </Button>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {availableConditionFields(field.id).length > 0 && (
+                              <div className='grid gap-2'>
+                                <Label>Show only when</Label>
+                                <div className='flex gap-2'>
+                                  <Select
+                                    value={field.condition?.fieldId ?? 'none'}
+                                    onValueChange={(value) => {
+                                      if (value === 'none') {
+                                        updateField(field.id, {
+                                          condition: undefined
+                                        })
+                                      } else {
+                                        updateField(field.id, {
+                                          condition: {
+                                            fieldId: value,
+                                            value:
+                                              field.condition?.value ?? true
+                                          }
+                                        })
+                                      }
+                                    }}
+                                    disabled={isLoading}
+                                  >
+                                    <SelectTrigger>
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value='true'>
-                                        is Yes
+                                      <SelectItem value='none'>
+                                        Always show
                                       </SelectItem>
-                                      <SelectItem value='false'>
-                                        is No
-                                      </SelectItem>
+                                      {availableConditionFields(field.id).map(
+                                        (cf) => (
+                                          <SelectItem key={cf.id} value={cf.id}>
+                                            {cf.label ||
+                                              `Checkbox ${fields.indexOf(cf) + 1}`}
+                                          </SelectItem>
+                                        )
+                                      )}
                                     </SelectContent>
                                   </Select>
-                                )}
+                                  {field.condition && (
+                                    <Select
+                                      value={
+                                        field.condition.value ? 'true' : 'false'
+                                      }
+                                      onValueChange={(value) =>
+                                        updateField(field.id, {
+                                          condition: {
+                                            fieldId: field.condition!.fieldId,
+                                            value: value === 'true'
+                                          }
+                                        })
+                                      }
+                                      disabled={isLoading}
+                                    >
+                                      <SelectTrigger className='w-28'>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value='true'>
+                                          is Yes
+                                        </SelectItem>
+                                        <SelectItem value='false'>
+                                          is No
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      </SortableFieldCard>
-                    ))}
-                  </FieldsCanvas>
+                            )}
+                          </div>
+                        </SortableFieldCard>
+                      ))}
+                    </FieldsCanvas>
 
-                  <FieldTypePalette
-                    onAppend={appendField}
-                    disabled={isLoading}
-                  />
+                    <FieldTypePalette
+                      onAppend={appendField}
+                      disabled={isLoading}
+                    />
+                  </div>
+                </DndContext>
+              </div>
+            )}
+
+            {isUploadTemplate && (
+              <div className='grid gap-3'>
+                <div className='grid gap-2'>
+                  <Label>How staff complete it</Label>
+                  <RadioGroup
+                    value={uploadMode}
+                    onValueChange={(value) =>
+                      setUploadMode(value as DocumentTemplateUploadMode)
+                    }
+                  >
+                    <div className='flex items-center gap-2'>
+                      <RadioGroupItem
+                        value='read-only'
+                        id='edit-mode-read-only'
+                      />
+                      <Label
+                        htmlFor='edit-mode-read-only'
+                        className='cursor-pointer font-normal'
+                      >
+                        Read-only — staff read and sign
+                      </Label>
+                    </div>
+                    <div className='flex items-center gap-2'>
+                      <RadioGroupItem
+                        value='fill-and-return'
+                        id='edit-mode-fill-and-return'
+                      />
+                      <Label
+                        htmlFor='edit-mode-fill-and-return'
+                        className='cursor-pointer font-normal'
+                      >
+                        Fill in and return — staff download, complete, and
+                        upload it back
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
-              </DndContext>
-            </div>
+
+                <div className='grid gap-2'>
+                  <Label>Document</Label>
+                  <input
+                    ref={fileInputRef}
+                    type='file'
+                    accept='.doc,.docx,.pdf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                    className='hidden'
+                    onChange={handleFileSelected}
+                    disabled={isUploadingFile || isLoading}
+                  />
+                  <Button
+                    type='button'
+                    variant='outline'
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingFile || isLoading}
+                  >
+                    {isUploadingFile ? (
+                      <>
+                        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                        Uploading &amp; converting...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className='mr-2 h-4 w-4' />
+                        Replace file
+                      </>
+                    )}
+                  </Button>
+                  {sourceDocFileName && (
+                    <p className='text-sm text-muted-foreground'>
+                      Current file: {sourceDocFileName}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             <Separator />
 

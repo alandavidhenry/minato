@@ -92,10 +92,29 @@ export async function POST(
     const submittedAnswers: { id: string; answer: string }[] =
       body.answers ?? []
     const declarationName: string = (body.declarationName ?? '').trim()
+    const submission: {
+      blobPath?: string
+      originalBlobPath?: string | null
+      fileName?: string
+    } = body.submission ?? {}
 
     if (!declarationName) {
       return NextResponse.json(
         { error: 'Declaration name is required.' },
+        { status: 400 }
+      )
+    }
+
+    const isFillAndReturn =
+      assignment.template.sourceType === 'upload' &&
+      assignment.template.uploadMode === 'fill-and-return'
+
+    if (isFillAndReturn && (!submission.blobPath || !submission.fileName)) {
+      return NextResponse.json(
+        {
+          error:
+            'Please upload your completed copy of the document before signing.'
+        },
         { status: 400 }
       )
     }
@@ -163,7 +182,12 @@ export async function POST(
       assignmentId,
       signedById: userId,
       formData:
-        Object.keys(visibleFormData).length > 0 ? visibleFormData : undefined
+        Object.keys(visibleFormData).length > 0 ? visibleFormData : undefined,
+      ...(isFillAndReturn && {
+        submittedBlobPath: submission.blobPath,
+        submittedOriginalBlobPath: submission.originalBlobPath ?? undefined,
+        submittedFileName: submission.fileName
+      })
     })
 
     if (!record) {

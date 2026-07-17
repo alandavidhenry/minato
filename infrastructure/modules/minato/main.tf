@@ -138,6 +138,22 @@ module "communication_service" {
   depends_on = [time_sleep.kv_deployer_propagation]
 }
 
+module "gotenberg" {
+  source = "../gotenberg"
+
+  project             = var.project
+  environment         = var.environment
+  location            = var.app_service_location
+  resource_group_name = module.resource_group.resource_group_name
+  key_vault_id        = module.key_vault.key_vault_id
+  image               = var.gotenberg.image
+  cpu                 = var.gotenberg.cpu
+  memory              = var.gotenberg.memory
+  tags                = local.common_tags
+
+  depends_on = [time_sleep.kv_deployer_propagation]
+}
+
 module "app_service" {
   source = "../app_service"
 
@@ -168,6 +184,9 @@ module "app_service" {
     "DATABASE_URL"                          = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.database_url.versionless_id})"
     "CRON_SECRET"                           = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.cron_secret.versionless_id})"
     "DEFAULT_ADMIN_EMAIL"                   = var.default_admin_email
+    "GOTENBERG_URL"                         = module.gotenberg.url
+    "GOTENBERG_BASIC_AUTH_USERNAME"         = "@Microsoft.KeyVault(SecretUri=${module.gotenberg.basic_auth_username_secret_versionless_id})"
+    "GOTENBERG_BASIC_AUTH_PASSWORD"         = "@Microsoft.KeyVault(SecretUri=${module.gotenberg.basic_auth_password_secret_versionless_id})"
   })
 }
 

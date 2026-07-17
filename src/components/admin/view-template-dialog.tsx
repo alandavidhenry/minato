@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { isFieldVisible } from '@/lib/form-schema-utils'
+import type { DocumentTemplateSourceType } from '@/types/document-template'
 import type { FormField } from '@/types/form-schema'
 
 interface Template {
@@ -23,6 +24,8 @@ interface Template {
   description: string | null
   formSchema: FormField[] | null
   version: number
+  sourceType?: DocumentTemplateSourceType
+  sourceDocFileName?: string | null
 }
 
 interface ViewTemplateDialogProps {
@@ -74,7 +77,13 @@ export function ViewTemplateDialog({
           </TabsList>
 
           <TabsContent value='preview' className='space-y-5 pt-2'>
-            {fields.length === 0 ? (
+            {template.sourceType === 'upload' ? (
+              <p className='text-sm text-muted-foreground'>
+                Uploaded document: {template.sourceDocFileName ?? 'untitled'}. A
+                preview/download link will be available here once the
+                employee-facing viewer is built.
+              </p>
+            ) : fields.length === 0 ? (
               <p className='text-sm text-muted-foreground'>
                 This template has no form fields.
               </p>

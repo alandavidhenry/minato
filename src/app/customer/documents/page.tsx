@@ -10,6 +10,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
+import type {
+  DocumentTemplateSourceType,
+  DocumentTemplateUploadMode
+} from '@/types/document-template'
 import type { FormField } from '@/types/form-schema'
 
 interface Template {
@@ -18,6 +22,8 @@ interface Template {
   description: string | null
   blobPath: string | null
   formSchema: FormField[] | null
+  sourceType: DocumentTemplateSourceType
+  uploadMode: DocumentTemplateUploadMode | null
 }
 
 interface Assignment {
@@ -238,7 +244,18 @@ export default function CustomerDocumentsPage() {
               }
               className='flex-1'
             >
-              {hasForm ? (
+              {assignment.template.sourceType === 'upload' ? (
+                <>
+                  <FileText className='mr-1 h-3 w-3' />
+                  {assignment.template.uploadMode === 'fill-and-return'
+                    ? completed
+                      ? 'Re-fill & Sign'
+                      : 'Fill & Sign'
+                    : completed
+                      ? 'Re-read & Sign'
+                      : 'Read & Sign'}
+                </>
+              ) : hasForm ? (
                 <>
                   <FileText className='mr-1 h-3 w-3' />
                   {completed ? 'Re-complete' : 'Fill In & Complete'}

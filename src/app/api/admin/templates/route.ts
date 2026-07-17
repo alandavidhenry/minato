@@ -44,7 +44,17 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { title, description, blobPath, tenantId } = await request.json()
+    const {
+      title,
+      description,
+      blobPath,
+      tenantId,
+      sourceType,
+      uploadMode,
+      sourceDocBlobPath,
+      sourceDocOriginalBlobPath,
+      sourceDocFileName
+    } = await request.json()
 
     if (!title) {
       return NextResponse.json(
@@ -57,7 +67,12 @@ export async function POST(request: NextRequest) {
       title,
       description,
       blobPath,
-      tenantId
+      tenantId,
+      sourceType,
+      uploadMode,
+      sourceDocBlobPath,
+      sourceDocOriginalBlobPath,
+      sourceDocFileName
     })
 
     if (!template) {

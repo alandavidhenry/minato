@@ -99,21 +99,33 @@ model CustomerCompany {
 // that defines the fields the customer must fill in to complete this template.
 // ownerCompanyId null = tenant-managed (Simon's library, visible to every company);
 // set = created by that CustomerCompany's admin, visible only within that company.
+// sourceType 'upload' (P19) means the template is an uploaded Word/PDF document
+// rather than a formSchema-driven form; uploadMode then governs whether
+// assignees just view+sign sourceDocBlobPath (read-only) or must download it,
+// fill it in, and upload their own copy at completion (fill-and-return).
+// sourceDocBlobPath is always a PDF (Word originals are converted on upload for
+// tamper evidence); sourceDocOriginalBlobPath retains the Word file so it can
+// still be edited when the template is renewed.
 model DocumentTemplate {
-  id             String   @id @default(cuid())
-  title          String
-  description    String?
-  blobPath       String? // path in Azure Blob Storage; null for form-only templates
-  formSchema     Json? // array of FormField; null means no form fields defined
-  questions      Json? // array of ComprehensionQuestion; null means no questions defined
-  version        Int      @default(1) // incremented each time a new version is published
-  tenantId       String?
-  ownerCompanyId String? // set when created by a company admin via the self-serve portal
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                        String   @id @default(cuid())
+  title                     String
+  description               String?
+  blobPath                  String? // path in Azure Blob Storage; null for form-only templates
+  formSchema                Json? // array of FormField; null means no form fields defined
+  questions                 Json? // array of ComprehensionQuestion; null means no questions defined
+  version                   Int      @default(1) // incremented each time a new version is published
+  tenantId                  String?
+  ownerCompanyId            String? // set when created by a company admin via the self-serve portal
+  sourceType                String   @default("form") // 'form' | 'upload'
+  uploadMode                String? // 'read-only' | 'fill-and-return'; upload templates only
+  sourceDocBlobPath         String? // converted, served PDF; upload templates only
+  sourceDocOriginalBlobPath String? // retained Word original, for renewal edits; upload templates only
+  sourceDocFileName         String? // original filename, for display; upload templates only
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
-  tenant         Tenant?                   @relation(fields: [tenantId], references: [id])
-  ownerCompany   CustomerCompany?          @relation(fields: [ownerCompanyId], references: [id])
+  tenant         Tenant?                  @relation(fields: [tenantId], references: [id])
+  ownerCompany   CustomerCompany?         @relation(fields: [ownerCompanyId], references: [id])
   assignments    Assignment[]
   versionHistory TemplateVersionHistory[]
 }
@@ -162,13 +174,20 @@ model Assignment {
 // blobPath is nullable — PDF generation is a future step; for now a
 // completion is recorded as an audit trail entry only.
 // formData stores structured form responses for future Document Intelligence.
+// submittedBlobPath/submittedOriginalBlobPath/submittedFileName (P19) hold the
+// employee's own filled-in copy for 'fill-and-return' upload templates — the
+// converted PDF and retained original, mirroring DocumentTemplate's source
+// doc fields. Null for form-based templates and read-only upload templates.
 model CompletionRecord {
-  id           String   @id @default(cuid())
-  assignmentId String
-  signedById   String // User.id of the signer
-  signedAt     DateTime @default(now())
-  blobPath     String? // path to signed PDF in Azure Blob Storage; null until PDF generation is built
-  formData     Json? // structured form data; populated when Document Intelligence is added
+  id                        String   @id @default(cuid())
+  assignmentId              String
+  signedById                String // User.id of the signer
+  signedAt                  DateTime @default(now())
+  blobPath                  String? // path to signed PDF in Azure Blob Storage; null until PDF generation is built
+  formData                  Json? // structured form data; populated when Document Intelligence is added
+  submittedBlobPath         String? // employee's filled copy, converted to PDF; fill-and-return only
+  submittedOriginalBlobPath String? // raw upload as received; fill-and-return only
+  submittedFileName         String? // original filename, for display; fill-and-return only
 
   assignment Assignment @relation(fields: [assignmentId], references: [id])
   signedBy   User       @relation(fields: [signedById], references: [id])

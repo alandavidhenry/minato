@@ -11,6 +11,22 @@ interface SasTokenOptions {
   contentDisposition?: string
 }
 
+export async function uploadBlob(
+  containerName: string,
+  blobName: string,
+  buffer: Buffer,
+  contentType: string
+): Promise<void> {
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING!
+  const blobServiceClient =
+    BlobServiceClient.fromConnectionString(connectionString)
+  const containerClient = blobServiceClient.getContainerClient(containerName)
+  const blockBlobClient = containerClient.getBlockBlobClient(blobName)
+  await blockBlobClient.uploadData(buffer, {
+    blobHTTPHeaders: { blobContentType: contentType }
+  })
+}
+
 export async function deleteBlob(
   containerName: string,
   blobName: string

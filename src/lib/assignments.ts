@@ -1,5 +1,9 @@
 import type { Prisma } from '@/generated/prisma/client'
 import type { ComprehensionQuestionForClient } from '@/types/comprehension-question'
+import type {
+  DocumentTemplateSourceType,
+  DocumentTemplateUploadMode
+} from '@/types/document-template'
 import type { FormSchema } from '@/types/form-schema'
 
 import prisma from './prisma'
@@ -25,6 +29,10 @@ export interface AssignmentWithTemplate extends AssignmentData {
     blobPath: string | null
     formSchema: FormSchema | null
     questions: ComprehensionQuestionForClient[] | null
+    sourceType: DocumentTemplateSourceType
+    uploadMode: DocumentTemplateUploadMode | null
+    sourceDocBlobPath: string | null
+    sourceDocFileName: string | null
   }
 }
 
@@ -48,6 +56,10 @@ type PrismaAssignmentWithTemplate = PrismaAssignment & {
     blobPath: string | null
     formSchema: unknown
     questions: unknown
+    sourceType: string
+    uploadMode: string | null
+    sourceDocBlobPath: string | null
+    sourceDocFileName: string | null
   }
 }
 
@@ -68,7 +80,11 @@ const TEMPLATE_SELECT = {
   description: true,
   blobPath: true,
   formSchema: true,
-  questions: true
+  questions: true,
+  sourceType: true,
+  uploadMode: true,
+  sourceDocBlobPath: true,
+  sourceDocFileName: true
 } as const
 
 function toAssignmentData(a: PrismaAssignment): AssignmentData {
@@ -107,7 +123,9 @@ function toAssignmentWithTemplate(
     template: {
       ...a.template,
       formSchema: (a.template.formSchema as FormSchema | null) ?? null,
-      questions
+      questions,
+      sourceType: a.template.sourceType as DocumentTemplateSourceType,
+      uploadMode: a.template.uploadMode as DocumentTemplateUploadMode | null
     }
   }
 }

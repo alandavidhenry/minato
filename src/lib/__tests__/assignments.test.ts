@@ -11,7 +11,8 @@ import {
   getAssignmentByTemplateAndUser,
   getAssignmentsForCompany,
   getAssignmentsForUser,
-  getAssignmentsForUserOnly
+  getAssignmentsForUserOnly,
+  getAssignmentWithTemplate
 } from '../assignments'
 
 const { mockPrisma } = vi.hoisted(() => ({
@@ -182,6 +183,40 @@ describe('getAssignmentById', () => {
   it('returns null when not found', async () => {
     mockPrisma.assignment.findUnique.mockResolvedValue(null)
     expect(await getAssignmentById('missing')).toBeNull()
+  })
+})
+
+describe('getAssignmentWithTemplate', () => {
+  it('returns null when not found', async () => {
+    mockPrisma.assignment.findUnique.mockResolvedValue(null)
+    expect(await getAssignmentWithTemplate('missing')).toBeNull()
+  })
+
+  it('maps upload-based template fields through', async () => {
+    mockPrisma.assignment.findUnique.mockResolvedValue({
+      ...BASE_ASSIGNMENT,
+      template: {
+        id: 'template_123',
+        title: 'Fire Safety Policy',
+        description: null,
+        blobPath: null,
+        formSchema: null,
+        questions: null,
+        sourceType: 'upload',
+        uploadMode: 'read-only',
+        sourceDocBlobPath: 'templates/template_123/source.pdf',
+        sourceDocFileName: 'Fire Safety Policy.docx'
+      }
+    })
+
+    const result = await getAssignmentWithTemplate('assignment_123')
+
+    expect(result?.template.sourceType).toBe('upload')
+    expect(result?.template.uploadMode).toBe('read-only')
+    expect(result?.template.sourceDocBlobPath).toBe(
+      'templates/template_123/source.pdf'
+    )
+    expect(result?.template.sourceDocFileName).toBe('Fire Safety Policy.docx')
   })
 })
 
