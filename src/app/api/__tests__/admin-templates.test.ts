@@ -184,6 +184,29 @@ describe('POST /api/admin/templates', () => {
     expect(res.status).toBe(200)
     expect((await res.json()).template.title).toBe('Farmyard Safety Checklist')
   })
+
+  it('passes through upload-based template fields', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest('http://localhost/api/admin/templates', 'POST', {
+      title: 'Fire Safety Policy',
+      sourceType: 'upload',
+      uploadMode: 'read-only',
+      sourceDocBlobPath: 'template-uploads/v1/source.pdf',
+      sourceDocOriginalBlobPath: 'template-uploads/v1/source-original.docx',
+      sourceDocFileName: 'Fire Safety Policy.docx'
+    })
+    const res = await createTemplate(req)
+    expect(res.status).toBe(200)
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceType: 'upload',
+        uploadMode: 'read-only',
+        sourceDocBlobPath: 'template-uploads/v1/source.pdf',
+        sourceDocOriginalBlobPath: 'template-uploads/v1/source-original.docx',
+        sourceDocFileName: 'Fire Safety Policy.docx'
+      })
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -442,5 +465,32 @@ describe('POST /api/admin/templates/[id]/publish-version', () => {
     )
     const res = await publishVersion(req, params('template_123'))
     expect(res.status).toBe(500)
+  })
+
+  it('passes through replacement source doc fields', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetById.mockResolvedValue(BASE_TEMPLATE)
+    mockPublishNewVersion.mockResolvedValue({ ...BASE_TEMPLATE, version: 2 })
+
+    const req = jsonRequest(
+      'http://localhost/api/admin/templates/template_123/publish-version',
+      'POST',
+      {
+        changeReason: 'Updated fire safety procedure',
+        sourceDocBlobPath: 'template-uploads/v2/source.pdf',
+        sourceDocOriginalBlobPath: 'template-uploads/v2/source-original.docx',
+        sourceDocFileName: 'Fire Safety Policy v2.docx'
+      }
+    )
+    const res = await publishVersion(req, params('template_123'))
+    expect(res.status).toBe(200)
+    expect(mockPublishNewVersion).toHaveBeenCalledWith(
+      'template_123',
+      expect.objectContaining({
+        sourceDocBlobPath: 'template-uploads/v2/source.pdf',
+        sourceDocOriginalBlobPath: 'template-uploads/v2/source-original.docx',
+        sourceDocFileName: 'Fire Safety Policy v2.docx'
+      })
+    )
   })
 })

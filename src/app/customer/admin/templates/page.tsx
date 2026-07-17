@@ -19,6 +19,10 @@ import {
 } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
 import type { ComprehensionQuestion } from '@/types/comprehension-question'
+import type {
+  DocumentTemplateSourceType,
+  DocumentTemplateUploadMode
+} from '@/types/document-template'
 import type { FormField } from '@/types/form-schema'
 
 interface Template {
@@ -30,6 +34,9 @@ interface Template {
   blobPath: string | null
   version: number
   createdAt: string
+  sourceType: DocumentTemplateSourceType
+  uploadMode: DocumentTemplateUploadMode | null
+  sourceDocFileName: string | null
 }
 
 const API_BASE = '/api/customer/admin/templates'
@@ -145,6 +152,11 @@ export default function CompanyTemplatesPage() {
         <TableCell className='font-medium'>
           <div className='flex items-center gap-2'>
             {template.title}
+            {template.sourceType === 'upload' && (
+              <Badge variant='outline' className='text-xs'>
+                Uploaded
+              </Badge>
+            )}
             {template.version > 1 && (
               <Badge variant='secondary' className='text-xs'>
                 v{template.version}

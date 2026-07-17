@@ -217,6 +217,33 @@ describe('POST /api/customer/admin/templates', () => {
       expect.objectContaining({ ownerCompanyId: 'company_123' })
     )
   })
+
+  it('passes through upload-based template fields', async () => {
+    mockGetServerSession.mockResolvedValue(COMPANY_ADMIN_SESSION)
+    const req = jsonRequest(
+      'http://localhost/api/customer/admin/templates',
+      'POST',
+      {
+        title: 'Fire Safety Policy',
+        sourceType: 'upload',
+        uploadMode: 'fill-and-return',
+        sourceDocBlobPath: 'template-uploads/v1/source.pdf',
+        sourceDocOriginalBlobPath: 'template-uploads/v1/source-original.docx',
+        sourceDocFileName: 'Fire Safety Policy.docx'
+      }
+    )
+    const res = await createTemplate(req)
+    expect(res.status).toBe(200)
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceType: 'upload',
+        uploadMode: 'fill-and-return',
+        sourceDocBlobPath: 'template-uploads/v1/source.pdf',
+        sourceDocOriginalBlobPath: 'template-uploads/v1/source-original.docx',
+        sourceDocFileName: 'Fire Safety Policy.docx'
+      })
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -404,6 +431,33 @@ describe('POST /api/customer/admin/templates/[id]/publish-version', () => {
       expect.objectContaining({
         changeReason: 'Updated site rules',
         publishedBy: 'ca_1'
+      })
+    )
+  })
+
+  it('passes through replacement source doc fields', async () => {
+    mockGetServerSession.mockResolvedValue(COMPANY_ADMIN_SESSION)
+    mockGetById.mockResolvedValue(BASE_TEMPLATE)
+    mockPublishNewVersion.mockResolvedValue({ ...BASE_TEMPLATE, version: 2 })
+
+    const req = jsonRequest(
+      'http://localhost/api/customer/admin/templates/template_123/publish-version',
+      'POST',
+      {
+        changeReason: 'Updated fire safety procedure',
+        sourceDocBlobPath: 'template-uploads/v2/source.pdf',
+        sourceDocOriginalBlobPath: 'template-uploads/v2/source-original.docx',
+        sourceDocFileName: 'Fire Safety Policy v2.docx'
+      }
+    )
+    const res = await publishVersion(req, params('template_123'))
+    expect(res.status).toBe(200)
+    expect(mockPublishNewVersion).toHaveBeenCalledWith(
+      'template_123',
+      expect.objectContaining({
+        sourceDocBlobPath: 'template-uploads/v2/source.pdf',
+        sourceDocOriginalBlobPath: 'template-uploads/v2/source-original.docx',
+        sourceDocFileName: 'Fire Safety Policy v2.docx'
       })
     )
   })

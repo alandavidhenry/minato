@@ -1,5 +1,9 @@
 import type { Prisma } from '@/generated/prisma/client'
 import type { ComprehensionQuestion } from '@/types/comprehension-question'
+import type {
+  DocumentTemplateSourceType,
+  DocumentTemplateUploadMode
+} from '@/types/document-template'
 import type { FormSchema } from '@/types/form-schema'
 
 import prisma from './prisma'
@@ -15,6 +19,11 @@ export interface DocumentTemplateData {
   version: number
   tenantId: string | null
   ownerCompanyId: string | null
+  sourceType: DocumentTemplateSourceType
+  uploadMode: DocumentTemplateUploadMode | null
+  sourceDocBlobPath: string | null
+  sourceDocOriginalBlobPath: string | null
+  sourceDocFileName: string | null
   createdAt: string
   updatedAt: string
 }
@@ -29,6 +38,11 @@ type PrismaDocumentTemplate = {
   version: number
   tenantId: string | null
   ownerCompanyId: string | null
+  sourceType: string
+  uploadMode: string | null
+  sourceDocBlobPath: string | null
+  sourceDocOriginalBlobPath: string | null
+  sourceDocFileName: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -46,6 +60,11 @@ function toDocumentTemplateData(
     version: template.version,
     tenantId: template.tenantId,
     ownerCompanyId: template.ownerCompanyId ?? null,
+    sourceType: template.sourceType as DocumentTemplateSourceType,
+    uploadMode: template.uploadMode as DocumentTemplateUploadMode | null,
+    sourceDocBlobPath: template.sourceDocBlobPath,
+    sourceDocOriginalBlobPath: template.sourceDocOriginalBlobPath,
+    sourceDocFileName: template.sourceDocFileName,
     createdAt: template.createdAt.toISOString(),
     updatedAt: template.updatedAt.toISOString()
   }
@@ -58,7 +77,12 @@ export async function createDocumentTemplate({
   formSchema,
   questions,
   tenantId,
-  ownerCompanyId
+  ownerCompanyId,
+  sourceType,
+  uploadMode,
+  sourceDocBlobPath,
+  sourceDocOriginalBlobPath,
+  sourceDocFileName
 }: {
   title: string
   description?: string
@@ -67,6 +91,11 @@ export async function createDocumentTemplate({
   questions?: ComprehensionQuestion[]
   tenantId?: string
   ownerCompanyId?: string
+  sourceType?: DocumentTemplateSourceType
+  uploadMode?: DocumentTemplateUploadMode
+  sourceDocBlobPath?: string
+  sourceDocOriginalBlobPath?: string
+  sourceDocFileName?: string
 }): Promise<DocumentTemplateData | null> {
   try {
     const template = await prisma.documentTemplate.create({
@@ -77,7 +106,12 @@ export async function createDocumentTemplate({
         formSchema: toJsonValue(formSchema),
         questions: toJsonValue(questions),
         tenantId,
-        ownerCompanyId
+        ownerCompanyId,
+        sourceType,
+        uploadMode,
+        sourceDocBlobPath,
+        sourceDocOriginalBlobPath,
+        sourceDocFileName
       }
     })
     return toDocumentTemplateData(template)
@@ -141,6 +175,11 @@ export async function updateDocumentTemplate(
     blobPath?: string
     formSchema?: FormSchema | null
     questions?: ComprehensionQuestion[] | null
+    sourceType?: DocumentTemplateSourceType
+    uploadMode?: DocumentTemplateUploadMode
+    sourceDocBlobPath?: string
+    sourceDocOriginalBlobPath?: string
+    sourceDocFileName?: string
   }
 ): Promise<boolean> {
   try {
@@ -157,6 +196,21 @@ export async function updateDocumentTemplate(
         }),
         ...('questions' in updates && {
           questions: toJsonValue(updates.questions)
+        }),
+        ...(updates.sourceType !== undefined && {
+          sourceType: updates.sourceType
+        }),
+        ...(updates.uploadMode !== undefined && {
+          uploadMode: updates.uploadMode
+        }),
+        ...(updates.sourceDocBlobPath !== undefined && {
+          sourceDocBlobPath: updates.sourceDocBlobPath
+        }),
+        ...(updates.sourceDocOriginalBlobPath !== undefined && {
+          sourceDocOriginalBlobPath: updates.sourceDocOriginalBlobPath
+        }),
+        ...(updates.sourceDocFileName !== undefined && {
+          sourceDocFileName: updates.sourceDocFileName
         })
       }
     })
@@ -192,6 +246,9 @@ export async function publishNewTemplateVersion(
     blobPath?: string
     formSchema?: FormSchema | null
     questions?: ComprehensionQuestion[] | null
+    sourceDocBlobPath?: string
+    sourceDocOriginalBlobPath?: string
+    sourceDocFileName?: string
   }
 ): Promise<DocumentTemplateData | null> {
   try {
@@ -210,7 +267,12 @@ export async function publishNewTemplateVersion(
             title: existing.title,
             description: existing.description,
             formSchema: existing.formSchema,
-            questions: existing.questions
+            questions: existing.questions,
+            sourceType: existing.sourceType,
+            uploadMode: existing.uploadMode,
+            sourceDocBlobPath: existing.sourceDocBlobPath,
+            sourceDocOriginalBlobPath: existing.sourceDocOriginalBlobPath,
+            sourceDocFileName: existing.sourceDocFileName
           } as Prisma.InputJsonValue,
           publishedBy: params.publishedBy
         }
@@ -229,6 +291,15 @@ export async function publishNewTemplateVersion(
           }),
           ...('questions' in params && {
             questions: toJsonValue(params.questions)
+          }),
+          ...(params.sourceDocBlobPath !== undefined && {
+            sourceDocBlobPath: params.sourceDocBlobPath
+          }),
+          ...(params.sourceDocOriginalBlobPath !== undefined && {
+            sourceDocOriginalBlobPath: params.sourceDocOriginalBlobPath
+          }),
+          ...(params.sourceDocFileName !== undefined && {
+            sourceDocFileName: params.sourceDocFileName
           })
         }
       })

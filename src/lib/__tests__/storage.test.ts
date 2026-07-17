@@ -1,16 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { generateSasToken } from '../storage'
+import { generateSasToken, uploadBlob } from '../storage'
 
-const { mockBlobClient, mockContainerClient } = vi.hoisted(() => {
-  const mockBlobClient = {
-    generateSasUrl: vi.fn()
+const { mockBlobClient, mockBlockBlobClient, mockContainerClient } = vi.hoisted(
+  () => {
+    const mockBlobClient = {
+      generateSasUrl: vi.fn()
+    }
+    const mockBlockBlobClient = {
+      uploadData: vi.fn()
+    }
+    const mockContainerClient = {
+      getBlobClient: vi.fn(() => mockBlobClient),
+      getBlockBlobClient: vi.fn(() => mockBlockBlobClient)
+    }
+    return { mockBlobClient, mockBlockBlobClient, mockContainerClient }
   }
-  const mockContainerClient = {
-    getBlobClient: vi.fn(() => mockBlobClient)
-  }
-  return { mockBlobClient, mockContainerClient }
-})
+)
 
 vi.mock('@azure/storage-blob', () => ({
   BlobServiceClient: {
@@ -69,5 +75,26 @@ describe('generateSasToken', () => {
     const expiresMs = sasArgs.expiresOn.getTime()
     expect(expiresMs).toBeGreaterThanOrEqual(before + 30 * 60 * 1000)
     expect(expiresMs).toBeLessThanOrEqual(after + 30 * 60 * 1000)
+  })
+})
+
+describe('uploadBlob', () => {
+  it('uploads the buffer with the given content type', async () => {
+    mockBlockBlobClient.uploadData.mockResolvedValue({})
+
+    await uploadBlob(
+      'my-container',
+      'templates/template_123/source.pdf',
+      Buffer.from('pdf bytes'),
+      'application/pdf'
+    )
+
+    expect(mockContainerClient.getBlockBlobClient).toHaveBeenCalledWith(
+      'templates/template_123/source.pdf'
+    )
+    expect(mockBlockBlobClient.uploadData).toHaveBeenCalledWith(
+      Buffer.from('pdf bytes'),
+      { blobHTTPHeaders: { blobContentType: 'application/pdf' } }
+    )
   })
 })

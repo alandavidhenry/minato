@@ -47,7 +47,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { title, description } = await request.json()
+    const {
+      title,
+      description,
+      sourceType,
+      uploadMode,
+      sourceDocBlobPath,
+      sourceDocOriginalBlobPath,
+      sourceDocFileName
+    } = await request.json()
 
     if (!title) {
       return NextResponse.json(
@@ -59,7 +67,12 @@ export async function POST(request: NextRequest) {
     const template = await createDocumentTemplate({
       title,
       description,
-      ownerCompanyId: companyId
+      ownerCompanyId: companyId,
+      sourceType,
+      uploadMode,
+      sourceDocBlobPath,
+      sourceDocOriginalBlobPath,
+      sourceDocFileName
     })
 
     if (!template) {

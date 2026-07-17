@@ -7,6 +7,9 @@ export interface CompletionRecordData {
   signedAt: string
   blobPath: string | null
   formData: unknown
+  submittedBlobPath: string | null
+  submittedOriginalBlobPath: string | null
+  submittedFileName: string | null
 }
 
 export interface CompletionRecordWithTemplate extends CompletionRecordData {
@@ -40,6 +43,9 @@ type PrismaCompletionRecord = {
   signedAt: Date
   blobPath: string | null
   formData: unknown
+  submittedBlobPath: string | null
+  submittedOriginalBlobPath: string | null
+  submittedFileName: string | null
 }
 
 type PrismaCompletionRecordWithTemplate = PrismaCompletionRecord & {
@@ -75,7 +81,10 @@ function toCompletionRecordData(
     signedById: record.signedById,
     signedAt: record.signedAt.toISOString(),
     blobPath: record.blobPath,
-    formData: record.formData
+    formData: record.formData,
+    submittedBlobPath: record.submittedBlobPath,
+    submittedOriginalBlobPath: record.submittedOriginalBlobPath,
+    submittedFileName: record.submittedFileName
   }
 }
 
@@ -103,18 +112,27 @@ function toCompletionRecordForAdmin(
 export async function createCompletionRecord({
   assignmentId,
   signedById,
-  formData
+  formData,
+  submittedBlobPath,
+  submittedOriginalBlobPath,
+  submittedFileName
 }: {
   assignmentId: string
   signedById: string
   formData?: unknown
+  submittedBlobPath?: string
+  submittedOriginalBlobPath?: string
+  submittedFileName?: string
 }): Promise<CompletionRecordData | null> {
   try {
     const record = await prisma.completionRecord.create({
       data: {
         assignmentId,
         signedById,
-        formData: formData ?? undefined
+        formData: formData ?? undefined,
+        submittedBlobPath,
+        submittedOriginalBlobPath,
+        submittedFileName
       }
     })
     return toCompletionRecordData(record)
@@ -136,6 +154,28 @@ export async function updateCompletionBlobPath(
     return true
   } catch (error) {
     console.error('Error updating completion blob path:', error)
+    return false
+  }
+}
+
+// Records the employee's own filled-in copy for a fill-and-return upload
+// template completion — the converted PDF and retained original.
+export async function updateCompletionSubmission(
+  id: string,
+  submission: {
+    submittedBlobPath: string
+    submittedOriginalBlobPath: string
+    submittedFileName: string
+  }
+): Promise<boolean> {
+  try {
+    await prisma.completionRecord.update({
+      where: { id },
+      data: submission
+    })
+    return true
+  } catch (error) {
+    console.error('Error updating completion submission:', error)
     return false
   }
 }

@@ -69,7 +69,11 @@ export async function POST(
       ...('formSchema' in updates && {
         formSchema: updates.formSchema as never
       }),
-      ...('questions' in updates && { questions: updates.questions as never })
+      ...('questions' in updates && { questions: updates.questions as never }),
+      sourceDocBlobPath: updates.sourceDocBlobPath as string | undefined,
+      sourceDocOriginalBlobPath: updates.sourceDocOriginalBlobPath as
+        string | undefined,
+      sourceDocFileName: updates.sourceDocFileName as string | undefined
     })
 
     if (!template) {
