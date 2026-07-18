@@ -19,7 +19,7 @@ import {
 import { toast } from '@/components/ui/use-toast'
 
 interface CompletionGroup {
-  assignmentId: string
+  templateId: string
   template: { id: string; title: string }
   templateVersion: number
   completionCount: number
@@ -93,12 +93,12 @@ export default function CompanyCompletionsPage() {
 
     return groups.map((group) => (
       <TableRow
-        key={group.assignmentId}
+        key={group.templateId}
         className='cursor-pointer hover:bg-muted/50'
       >
         <TableCell>
           <Link
-            href={`/admin/completions/${companyId}/${group.assignmentId}`}
+            href={`/admin/completions/${companyId}/${group.templateId}`}
             className='flex items-center gap-2 font-medium'
           >
             <FileText className='h-4 w-4 text-muted-foreground' />

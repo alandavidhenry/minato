@@ -37,10 +37,12 @@ Key files: `src/types/comprehension-question.ts`, `src/lib/document-templates.ts
 #### P2 — Individual-level assignment and overdue tracking ✅ Done
 
 - ✅ `dueDate DateTime?` on `Assignment`; set via admin assign dialogs (both company-wide and individual)
-- ✅ `getAssignmentStatusSummary` in `src/lib/completion-records.ts` — returns completed users, outstanding users, isOverdue
-- ✅ Admin completions view (`/admin/completions/[companyId]/[assignmentId]`) shows completed + outstanding sections with overdue badge
-- ✅ Company completions list (`/admin/completions/[companyId]`) now shows ALL assignments (not just those with completions), with status/overdue/outstanding count columns and due date
+- ✅ `getAssignmentStatusSummary` in `src/lib/completion-records.ts` — returns completed users, outstanding users, isOverdue (still used by the per-assignment Customer Admin completions view)
+- ✅ Admin completions view (`/admin/completions/[companyId]/[templateId]`) shows completed + outstanding sections with overdue badge
+- ✅ Company completions list (`/admin/completions/[companyId]`) now shows ALL templates (not just those with completions), with status/overdue/outstanding count columns and due date, one row per template — see "Company completions grouping" below
 - ✅ Company detail page shows due date column in both assignment tables
+
+**Company completions grouping (added after the list started showing the same template repeated 2–4×):** the raw `Assignment` table can have several rows behind one visible template — one per published version (old versions are replicated forward, not replaced, when `createAssignmentsForNewVersion` runs) and one per individual auto-enrolled user layered on top of a company-wide assignment. `getCompletionGroupsByCompany` now groups by `templateId`, keeps only the highest `templateVersion` (older versions can never be completed since employees only ever see the latest — `getAssignmentsForUser` already dedupes to it), and merges same-version assignments into one row (summed completion count; expected count = all company users if any assignment in the group is company-wide, else one per individual assignment; earliest due date; latest completion date). `getTemplateCompletionSummaryForCompany(companyId, templateId)` is the equivalent merged detail view, backing `GET /api/admin/companies/[id]/completions/[templateId]` and the `/admin/completions/[companyId]/[templateId]` page. The cross-company `/admin/completions/outstanding` page (`getOutstandingCompletions`) intentionally stays one row per assignment — it's used for reminder-chasing where the distinction between individual/company-wide/job-role-targeted assignments matters. The Customer Admin equivalent (`/customer/admin/completions`) has not been changed and may have the same duplication.
 
 #### P3 — Job role-based assignment ✅ Done
 
