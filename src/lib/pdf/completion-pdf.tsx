@@ -2,6 +2,7 @@
 // Server-side only — used in API routes via renderToBuffer.
 import {
   Document,
+  Image,
   Page,
   StyleSheet,
   Text,
@@ -96,6 +97,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Helvetica-Bold'
   },
+  signatureImage: {
+    marginTop: 10,
+    height: 60,
+    maxWidth: 220,
+    objectFit: 'contain'
+  },
   footer: {
     position: 'absolute',
     bottom: 32,
@@ -119,6 +126,7 @@ export interface CompletionPDFProps {
   formSchema: FormSchema
   formData: Record<string, unknown>
   declarationName?: string
+  signatureDataUrl?: string
 }
 
 function formatFieldValue(field: FormField, value: unknown): string {
@@ -154,7 +162,8 @@ export function CompletionDocument({
   companyName,
   formSchema,
   formData,
-  declarationName
+  declarationName,
+  signatureDataUrl
 }: CompletionPDFProps) {
   return (
     <Document title={`${templateTitle} — Completion Record`}>
@@ -214,6 +223,9 @@ export function CompletionDocument({
               to comply with its requirements.
             </Text>
             <Text style={styles.declarationNameValue}>{declarationName}</Text>
+            {signatureDataUrl && (
+              <Image style={styles.signatureImage} src={signatureDataUrl} />
+            )}
           </View>
         )}
 

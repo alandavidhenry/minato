@@ -20,6 +20,7 @@ import {
   getVisibleFormData
 } from '@/lib/form-validation'
 import { generateCompletionPDF } from '@/lib/pdf/completion-pdf'
+import { isValidSignatureDataUrl } from '@/lib/signature'
 import { getUserById } from '@/lib/user-database'
 import { generateVersionId } from '@/lib/version-manager'
 import type { ComprehensionQuestion } from '@/types/comprehension-question'
@@ -77,12 +78,14 @@ export async function POST(
       workerId,
       formData = {},
       answers = [],
-      declarationName: rawDeclarationName = ''
+      declarationName: rawDeclarationName = '',
+      signatureDataUrl
     } = body as {
       workerId?: string
       formData?: Record<string, unknown>
       answers?: { id: string; answer: string }[]
       declarationName?: string
+      signatureDataUrl?: unknown
     }
     const declarationName = rawDeclarationName.trim()
 
@@ -96,6 +99,13 @@ export async function POST(
     if (!declarationName) {
       return NextResponse.json(
         { error: 'Declaration name is required.' },
+        { status: 400 }
+      )
+    }
+
+    if (!isValidSignatureDataUrl(signatureDataUrl)) {
+      return NextResponse.json(
+        { error: 'A signature is required to sign this document.' },
         { status: 400 }
       )
     }
@@ -197,7 +207,8 @@ export async function POST(
         companyName: company.name,
         formSchema: visibleSchema,
         formData: visibleFormData,
-        declarationName
+        declarationName,
+        signatureDataUrl
       })
       const blobPath = await uploadPdfToBlob(
         record.id,

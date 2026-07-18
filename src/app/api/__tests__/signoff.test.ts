@@ -118,6 +118,9 @@ const ASSIGNMENT = {
   }
 }
 
+const VALID_SIGNATURE =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+
 const COMPLETION_RECORD = {
   id: 'rec_1',
   assignmentId: 'asgn_1',
@@ -221,7 +224,8 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
   it('records a kiosk completion for a no-email worker', async () => {
     const req = makePostRequest('co_1', 'asgn_1', {
       workerId: 'worker_1',
-      declarationName: 'Bob Smith'
+      declarationName: 'Bob Smith',
+      signatureDataUrl: VALID_SIGNATURE
     })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
@@ -233,6 +237,32 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
     expect(mockCreateCompletionRecord).toHaveBeenCalledWith(
       expect.objectContaining({ signedById: 'worker_1' })
     )
+  })
+
+  it('returns 400 when signatureDataUrl is missing', async () => {
+    const req = makePostRequest('co_1', 'asgn_1', {
+      workerId: 'worker_1',
+      declarationName: 'Bob Smith'
+    })
+    const res = await completeKiosk(req, {
+      params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
+    })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/signature is required/i)
+    expect(mockCreateCompletionRecord).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when signatureDataUrl is not a valid PNG data URL', async () => {
+    const req = makePostRequest('co_1', 'asgn_1', {
+      workerId: 'worker_1',
+      declarationName: 'Bob Smith',
+      signatureDataUrl: 'not-a-data-url'
+    })
+    const res = await completeKiosk(req, {
+      params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
+    })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/signature is required/i)
   })
 
   it('returns 400 when number/select/file fields are missing, but not the section heading', async () => {
@@ -266,7 +296,8 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
     })
     const req = makePostRequest('co_1', 'asgn_1', {
       workerId: 'worker_1',
-      declarationName: 'Bob Smith'
+      declarationName: 'Bob Smith',
+      signatureDataUrl: VALID_SIGNATURE
     })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
@@ -316,7 +347,8 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
     })
     const req = makePostRequest('co_1', 'asgn_1', {
       workerId: 'worker_1',
-      declarationName: 'Bob Smith'
+      declarationName: 'Bob Smith',
+      signatureDataUrl: VALID_SIGNATURE
     })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
@@ -331,7 +363,8 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
     })
     const req = makePostRequest('co_1', 'asgn_1', {
       workerId: 'worker_1',
-      declarationName: 'Bob Smith'
+      declarationName: 'Bob Smith',
+      signatureDataUrl: VALID_SIGNATURE
     })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
@@ -346,7 +379,8 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
     })
     const req = makePostRequest('co_1', 'asgn_1', {
       workerId: 'worker_1',
-      declarationName: 'Bob Smith'
+      declarationName: 'Bob Smith',
+      signatureDataUrl: VALID_SIGNATURE
     })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
@@ -361,7 +395,8 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
     })
     const req = makePostRequest('co_1', 'asgn_1', {
       workerId: 'worker_1',
-      declarationName: 'Bob Smith'
+      declarationName: 'Bob Smith',
+      signatureDataUrl: VALID_SIGNATURE
     })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
@@ -378,7 +413,8 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
     const req = makePostRequest('co_1', 'asgn_1', {
       workerId: 'worker_1',
       answers: [{ id: 'q1', answer: 'B' }],
-      declarationName: 'Bob Smith'
+      declarationName: 'Bob Smith',
+      signatureDataUrl: VALID_SIGNATURE
     })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
@@ -397,7 +433,8 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
     const req = makePostRequest('co_1', 'asgn_1', {
       workerId: 'worker_1',
       answers: [{ id: 'q1', answer: 'A' }],
-      declarationName: 'Bob Smith'
+      declarationName: 'Bob Smith',
+      signatureDataUrl: VALID_SIGNATURE
     })
     const res = await completeKiosk(req, {
       params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })

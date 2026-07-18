@@ -29,7 +29,7 @@ document_intelligence = {
 default_admin_email = "alandavidhenry@outlook.com"
 
 extra_app_settings = {
-  # Storage proxy host for dev blob access
+  # Storage proxy host for dev blob accessIm
   "AZURE_STORAGE_PROXY_HOST"            = "stminatodevuks01.blob.core.windows.net"
   "SCM_DO_BUILD_DURING_DEPLOYMENT"      = "true"
   "WEBSITE_NODE_DEFAULT_VERSION"        = "~24"
