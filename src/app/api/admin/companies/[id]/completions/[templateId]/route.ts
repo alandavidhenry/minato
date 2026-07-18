@@ -1,14 +1,14 @@
-// src/app/api/admin/companies/[id]/assignments/[assignmentId]/completions/route.ts
+// src/app/api/admin/companies/[id]/completions/[templateId]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
-import { getAssignmentStatusSummary } from '@/lib/completion-records'
+import { getTemplateCompletionSummaryForCompany } from '@/lib/completion-records'
 import { ADMIN_ROLES } from '@/types/rbac'
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string; assignmentId: string }> }
+  { params }: { params: Promise<{ id: string; templateId: string }> }
 ) {
   const session = await getServerSession(authOptions)
   const roles = session?.user?.roles ?? []
@@ -21,8 +21,8 @@ export async function GET(
   }
 
   try {
-    const { assignmentId } = await params
-    const summary = await getAssignmentStatusSummary(assignmentId)
+    const { id, templateId } = await params
+    const summary = await getTemplateCompletionSummaryForCompany(id, templateId)
     if (!summary) {
       return NextResponse.json(
         { error: 'Assignment not found' },
@@ -37,7 +37,7 @@ export async function GET(
       isOverdue: summary.isOverdue
     })
   } catch (error) {
-    console.error('Error fetching completions for assignment:', error)
+    console.error('Error fetching completions for template:', error)
     return NextResponse.json(
       { error: 'Failed to fetch completions' },
       { status: 500 }

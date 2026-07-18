@@ -1,4 +1,4 @@
-// src/app/admin/completions/[companyId]/[assignmentId]/page.tsx
+// src/app/admin/completions/[companyId]/[templateId]/page.tsx
 'use client'
 
 import {
@@ -56,10 +56,10 @@ interface OutstandingUser {
   email: string
 }
 
-export default function AssignmentCompletionsPage() {
-  const { companyId, assignmentId } = useParams<{
+export default function TemplateCompletionsPage() {
+  const { companyId, templateId } = useParams<{
     companyId: string
-    assignmentId: string
+    templateId: string
   }>()
   const [completions, setCompletions] = useState<Completion[]>([])
   const [outstandingUsers, setOutstandingUsers] = useState<OutstandingUser[]>(
@@ -86,7 +86,7 @@ export default function AssignmentCompletionsPage() {
     companyName || undefined
   )
   useBreadcrumbLabel(
-    `/admin/completions/${companyId}/${assignmentId}`,
+    `/admin/completions/${companyId}/${templateId}`,
     templateTitle || undefined
   )
 
@@ -96,9 +96,7 @@ export default function AssignmentCompletionsPage() {
     try {
       const [companyRes, completionsRes] = await Promise.all([
         fetch(`/api/admin/companies/${companyId}`),
-        fetch(
-          `/api/admin/companies/${companyId}/assignments/${assignmentId}/completions`
-        )
+        fetch(`/api/admin/companies/${companyId}/completions/${templateId}`)
       ])
       if (!companyRes.ok) throw new Error('Company not found')
       if (!completionsRes.ok) throw new Error('Failed to load data')
@@ -121,7 +119,7 @@ export default function AssignmentCompletionsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [companyId, assignmentId])
+  }, [companyId, templateId])
 
   useEffect(() => {
     fetchData()

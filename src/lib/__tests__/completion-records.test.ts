@@ -7,6 +7,7 @@ import {
   getCompletionGroupsByCompany,
   getCompletionsForAssignmentForAdmin,
   getCompletionsForUser,
+  getTemplateCompletionSummaryForCompany,
   updateCompletionSubmission
 } from '../completion-records'
 
@@ -235,12 +236,13 @@ describe('getCompaniesWithCompletions', () => {
 })
 
 describe('getCompletionGroupsByCompany', () => {
-  it('returns all assignments with completion counts, due dates, and outstanding counts', async () => {
+  it('returns all templates with completion counts, due dates, and outstanding counts', async () => {
     mockPrisma.assignment.findMany.mockResolvedValue([
       {
         id: 'assignment_123',
         userId: null,
         dueDate: null,
+        templateVersion: 1,
         template: { id: 'template_123', title: 'Farmyard Safety Checklist' },
         _count: { completions: 2 },
         completions: [{ signedAt: new Date('2024-06-01T00:00:00.000Z') }]
@@ -251,7 +253,7 @@ describe('getCompletionGroupsByCompany', () => {
     const result = await getCompletionGroupsByCompany('company_123')
 
     expect(result).toHaveLength(1)
-    expect(result[0].assignmentId).toBe('assignment_123')
+    expect(result[0].templateId).toBe('template_123')
     expect(result[0].template.title).toBe('Farmyard Safety Checklist')
     expect(result[0].completionCount).toBe(2)
     expect(result[0].lastCompletedAt).toBe('2024-06-01T00:00:00.000Z')
@@ -260,13 +262,14 @@ describe('getCompletionGroupsByCompany', () => {
     expect(result[0].outstandingCount).toBe(1) // 3 users - 2 completions
   })
 
-  it('marks an assignment as overdue when past due date with outstanding users', async () => {
+  it('marks a template as overdue when past due date with outstanding users', async () => {
     const pastDate = new Date('2020-01-01T00:00:00.000Z')
     mockPrisma.assignment.findMany.mockResolvedValue([
       {
         id: 'assignment_123',
         userId: null,
         dueDate: pastDate,
+        templateVersion: 1,
         template: { id: 'template_123', title: 'Farmyard Safety Checklist' },
         _count: { completions: 0 },
         completions: []
@@ -281,9 +284,198 @@ describe('getCompletionGroupsByCompany', () => {
     expect(result[0].lastCompletedAt).toBeNull()
   })
 
+  it('only shows the current (highest) version of a template, dropping superseded versions', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([
+      {
+        id: 'assignment_v1',
+        userId: null,
+        dueDate: null,
+        templateVersion: 1,
+        template: { id: 'template_123', title: 'Accident & Incident Report' },
+        _count: { completions: 0 },
+        completions: []
+      },
+      {
+        id: 'assignment_v2',
+        userId: null,
+        dueDate: null,
+        templateVersion: 2,
+        template: { id: 'template_123', title: 'Accident & Incident Report' },
+        _count: { completions: 1 },
+        completions: [{ signedAt: new Date('2024-06-01T00:00:00.000Z') }]
+      }
+    ])
+    mockPrisma.user.count.mockResolvedValue(5)
+
+    const result = await getCompletionGroupsByCompany('company_123')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].templateVersion).toBe(2)
+    expect(result[0].completionCount).toBe(1)
+  })
+
+  it('merges multiple assignments of the same template+version into one row', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([
+      {
+        id: 'assignment_individual',
+        userId: 'user_1',
+        dueDate: null,
+        templateVersion: 1,
+        template: { id: 'template_123', title: 'COSHH Assessment' },
+        _count: { completions: 1 },
+        completions: [{ signedAt: new Date('2024-01-01T00:00:00.000Z') }]
+      },
+      {
+        id: 'assignment_company_wide',
+        userId: null,
+        dueDate: new Date('2026-12-31T00:00:00.000Z'),
+        templateVersion: 1,
+        template: { id: 'template_123', title: 'COSHH Assessment' },
+        _count: { completions: 0 },
+        completions: []
+      },
+      {
+        id: 'assignment_auto_enrolled',
+        userId: 'user_2',
+        dueDate: new Date('2026-12-31T00:00:00.000Z'),
+        templateVersion: 1,
+        template: { id: 'template_123', title: 'COSHH Assessment' },
+        _count: { completions: 0 },
+        completions: []
+      }
+    ])
+    mockPrisma.user.count.mockResolvedValue(5)
+
+    const result = await getCompletionGroupsByCompany('company_123')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].completionCount).toBe(1)
+    // company-wide row present, so expected = all 5 company users
+    expect(result[0].outstandingCount).toBe(4)
+    expect(result[0].dueDate).toBe('2026-12-31T00:00:00.000Z')
+    expect(result[0].lastCompletedAt).toBe('2024-01-01T00:00:00.000Z')
+  })
+
   it('returns empty array on error', async () => {
     mockPrisma.assignment.findMany.mockRejectedValue(new Error('db error'))
     expect(await getCompletionGroupsByCompany('company_123')).toEqual([])
+  })
+})
+
+describe('getTemplateCompletionSummaryForCompany', () => {
+  it('returns null when no assignments exist for the template in this company', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([])
+    expect(
+      await getTemplateCompletionSummaryForCompany(
+        'company_123',
+        'template_123'
+      )
+    ).toBeNull()
+  })
+
+  it('aggregates completions and outstanding users across a company-wide assignment', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([
+      {
+        id: 'assignment_123',
+        userId: null,
+        dueDate: null,
+        templateVersion: 1,
+        template: { title: 'Farmyard Safety Checklist' }
+      }
+    ])
+    mockPrisma.completionRecord.findMany.mockResolvedValue([
+      BASE_RECORD_WITH_SIGNER
+    ])
+    mockPrisma.user.findMany.mockResolvedValue([
+      { id: 'user_123', displayName: 'Jane Smith', email: 'jane@example.com' },
+      { id: 'user_456', displayName: 'Bob Jones', email: 'bob@example.com' }
+    ])
+
+    const result = await getTemplateCompletionSummaryForCompany(
+      'company_123',
+      'template_123'
+    )
+
+    expect(result).not.toBeNull()
+    expect(result!.templateTitle).toBe('Farmyard Safety Checklist')
+    expect(result!.completedRecords).toHaveLength(1)
+    expect(result!.outstandingUsers).toHaveLength(1)
+    expect(result!.outstandingUsers[0].displayName).toBe('Bob Jones')
+  })
+
+  it('only considers the current (highest) version when merging assignments', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([
+      {
+        id: 'assignment_v1',
+        userId: null,
+        dueDate: null,
+        templateVersion: 1,
+        template: { title: 'Accident & Incident Report' }
+      },
+      {
+        id: 'assignment_v2',
+        userId: null,
+        dueDate: null,
+        templateVersion: 2,
+        template: { title: 'Accident & Incident Report' }
+      }
+    ])
+    mockPrisma.completionRecord.findMany.mockResolvedValue([])
+    mockPrisma.user.findMany.mockResolvedValue([])
+
+    await getTemplateCompletionSummaryForCompany('company_123', 'template_123')
+
+    expect(mockPrisma.completionRecord.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { assignmentId: { in: ['assignment_v2'] } }
+      })
+    )
+  })
+
+  it('resolves expected users from individual assignments when there is no company-wide row', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([
+      {
+        id: 'assignment_1',
+        userId: 'user_1',
+        dueDate: null,
+        templateVersion: 1,
+        template: { title: 'Safety Checklist' }
+      },
+      {
+        id: 'assignment_2',
+        userId: 'user_2',
+        dueDate: null,
+        templateVersion: 1,
+        template: { title: 'Safety Checklist' }
+      }
+    ])
+    mockPrisma.completionRecord.findMany.mockResolvedValue([])
+    mockPrisma.user.findMany.mockResolvedValue([
+      { id: 'user_1', displayName: 'Alice', email: 'alice@example.com' },
+      { id: 'user_2', displayName: 'Bob', email: 'bob@example.com' }
+    ])
+
+    const result = await getTemplateCompletionSummaryForCompany(
+      'company_123',
+      'template_123'
+    )
+
+    expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ['user_1', 'user_2'] } }
+      })
+    )
+    expect(result!.outstandingUsers).toHaveLength(2)
+  })
+
+  it('returns null on error', async () => {
+    mockPrisma.assignment.findMany.mockRejectedValue(new Error('db error'))
+    expect(
+      await getTemplateCompletionSummaryForCompany(
+        'company_123',
+        'template_123'
+      )
+    ).toBeNull()
   })
 })
 

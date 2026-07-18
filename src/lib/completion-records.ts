@@ -200,7 +200,7 @@ export interface CompanyWithCompletionCount {
 }
 
 export interface CompletionGroupForAdmin {
-  assignmentId: string
+  templateId: string
   template: { id: string; title: string }
   templateVersion: number
   completionCount: number
@@ -294,25 +294,160 @@ export async function getCompletionGroupsByCompany(
     ])
 
     const now = new Date()
-    return (assignments as PrismaAssignmentWithCompletionGroup[]).map((a) => {
-      const completionCount = a._count.completions
-      const expectedCount = a.userId ? 1 : companyUserCount
+
+    // Group by template, keeping only the current (highest) version's
+    // assignments — superseded versions can no longer be completed by
+    // anyone (employees only ever see the latest version) so they'd
+    // otherwise linger here as permanently "outstanding" clutter.
+    const byTemplate = new Map<string, PrismaAssignmentWithCompletionGroup[]>()
+    for (const a of assignments as PrismaAssignmentWithCompletionGroup[]) {
+      const list = byTemplate.get(a.template.id) ?? []
+      list.push(a)
+      byTemplate.set(a.template.id, list)
+    }
+
+    const groups: CompletionGroupForAdmin[] = []
+    for (const [templateId, all] of byTemplate) {
+      const maxVersion = Math.max(...all.map((a) => a.templateVersion))
+      const current = all.filter((a) => a.templateVersion === maxVersion)
+
+      // Multiple assignments can target the same template+version at once
+      // (a company-wide assignment plus individually auto-enrolled users) —
+      // merge them into a single row rather than showing one per assignment.
+      const completionCount = current.reduce(
+        (sum, a) => sum + a._count.completions,
+        0
+      )
+      const hasCompanyWide = current.some((a) => a.userId === null)
+      const expectedCount = hasCompanyWide ? companyUserCount : current.length
       const outstandingCount = Math.max(0, expectedCount - completionCount)
-      const isOverdue = !!(a.dueDate && a.dueDate < now && outstandingCount > 0)
-      return {
-        assignmentId: a.id,
-        template: a.template,
-        templateVersion: a.templateVersion,
+
+      const dueDates = current
+        .map((a) => a.dueDate)
+        .filter((d): d is Date => d !== null)
+      const dueDate =
+        dueDates.length > 0
+          ? new Date(Math.min(...dueDates.map((d) => d.getTime())))
+          : null
+      const isOverdue = !!(dueDate && dueDate < now && outstandingCount > 0)
+
+      const lastCompletedTimes = current
+        .map((a) => a.completions[0]?.signedAt)
+        .filter((d): d is Date => d !== undefined)
+      const lastCompletedAt =
+        lastCompletedTimes.length > 0
+          ? new Date(
+              Math.max(...lastCompletedTimes.map((d) => d.getTime()))
+            ).toISOString()
+          : null
+
+      groups.push({
+        templateId,
+        template: current[0].template,
+        templateVersion: maxVersion,
         completionCount,
-        lastCompletedAt: a.completions[0]?.signedAt.toISOString() ?? null,
-        dueDate: a.dueDate ? a.dueDate.toISOString() : null,
+        lastCompletedAt,
+        dueDate: dueDate ? dueDate.toISOString() : null,
         isOverdue,
         outstandingCount
-      }
-    })
+      })
+    }
+
+    return groups
   } catch (error) {
     console.error('Error getting completion groups by company:', error)
     return []
+  }
+}
+
+export async function getTemplateCompletionSummaryForCompany(
+  companyId: string,
+  templateId: string
+): Promise<AssignmentStatusSummary | null> {
+  try {
+    const assignments = await prisma.assignment.findMany({
+      where: { customerCompanyId: companyId, templateId },
+      select: {
+        id: true,
+        userId: true,
+        dueDate: true,
+        templateVersion: true,
+        template: { select: { title: true } }
+      }
+    })
+    if (assignments.length === 0) return null
+
+    const maxVersion = Math.max(...assignments.map((a) => a.templateVersion))
+    const current = assignments.filter((a) => a.templateVersion === maxVersion)
+    const assignmentIds = current.map((a) => a.id)
+
+    const completionRecords = (await prisma.completionRecord.findMany({
+      where: { assignmentId: { in: assignmentIds } },
+      include: {
+        signedBy: { select: { id: true, displayName: true, email: true } }
+      },
+      orderBy: { signedAt: 'desc' }
+    })) as PrismaCompletionRecordForAssignment[]
+
+    const completedUserIds = new Set(
+      completionRecords.map((r) => r.signedBy.id)
+    )
+
+    let expectedUsers: {
+      id: string
+      displayName: string
+      email: string | null
+    }[]
+    const hasCompanyWide = current.some((a) => a.userId === null)
+    if (hasCompanyWide) {
+      expectedUsers = await prisma.user.findMany({
+        where: { customerCompanyId: companyId },
+        select: { id: true, displayName: true, email: true },
+        orderBy: { displayName: 'asc' }
+      })
+    } else {
+      const userIds = current
+        .map((a) => a.userId)
+        .filter((id): id is string => id !== null)
+      expectedUsers = await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, displayName: true, email: true },
+        orderBy: { displayName: 'asc' }
+      })
+    }
+
+    const outstandingUsers = expectedUsers.filter(
+      (u) => !completedUserIds.has(u.id)
+    )
+
+    const dueDates = current
+      .map((a) => a.dueDate)
+      .filter((d): d is Date => d !== null)
+    const dueDate =
+      dueDates.length > 0
+        ? new Date(Math.min(...dueDates.map((d) => d.getTime())))
+        : null
+    const isOverdue = !!(
+      dueDate &&
+      dueDate < new Date() &&
+      outstandingUsers.length > 0
+    )
+
+    return {
+      templateTitle: current[0].template.title,
+      dueDate: dueDate ? dueDate.toISOString() : null,
+      isOverdue,
+      completedRecords: completionRecords.map((r) => ({
+        id: r.id,
+        signedAt: r.signedAt.toISOString(),
+        blobPath: r.blobPath,
+        signer: r.signedBy
+      })),
+      outstandingUsers
+    }
+  } catch (error) {
+    console.error('Error getting template completion summary:', error)
+    return null
   }
 }
 

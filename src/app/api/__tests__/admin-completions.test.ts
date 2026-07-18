@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { GET as listAssignmentCompletions } from '../admin/companies/[id]/assignments/[assignmentId]/completions/route'
+import { GET as listTemplateCompletions } from '../admin/companies/[id]/completions/[templateId]/route'
 import { GET as listCompanyCompletions } from '../admin/companies/[id]/completions/route'
 import { GET as downloadCompletion } from '../admin/completions/[id]/download/route'
 import { DELETE as deleteCompletion } from '../admin/completions/[id]/route'
@@ -21,20 +21,20 @@ vi.mock('next-auth', () => ({ getServerSession: mockGetServerSession }))
 const {
   mockGetCompanies,
   mockGetGroups,
-  mockGetAssignmentStatusSummary,
+  mockGetTemplateCompletionSummary,
   mockGetById,
   mockDelete
 } = vi.hoisted(() => ({
   mockGetCompanies: vi.fn(),
   mockGetGroups: vi.fn(),
-  mockGetAssignmentStatusSummary: vi.fn(),
+  mockGetTemplateCompletionSummary: vi.fn(),
   mockGetById: vi.fn(),
   mockDelete: vi.fn()
 }))
 vi.mock('@/lib/completion-records', () => ({
   getCompaniesWithCompletions: mockGetCompanies,
   getCompletionGroupsByCompany: mockGetGroups,
-  getAssignmentStatusSummary: mockGetAssignmentStatusSummary,
+  getTemplateCompletionSummaryForCompany: mockGetTemplateCompletionSummary,
   getCompletionById: mockGetById,
   deleteCompletionRecord: mockDelete
 }))
@@ -62,7 +62,7 @@ const BASE_COMPANY = {
 }
 
 const BASE_GROUP = {
-  assignmentId: 'assignment_123',
+  templateId: 'template_123',
   template: { id: 'template_123', title: 'Farmyard Safety Checklist' },
   completionCount: 2,
   lastCompletedAt: '2024-01-01T00:00:00.000Z',
@@ -109,15 +109,15 @@ function companyParams(id: string) {
   return { params: Promise.resolve({ id }) }
 }
 
-function assignmentParams(id: string, assignmentId: string) {
-  return { params: Promise.resolve({ id, assignmentId }) }
+function templateParams(id: string, templateId: string) {
+  return { params: Promise.resolve({ id, templateId }) }
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
   mockGetCompanies.mockResolvedValue([])
   mockGetGroups.mockResolvedValue([])
-  mockGetAssignmentStatusSummary.mockResolvedValue(null)
+  mockGetTemplateCompletionSummary.mockResolvedValue(null)
   mockGetById.mockResolvedValue(null)
   mockDelete.mockResolvedValue(true)
   mockGenerateSasToken.mockResolvedValue('https://blob.example.com/sas-url')
@@ -200,44 +200,44 @@ describe('GET /api/admin/companies/[id]/completions', () => {
 })
 
 // ---------------------------------------------------------------------------
-// GET /api/admin/companies/[id]/assignments/[assignmentId]/completions
+// GET /api/admin/companies/[id]/completions/[templateId]
 // ---------------------------------------------------------------------------
 
-describe('GET /api/admin/companies/[id]/assignments/[assignmentId]/completions', () => {
+describe('GET /api/admin/companies/[id]/completions/[templateId]', () => {
   it('returns 403 when not admin', async () => {
     mockGetServerSession.mockResolvedValue(null)
     const req = new NextRequest(
-      'http://localhost/api/admin/companies/company_123/assignments/assignment_123/completions'
+      'http://localhost/api/admin/companies/company_123/completions/template_123'
     )
-    const res = await listAssignmentCompletions(
+    const res = await listTemplateCompletions(
       req,
-      assignmentParams('company_123', 'assignment_123')
+      templateParams('company_123', 'template_123')
     )
     expect(res.status).toBe(403)
   })
 
-  it('returns 404 when assignment does not exist', async () => {
+  it('returns 404 when no assignments exist for the template', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockGetAssignmentStatusSummary.mockResolvedValue(null)
+    mockGetTemplateCompletionSummary.mockResolvedValue(null)
     const req = new NextRequest(
-      'http://localhost/api/admin/companies/company_123/assignments/missing/completions'
+      'http://localhost/api/admin/companies/company_123/completions/missing'
     )
-    const res = await listAssignmentCompletions(
+    const res = await listTemplateCompletions(
       req,
-      assignmentParams('company_123', 'missing')
+      templateParams('company_123', 'missing')
     )
     expect(res.status).toBe(404)
   })
 
   it('returns 200 with completions and outstanding users', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockGetAssignmentStatusSummary.mockResolvedValue(BASE_STATUS_SUMMARY)
+    mockGetTemplateCompletionSummary.mockResolvedValue(BASE_STATUS_SUMMARY)
     const req = new NextRequest(
-      'http://localhost/api/admin/companies/company_123/assignments/assignment_123/completions'
+      'http://localhost/api/admin/companies/company_123/completions/template_123'
     )
-    const res = await listAssignmentCompletions(
+    const res = await listTemplateCompletions(
       req,
-      assignmentParams('company_123', 'assignment_123')
+      templateParams('company_123', 'template_123')
     )
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -247,14 +247,15 @@ describe('GET /api/admin/companies/[id]/assignments/[assignmentId]/completions',
     expect(body.templateTitle).toBe('Farmyard Safety Checklist')
     expect(body.dueDate).toBeNull()
     expect(body.isOverdue).toBe(false)
-    expect(mockGetAssignmentStatusSummary).toHaveBeenCalledWith(
-      'assignment_123'
+    expect(mockGetTemplateCompletionSummary).toHaveBeenCalledWith(
+      'company_123',
+      'template_123'
     )
   })
 
   it('returns isOverdue true and outstanding users when overdue', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
-    mockGetAssignmentStatusSummary.mockResolvedValue({
+    mockGetTemplateCompletionSummary.mockResolvedValue({
       ...BASE_STATUS_SUMMARY,
       dueDate: '2024-01-01T00:00:00.000Z',
       isOverdue: true,
@@ -264,11 +265,11 @@ describe('GET /api/admin/companies/[id]/assignments/[assignmentId]/completions',
       ]
     })
     const req = new NextRequest(
-      'http://localhost/api/admin/companies/company_123/assignments/assignment_123/completions'
+      'http://localhost/api/admin/companies/company_123/completions/template_123'
     )
-    const res = await listAssignmentCompletions(
+    const res = await listTemplateCompletions(
       req,
-      assignmentParams('company_123', 'assignment_123')
+      templateParams('company_123', 'template_123')
     )
     expect(res.status).toBe(200)
     const body = await res.json()
