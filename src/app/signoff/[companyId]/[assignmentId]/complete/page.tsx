@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
 
 import { FormFieldRenderer } from '@/components/form-field-renderer'
+import { SignaturePad } from '@/components/signature-pad'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -57,6 +58,8 @@ export default function KioskCompletePage() {
   const [failedQuestionIds, setFailedQuestionIds] = useState<string[]>([])
   const [declarationName, setDeclarationName] = useState('')
   const [declarationError, setDeclarationError] = useState(false)
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
+  const [signatureError, setSignatureError] = useState(false)
 
   useEffect(() => {
     if (!workerId) {
@@ -132,6 +135,16 @@ export default function KioskCompletePage() {
       return
     }
 
+    if (!signatureDataUrl) {
+      setSignatureError(true)
+      toast({
+        title: 'Signature required',
+        description: 'Please sign in the box before submitting.',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -155,7 +168,8 @@ export default function KioskCompletePage() {
           workerId,
           formData: visibleFormData,
           answers,
-          declarationName: declarationName.trim()
+          declarationName: declarationName.trim(),
+          signatureDataUrl
         })
       })
 
@@ -356,6 +370,25 @@ export default function KioskCompletePage() {
             {declarationError && (
               <p className='text-xs text-destructive'>
                 Please enter your full name to confirm this declaration.
+              </p>
+            )}
+          </div>
+          <div className='grid gap-2'>
+            <Label className={signatureError ? 'text-destructive' : undefined}>
+              Signature
+              <span className='ml-1 text-destructive'>*</span>
+            </Label>
+            <SignaturePad
+              onChange={(dataUrl) => {
+                setSignatureDataUrl(dataUrl)
+                if (dataUrl) setSignatureError(false)
+              }}
+              disabled={isSubmitting}
+              error={signatureError}
+            />
+            {signatureError && (
+              <p className='text-xs text-destructive'>
+                Please sign in the box before submitting.
               </p>
             )}
           </div>

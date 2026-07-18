@@ -367,7 +367,7 @@ Key files: `src/components/breadcrumbs.tsx`, `src/components/providers/breadcrum
 
 ---
 
-### P19 — Upload-Based Documents (Word/PDF) 🚧 In Progress (Phases 1–5 done)
+### P19 — Upload-Based Documents (Word/PDF) ✅ Done
 
 **Goal:** Alongside the online form builder (which is on hold for now), support templates authored as uploaded Word/PDF documents rather than structured `formSchema` fields — matching how Simon and customer managers actually work today (fill in a Word doc, then have staff read/sign it, or hand it out to be filled and returned).
 
@@ -414,10 +414,11 @@ Key files: `src/components/breadcrumbs.tsx`, `src/components/providers/breadcrum
 - ✅ `customer/documents/page.tsx` — assignment cards show "Fill & Sign" / "Re-fill & Sign" for fill-and-return templates (vs "Read & Sign" / "Re-read & Sign" for read-only ones)
 - Web-only, as planned — no kiosk changes (fill-and-return was never meant to be kiosk-accessible)
 
-**Remaining phases (not started):**
-1. Customer-admin self-serve parity (P17) for the employee-facing side of upload templates — Phase 3's authoring parity is done, but worth confirming company-scoped employees hit the same `/document` route correctly (they should, since it's keyed off `customerCompanyId` already, not `ownerCompanyId`)
-2. *(Later, deferred)* SLM-generated comprehension questions with a human-review gate before publish
-3. *(Later, deferred)* Structured data extraction from filled-in documents into a searchable store (Document Intelligence is already provisioned via Terraform for this — `infrastructure/modules/document_intelligence/` — but unused in application code so far)
+**Customer-admin self-serve parity (P17) — confirmed, no gap found:** traced the full chain (`POST /api/customer/admin/templates` → `createAssignment` → `getAssignmentWithTemplate`'s `TEMPLATE_SELECT` → the employee-facing `/document`, `/upload-submission`, `/complete` routes) and `ownerCompanyId` is never referenced anywhere in the employee-facing path — access is scoped purely by `assignment.customerCompanyId === session.user.customerCompanyId`. `TEMPLATE_SELECT` (`src/lib/assignments.ts`) doesn't even select `ownerCompanyId`, so a self-serve upload template and a tenant-managed one are structurally indistinguishable to an employee. All phases of P19 are complete.
+
+**Deferred, no target date:**
+1. SLM-generated comprehension questions with a human-review gate before publish
+2. Structured data extraction from filled-in documents into a searchable store (Document Intelligence is already provisioned via Terraform for this — `infrastructure/modules/document_intelligence/` — but unused in application code so far)
 
 Key files so far: `infrastructure/modules/gotenberg/`, `infrastructure/modules/minato/main.tf`, `src/lib/document-conversion.ts`, `src/lib/document-upload.ts`, `src/lib/storage.ts`, `prisma/schema.prisma`, `prisma/migrations/20260708222132_add_upload_based_documents/`, `src/types/document-template.ts`, `src/types/template-version-history.ts`, `src/lib/document-templates.ts`, `src/lib/completion-records.ts`, `src/lib/assignments.ts`, `src/app/api/admin/templates/upload-document/`, `src/app/api/customer/admin/templates/upload-document/`, `src/app/api/customer/assignments/[id]/document/`, `src/app/api/customer/assignments/[id]/upload-submission/`, `src/app/api/customer/assignments/[id]/complete/`, `src/components/admin/create-template-dialog.tsx`, `src/components/admin/edit-template-dialog.tsx`, `src/app/customer/documents/[assignmentId]/complete/page.tsx`, `src/app/customer/documents/page.tsx`
 
@@ -444,7 +445,7 @@ All of Steps 1–8 are now complete:
 - ✅ Individual-level assignment — `Assignment.userId` nullable field; `userId = null` = company-wide (all users see it), `userId` set = only that user sees it; two partial unique indexes enforce uniqueness; admin can assign to individual users from the company detail page; customer sees company-wide + individual combined (deduplicated)
 
 **Remaining for the completion flow:**
-- Signature pad (canvas) — `react-signature-canvas`, embed drawn signature into PDF (Step 8)
+- ✅ Signature pad (canvas) — `react-signature-canvas`, embedded drawn signature into PDF (Step 8) — see Electronic Signing below for details
 - Data retention / immutability policy — prevent deletion of completion blobs
 
 ### Target model
@@ -526,20 +527,25 @@ Five roles are implemented, stored as strings in the `User.role` column and atta
 
 ---
 
-## Electronic Signing
+## Electronic Signing ✅ Done (options 1 and 2)
 
 ### Requirement
 Customers need to sign completed documents. A signed document should be immutable, attributable to a specific user, and timestamped.
 
 ### Options (in order of complexity)
 
-1. **Simple audit trail (recommended starting point)** — store signer identity, timestamp, and IP in a `CompletionRecord`. Generate a signed PDF using a server-side PDF library (see below). No external dependency, free, sufficient for most H&S compliance needs.
+1. **✅ Simple audit trail** — `CompletionRecord` stores signer identity (`signedById`), timestamp (`signedAt`), and a typed `declarationName` matched against the account name (P8). A signed PDF is generated server-side via React-PDF.
 
-2. **Signature pad** — add a canvas-based signature capture (e.g. `react-signature-canvas`) that embeds a drawn signature image into the generated PDF. Adds a visual signature without external services. Still free.
+2. **✅ Signature pad** — a canvas-based signature capture, embedded as an image into the generated PDF.
+   - `react-signature-canvas` (`src/components/signature-pad.tsx`) — resizes its canvas to its container via `ResizeObserver` (native canvas resize wipes the bitmap, so the component clears and re-emits `null` on a real container-width change to keep state consistent); "Clear signature" button; exposes a trimmed PNG data URL via `onChange`.
+   - **No new DB column or blob storage.** The signature is captured client-side, sent as part of the completion request body, and baked directly into the immutable signed PDF via `@react-pdf/renderer`'s `<Image>` (`CompletionPDFProps.signatureDataUrl`, `src/lib/pdf/completion-pdf.tsx`). Since PDFs are never regenerated once created, there was no need to persist the raw signature separately — avoids scope creep and an unused migration.
+   - `src/lib/signature.ts` (`isValidSignatureDataUrl`) validates the value server-side: must be a `data:image/png;base64,...` string, max 500,000 base64 chars (~375KB decoded) — generous for a trimmed signature capture, rejects anything absurd.
+   - Required on both completion routes — `POST /api/customer/assignments/[id]/complete` and `POST /api/signoff/[companyId]/[assignmentId]` — 400s with "A signature is required to sign this document." if missing/invalid, mirroring the existing `declarationName` requirement (checked immediately after it, before the fill-and-return/name-match/comprehension checks).
+   - Both completion UIs (`customer/documents/[assignmentId]/complete/page.tsx`, `signoff/[companyId]/[assignmentId]/complete/page.tsx`) render `SignaturePad` in the Declaration section below the typed name, client-side blocking submission with a toast until signed, mirroring the server-side 400.
 
-3. **Third-party e-signing** (DocuSign, Adobe Sign, Yoti) — legally stronger, tamper-evident certificates, better audit trail. Costs money and adds integration complexity. Probably not needed until there is a specific legal or customer requirement.
+3. **Third-party e-signing** (DocuSign, Adobe Sign, Yoti) — legally stronger, tamper-evident certificates, better audit trail. Costs money and adds integration complexity. Not needed unless there is a specific legal or customer requirement.
 
-Start with option 1 or 2. Option 3 is unlikely to be necessary for internal H&S compliance documents but should be revisited if customers or regulations require it.
+Key files: `src/components/signature-pad.tsx`, `src/lib/signature.ts`, `src/lib/pdf/completion-pdf.tsx`, `src/app/api/customer/assignments/[id]/complete/route.ts`, `src/app/api/signoff/[companyId]/[assignmentId]/route.ts`, `src/app/customer/documents/[assignmentId]/complete/page.tsx`, `src/app/signoff/[companyId]/[assignmentId]/complete/page.tsx`
 
 ---
 

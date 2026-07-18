@@ -270,6 +270,9 @@ const ASSIGNMENT_WITH_CONDITIONAL_SCHEMA = {
   }
 }
 
+const VALID_SIGNATURE =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+
 const BASE_COMPLETION = {
   id: 'record_123',
   assignmentId: 'assignment_123',
@@ -470,7 +473,11 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT_WITH_SCHEMA)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: {}, declarationName: 'Jane Smith' }
+      {
+        formData: {},
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE
+      }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(400)
@@ -485,7 +492,11 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT_WITH_SCHEMA)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: { q1: false, q2: 'Jane' }, declarationName: 'Jane Smith' }
+      {
+        formData: { q1: false, q2: 'Jane' },
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE
+      }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(400)
@@ -516,6 +527,35 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     expect((await res.json()).error).toMatch(/declaration name/i)
   })
 
+  it('returns 400 when signatureDataUrl is missing', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      { formData: {}, declarationName: 'Jane Smith' }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/signature is required/i)
+    expect(mockCreateCompletion).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when signatureDataUrl is not a valid PNG data URL', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      {
+        formData: {},
+        declarationName: 'Jane Smith',
+        signatureDataUrl: 'not-a-data-url'
+      }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/signature is required/i)
+  })
+
   it('returns 200 with completion record when all required fields provided', async () => {
     mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
     mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT_WITH_SCHEMA)
@@ -523,7 +563,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
       'http://localhost/api/customer/assignments/assignment_123/complete',
       {
         formData: { q1: true, q2: 'Jane Smith' },
-        declarationName: 'Jane Smith'
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -533,13 +574,36 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     expect(body.completion.signedById).toBe('user_123')
   })
 
+  it('passes signatureDataUrl through to PDF generation', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      {
+        formData: {},
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE
+      }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(200)
+    const { generateCompletionPDF } = await import('@/lib/pdf/completion-pdf')
+    expect(generateCompletionPDF).toHaveBeenCalledWith(
+      expect.objectContaining({ signatureDataUrl: VALID_SIGNATURE })
+    )
+  })
+
   it('skips required validation for a field whose condition is not met', async () => {
     // q1 = true (Yes, exits are clear) → q2 condition (value: false) not met → q2 hidden → valid
     mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
     mockGetWithTemplate.mockResolvedValue(ASSIGNMENT_WITH_CONDITIONAL_SCHEMA)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: { q1: true }, declarationName: 'Jane Smith' }
+      {
+        formData: { q1: true },
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE
+      }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(200)
@@ -551,7 +615,11 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(ASSIGNMENT_WITH_CONDITIONAL_SCHEMA)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: { q1: false }, declarationName: 'Jane Smith' }
+      {
+        formData: { q1: false },
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE
+      }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(400)
@@ -563,7 +631,11 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(ASSIGNMENT_WITH_NEW_FIELD_TYPES)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: {}, declarationName: 'Jane Smith' }
+      {
+        formData: {},
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE
+      }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(400)
@@ -588,7 +660,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
             fileName: 'a.png'
           }
         },
-        declarationName: 'Jane Smith'
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -605,7 +678,7 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { declarationName: 'Jane Smith' }
+      { declarationName: 'Jane Smith', signatureDataUrl: VALID_SIGNATURE }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(200)
@@ -620,7 +693,11 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetTemplateById.mockResolvedValue(TEMPLATE_WITH_QUESTIONS)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: {}, declarationName: 'Jane Smith' }
+      {
+        formData: {},
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE
+      }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(400)
@@ -641,7 +718,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
           { id: 'cq1', answer: 'wrong answer' },
           { id: 'cq2', answer: 'Near the main entrance' }
         ],
-        declarationName: 'Jane Smith'
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -663,7 +741,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
           { id: 'cq1', answer: '  Evacuate  ' }, // extra whitespace + different case
           { id: 'cq2', answer: 'near the main entrance' }
         ],
-        declarationName: 'Jane Smith'
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -675,7 +754,11 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: {}, declarationName: 'Wrong Name' }
+      {
+        formData: {},
+        declarationName: 'Wrong Name',
+        signatureDataUrl: VALID_SIGNATURE
+      }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(400)
@@ -689,7 +772,11 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: {}, declarationName: '  jane smith  ' }
+      {
+        formData: {},
+        declarationName: '  jane smith  ',
+        signatureDataUrl: VALID_SIGNATURE
+      }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(200)
@@ -700,7 +787,11 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { formData: {}, declarationName: 'Any Name At All' }
+      {
+        formData: {},
+        declarationName: 'Any Name At All',
+        signatureDataUrl: VALID_SIGNATURE
+      }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(200)
@@ -711,7 +802,7 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(FILL_AND_RETURN_ASSIGNMENT)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { declarationName: 'Jane Smith' }
+      { declarationName: 'Jane Smith', signatureDataUrl: VALID_SIGNATURE }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(400)
@@ -726,6 +817,7 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
       'http://localhost/api/customer/assignments/assignment_123/complete',
       {
         declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE,
         submission: {
           blobPath:
             'assignment-submissions/assignment_123/user_123-x/source.pdf',
@@ -760,7 +852,7 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     })
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { declarationName: 'Jane Smith' }
+      { declarationName: 'Jane Smith', signatureDataUrl: VALID_SIGNATURE }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(200)
