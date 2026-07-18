@@ -207,6 +207,19 @@ describe('POST /api/admin/templates', () => {
       })
     )
   })
+
+  it('passes through the category field', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest('http://localhost/api/admin/templates', 'POST', {
+      title: 'COSHH Assessment',
+      category: 'COSHH'
+    })
+    const res = await createTemplate(req)
+    expect(res.status).toBe(200)
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'COSHH' })
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -465,6 +478,25 @@ describe('POST /api/admin/templates/[id]/publish-version', () => {
     )
     const res = await publishVersion(req, params('template_123'))
     expect(res.status).toBe(500)
+  })
+
+  it('passes through a category update', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetById.mockResolvedValue(BASE_TEMPLATE)
+    mockPublishNewVersion.mockResolvedValue({ ...BASE_TEMPLATE, version: 2 })
+    mockCreateAssignmentsForNewVersion.mockResolvedValue([])
+
+    const req = jsonRequest(
+      'http://localhost/api/admin/templates/template_123/publish-version',
+      'POST',
+      { changeReason: 'Reclassified as COSHH', category: 'COSHH' }
+    )
+    const res = await publishVersion(req, params('template_123'))
+    expect(res.status).toBe(200)
+    expect(mockPublishNewVersion).toHaveBeenCalledWith(
+      'template_123',
+      expect.objectContaining({ category: 'COSHH' })
+    )
   })
 
   it('passes through replacement source doc fields', async () => {

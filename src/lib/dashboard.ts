@@ -3,6 +3,7 @@ import prisma from './prisma'
 export interface DashboardKPIs {
   activeAssignments: number
   completedThisMonth: number
+  completedThisWeek: number
   outstanding: number
   overdue: number
 }
@@ -10,16 +11,27 @@ export interface DashboardKPIs {
 export async function getDashboardKPIs(): Promise<DashboardKPIs> {
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const day = now.getDay()
+  const diff = (day === 0 ? -6 : 1) - day
+  const startOfWeek = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + diff
+  )
 
   const [
     activeAssignments,
     completedThisMonth,
+    completedThisWeek,
     assignmentsWithCounts,
     companyUserCounts
   ] = await Promise.all([
     prisma.assignment.count(),
     prisma.completionRecord.count({
       where: { signedAt: { gte: startOfMonth } }
+    }),
+    prisma.completionRecord.count({
+      where: { signedAt: { gte: startOfWeek } }
     }),
     prisma.assignment.findMany({
       select: {
@@ -58,5 +70,11 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
     }
   }
 
-  return { activeAssignments, completedThisMonth, outstanding, overdue }
+  return {
+    activeAssignments,
+    completedThisMonth,
+    completedThisWeek,
+    outstanding,
+    overdue
+  }
 }

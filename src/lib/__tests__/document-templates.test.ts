@@ -38,6 +38,7 @@ const BASE_TEMPLATE = {
   version: 1,
   tenantId: null,
   ownerCompanyId: null,
+  category: 'General',
   sourceType: 'form',
   uploadMode: null,
   sourceDocBlobPath: null,
@@ -110,6 +111,21 @@ describe('createDocumentTemplate', () => {
     expect(result?.uploadMode).toBe('read-only')
     expect(result?.sourceDocFileName).toBe('Fire Safety Policy.docx')
   })
+
+  it('passes category through to prisma and the returned template', async () => {
+    const coshhTemplate = { ...BASE_TEMPLATE, category: 'COSHH' }
+    mockPrisma.documentTemplate.create.mockResolvedValue(coshhTemplate)
+
+    const result = await createDocumentTemplate({
+      title: 'COSHH Assessment',
+      category: 'COSHH'
+    })
+
+    expect(mockPrisma.documentTemplate.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ category: 'COSHH' })
+    })
+    expect(result?.category).toBe('COSHH')
+  })
 })
 
 describe('getAllDocumentTemplates', () => {
@@ -120,6 +136,7 @@ describe('getAllDocumentTemplates', () => {
 
     expect(result).toHaveLength(1)
     expect(result[0].title).toBe('Farmyard Safety Checklist')
+    expect(result[0].category).toBe('General')
     expect(mockPrisma.documentTemplate.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { ownerCompanyId: null } })
     )
@@ -160,6 +177,7 @@ describe('getDocumentTemplateById', () => {
     mockPrisma.documentTemplate.findUnique.mockResolvedValue(BASE_TEMPLATE)
     const result = await getDocumentTemplateById('template_123')
     expect(result?.title).toBe('Farmyard Safety Checklist')
+    expect(result?.category).toBe('General')
   })
 
   it('returns null when not found', async () => {
@@ -219,6 +237,17 @@ describe('updateDocumentTemplate', () => {
   it('returns false on error', async () => {
     mockPrisma.documentTemplate.update.mockRejectedValue(new Error('not found'))
     expect(await updateDocumentTemplate('missing', { title: 'X' })).toBe(false)
+  })
+
+  it('saves category when provided', async () => {
+    mockPrisma.documentTemplate.update.mockResolvedValue(BASE_TEMPLATE)
+
+    await updateDocumentTemplate('template_123', { category: 'Fire Safety' })
+
+    expect(mockPrisma.documentTemplate.update).toHaveBeenCalledWith({
+      where: { id: 'template_123' },
+      data: { category: 'Fire Safety' }
+    })
   })
 
   it('saves source doc fields when replacing an uploaded document', async () => {
@@ -311,6 +340,7 @@ describe('publishNewTemplateVersion', () => {
           description: BASE_TEMPLATE.description,
           formSchema: BASE_TEMPLATE.formSchema,
           questions: BASE_TEMPLATE.questions,
+          category: BASE_TEMPLATE.category,
           sourceType: BASE_TEMPLATE.sourceType,
           uploadMode: BASE_TEMPLATE.uploadMode,
           sourceDocBlobPath: BASE_TEMPLATE.sourceDocBlobPath,
@@ -371,6 +401,24 @@ describe('publishNewTemplateVersion', () => {
           version: { increment: 1 },
           title: 'Updated Title'
         })
+      })
+    )
+  })
+
+  it('applies a category update alongside version increment', async () => {
+    const v2 = { ...BASE_TEMPLATE, version: 2, category: 'COSHH' }
+    mockPrisma.templateVersionHistory.create.mockResolvedValue({})
+    mockPrisma.documentTemplate.update.mockResolvedValue(v2)
+
+    const result = await publishNewTemplateVersion('template_123', {
+      changeReason: 'Reclassified as COSHH',
+      category: 'COSHH'
+    })
+
+    expect(result?.category).toBe('COSHH')
+    expect(mockPrisma.documentTemplate.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ category: 'COSHH' })
       })
     )
   })

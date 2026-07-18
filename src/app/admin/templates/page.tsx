@@ -1,7 +1,17 @@
 // src/app/admin/templates/page.tsx
 'use client'
 
-import { BookOpen, Eye, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { CreateTemplateDialog } from '@/components/admin/create-template-dialog'
@@ -10,6 +20,7 @@ import { PublishVersionDialog } from '@/components/admin/publish-version-dialog'
 import { ViewTemplateDialog } from '@/components/admin/view-template-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -20,9 +31,10 @@ import {
 } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
 import type { ComprehensionQuestion } from '@/types/comprehension-question'
-import type {
-  DocumentTemplateSourceType,
-  DocumentTemplateUploadMode
+import {
+  DOCUMENT_TEMPLATE_CATEGORIES,
+  type DocumentTemplateSourceType,
+  type DocumentTemplateUploadMode
 } from '@/types/document-template'
 import type { FormField } from '@/types/form-schema'
 
@@ -35,14 +47,34 @@ interface Template {
   blobPath: string | null
   version: number
   createdAt: string
+  category: string
   sourceType: DocumentTemplateSourceType
   uploadMode: DocumentTemplateUploadMode | null
   sourceDocFileName: string | null
 }
 
+interface TemplateGroup {
+  id: string
+  label: string
+  templates: Template[]
+}
+
+function groupTemplates(templates: Template[]): TemplateGroup[] {
+  const groups: TemplateGroup[] = []
+  for (const category of DOCUMENT_TEMPLATE_CATEGORIES) {
+    const matching = templates.filter((t) => t.category === category)
+    if (matching.length > 0) {
+      groups.push({ id: category, label: category, templates: matching })
+    }
+  }
+  return groups
+}
+
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
   const [viewingTemplate, setViewingTemplate] = useState<Template | null>(null)
@@ -151,28 +183,28 @@ export default function TemplatesPage() {
     toast({ title: 'Success', description: 'Template saved.' })
   }
 
-  function renderRows() {
-    if (isLoading) {
-      return (
-        <TableRow>
-          <TableCell colSpan={3} className='h-24 text-center'>
-            Loading templates...
-          </TableCell>
-        </TableRow>
-      )
-    }
+  function toggleGroup(groupId: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(groupId)) next.delete(groupId)
+      else next.add(groupId)
+      return next
+    })
+  }
 
-    if (templates.length === 0) {
-      return (
-        <TableRow>
-          <TableCell colSpan={3} className='h-24 text-center'>
-            No templates yet. Create your first document template.
-          </TableCell>
-        </TableRow>
+  const query = searchQuery.toLowerCase().trim()
+  const filteredTemplates = query
+    ? templates.filter(
+        (t) =>
+          t.title.toLowerCase().includes(query) ||
+          t.description?.toLowerCase().includes(query)
       )
-    }
+    : templates
 
-    return templates.map((template) => (
+  const groups = groupTemplates(filteredTemplates)
+
+  function renderTemplateRow(template: Template) {
+    return (
       <TableRow key={template.id}>
         <TableCell className='font-medium'>
           <div className='flex items-center gap-2'>
@@ -227,7 +259,42 @@ export default function TemplatesPage() {
           </div>
         </TableCell>
       </TableRow>
-    ))
+    )
+  }
+
+  function renderGroup(group: TemplateGroup) {
+    const isExpanded = expandedGroups.has(group.id)
+    const Icon = isExpanded ? ChevronDown : ChevronRight
+    return (
+      <div key={group.id} className='rounded-md border'>
+        <button
+          type='button'
+          className='flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold hover:bg-muted/50 transition-colors rounded-md'
+          onClick={() => toggleGroup(group.id)}
+        >
+          <Icon className='h-4 w-4 text-muted-foreground shrink-0' />
+          <span>{group.label}</span>
+          <span className='ml-auto font-normal text-muted-foreground'>
+            {group.templates.length}{' '}
+            {group.templates.length === 1 ? 'template' : 'templates'}
+          </span>
+        </button>
+        {isExpanded && (
+          <div className='border-t'>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className='text-right'>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>{group.templates.map(renderTemplateRow)}</TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -248,19 +315,48 @@ export default function TemplatesPage() {
         </div>
       </div>
 
-      <div className='rounded-md border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Description</TableHead>
-
-              <TableHead className='text-right'>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>{renderRows()}</TableBody>
-        </Table>
+      <div className='flex items-center space-x-2'>
+        <div className='relative flex-1'>
+          <Search className='absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground' />
+          <Input
+            type='search'
+            placeholder='Search templates...'
+            className='pl-8'
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
+
+      {isLoading ? (
+        <div className='rounded-md border'>
+          <Table>
+            <TableBody>
+              <TableRow>
+                <TableCell colSpan={3} className='h-24 text-center'>
+                  Loading templates...
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      ) : groups.length === 0 ? (
+        <div className='rounded-md border'>
+          <Table>
+            <TableBody>
+              <TableRow>
+                <TableCell colSpan={3} className='h-24 text-center'>
+                  {templates.length === 0
+                    ? 'No templates yet. Create your first document template.'
+                    : 'No templates found.'}
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className='space-y-3'>{groups.map(renderGroup)}</div>
+      )}
 
       <ViewTemplateDialog
         open={viewingTemplate !== null}

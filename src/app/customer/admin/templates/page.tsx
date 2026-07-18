@@ -34,6 +34,7 @@ interface Template {
   blobPath: string | null
   version: number
   createdAt: string
+  category: string
   sourceType: DocumentTemplateSourceType
   uploadMode: DocumentTemplateUploadMode | null
   sourceDocFileName: string | null

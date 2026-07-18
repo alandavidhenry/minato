@@ -6,6 +6,7 @@ import {
   deleteAssignment,
   enrollMatchingUsersForAssignment,
   enrollUserInMatchingAssignments,
+  getAllAssignmentsForAdmin,
   getAssignmentById,
   getAssignmentByTemplateAndCompany,
   getAssignmentByTemplateAndUser,
@@ -742,6 +743,91 @@ describe('enrollMatchingUsersForAssignment', () => {
       ...ASSIGNMENT_DATA,
       autoEnroll: true
     })
+    expect(result).toEqual([])
+  })
+})
+
+describe('getAllAssignmentsForAdmin', () => {
+  const COMPANY = { id: 'company_1', name: 'Acme Farms' }
+  const TEMPLATE = { id: 'template_1', title: 'Tractor Safety' }
+
+  function makeAdminAssignment(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'assignment_1',
+      dueDate: null,
+      targetJobRoles: null,
+      templateVersion: 1,
+      createdAt: new Date('2026-06-01T00:00:00.000Z'),
+      template: TEMPLATE,
+      customerCompany: COMPANY,
+      user: null,
+      _count: { completions: 0 },
+      ...overrides
+    }
+  }
+
+  it('returns an empty array when there are no assignments', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([])
+    const result = await getAllAssignmentsForAdmin()
+    expect(result).toEqual([])
+  })
+
+  it('maps an individual assignment with assignedTo as the user name', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([
+      makeAdminAssignment({
+        user: { id: 'user_1', displayName: 'Jane Smith' },
+        _count: { completions: 1 }
+      })
+    ])
+    const result = await getAllAssignmentsForAdmin()
+    expect(result).toEqual([
+      {
+        assignmentId: 'assignment_1',
+        company: COMPANY,
+        template: TEMPLATE,
+        templateVersion: 1,
+        assignedTo: 'Jane Smith',
+        dueDate: null,
+        createdAt: '2026-06-01T00:00:00.000Z',
+        completionCount: 1
+      }
+    ])
+  })
+
+  it('labels a company-wide assignment with no job role targeting as "All staff"', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([makeAdminAssignment()])
+    const result = await getAllAssignmentsForAdmin()
+    expect(result[0].assignedTo).toBe('All staff')
+  })
+
+  it('labels a company-wide assignment with target job roles', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([
+      makeAdminAssignment({ targetJobRoles: ['Driver', 'Operator'] })
+    ])
+    const result = await getAllAssignmentsForAdmin()
+    expect(result[0].assignedTo).toBe('Driver, Operator')
+  })
+
+  it('includes every assignment regardless of completion status', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([
+      makeAdminAssignment({
+        id: 'complete',
+        user: { id: 'user_1', displayName: 'Fully Done' },
+        _count: { completions: 1 }
+      }),
+      makeAdminAssignment({
+        id: 'incomplete',
+        user: { id: 'user_2', displayName: 'Not Done' },
+        _count: { completions: 0 }
+      })
+    ])
+    const result = await getAllAssignmentsForAdmin()
+    expect(result).toHaveLength(2)
+  })
+
+  it('returns an empty array when the query throws', async () => {
+    mockPrisma.assignment.findMany.mockRejectedValue(new Error('DB error'))
+    const result = await getAllAssignmentsForAdmin()
     expect(result).toEqual([])
   })
 })

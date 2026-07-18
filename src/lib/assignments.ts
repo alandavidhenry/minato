@@ -495,6 +495,74 @@ export async function enrollMatchingUsersForAssignment(
   }
 }
 
+export interface AssignmentForAdmin {
+  assignmentId: string
+  company: { id: string; name: string }
+  template: { id: string; title: string }
+  templateVersion: number
+  assignedTo: string
+  dueDate: string | null
+  createdAt: string
+  completionCount: number
+}
+
+type PrismaAssignmentForAdmin = {
+  id: string
+  dueDate: Date | null
+  targetJobRoles: unknown
+  templateVersion: number
+  createdAt: Date
+  template: { id: string; title: string }
+  customerCompany: { id: string; name: string }
+  user: { id: string; displayName: string } | null
+  _count: { completions: number }
+}
+
+// Unscoped list of every assignment across every company, for the admin
+// "all assignments" view — deliberately mirrors the KPI's raw
+// prisma.assignment.count() with no outstanding/overdue filtering.
+export async function getAllAssignmentsForAdmin(): Promise<
+  AssignmentForAdmin[]
+> {
+  try {
+    const assignments = await prisma.assignment.findMany({
+      include: {
+        template: { select: { id: true, title: true } },
+        customerCompany: { select: { id: true, name: true } },
+        user: { select: { id: true, displayName: true } },
+        _count: { select: { completions: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    return (assignments as PrismaAssignmentForAdmin[]).map((a) => {
+      const targetJobRoles = Array.isArray(a.targetJobRoles)
+        ? (a.targetJobRoles as string[])
+        : null
+
+      const assignedTo = a.user
+        ? a.user.displayName
+        : targetJobRoles && targetJobRoles.length > 0
+          ? targetJobRoles.join(', ')
+          : 'All staff'
+
+      return {
+        assignmentId: a.id,
+        company: a.customerCompany,
+        template: a.template,
+        templateVersion: a.templateVersion,
+        assignedTo,
+        dueDate: a.dueDate ? a.dueDate.toISOString() : null,
+        createdAt: a.createdAt.toISOString(),
+        completionCount: a._count.completions
+      }
+    })
+  } catch (error) {
+    console.error('Error getting all assignments for admin:', error)
+    return []
+  }
+}
+
 export async function deleteAssignment(id: string): Promise<boolean> {
   try {
     await prisma.assignment.delete({ where: { id } })
