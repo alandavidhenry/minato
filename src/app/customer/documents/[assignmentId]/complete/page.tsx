@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { FormFieldRenderer } from '@/components/form-field-renderer'
 import { useBreadcrumbLabel } from '@/components/providers/breadcrumb-provider'
+import { SignaturePad } from '@/components/signature-pad'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -73,6 +74,8 @@ export default function CompleteDocumentPage() {
 
   const [declarationName, setDeclarationName] = useState('')
   const [declarationError, setDeclarationError] = useState<string | null>(null)
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
+  const [signatureError, setSignatureError] = useState(false)
 
   const [pdfData, setPdfData] = useState<Uint8Array | null>(null)
   const [isPdfLoading, setIsPdfLoading] = useState(false)
@@ -213,6 +216,16 @@ export default function CompleteDocumentPage() {
       return
     }
 
+    if (!signatureDataUrl) {
+      setSignatureError(true)
+      toast({
+        title: 'Signature required',
+        description: 'Please sign in the box before submitting.',
+        variant: 'destructive'
+      })
+      return
+    }
+
     if (assignment?.template.uploadMode === 'fill-and-return' && !submission) {
       toast({
         title: 'Document required',
@@ -248,6 +261,7 @@ export default function CompleteDocumentPage() {
             formData: visibleFormData,
             answers,
             declarationName: declarationName.trim(),
+            signatureDataUrl,
             ...(submission && { submission })
           })
         }
@@ -488,6 +502,25 @@ export default function CompleteDocumentPage() {
             )}
             {declarationError && (
               <p className='text-xs text-destructive'>{declarationError}</p>
+            )}
+          </div>
+          <div className='grid gap-2'>
+            <Label className={signatureError ? 'text-destructive' : undefined}>
+              Signature
+              <span className='ml-1 text-destructive'>*</span>
+            </Label>
+            <SignaturePad
+              onChange={(dataUrl) => {
+                setSignatureDataUrl(dataUrl)
+                if (dataUrl) setSignatureError(false)
+              }}
+              disabled={isSubmitting}
+              error={signatureError}
+            />
+            {signatureError && (
+              <p className='text-xs text-destructive'>
+                Please sign in the box before submitting.
+              </p>
             )}
           </div>
         </div>

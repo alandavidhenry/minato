@@ -76,9 +76,11 @@ src/components/
   providers/        # RBAC, Auth, Theme context providers
   ui/               # Radix UI-based reusable components (includes Textarea, Separator)
   form-field-renderer.tsx # Shared field renderer (customer/kiosk complete pages + admin preview) — one component per FormFieldType
+  signature-pad.tsx # Canvas signature capture (react-signature-canvas), used by both completion flows — resizes to its container via ResizeObserver, exposes a trimmed PNG data URL via onChange
 src/lib/
   file-system/      # File/folder operation abstractions
-  pdf/              # Server-side PDF generation (completion-pdf.tsx uses @react-pdf/renderer)
+  pdf/              # Server-side PDF generation (completion-pdf.tsx uses @react-pdf/renderer; embeds a signature image when signatureDataUrl is provided)
+  signature.ts      # isValidSignatureDataUrl — validates a signature is a well-formed, size-capped PNG data URL
 ```
 
 ### Key Patterns
@@ -190,6 +192,7 @@ Core document model:
   - Self-serve portal (P17): `getAllDocumentTemplates`/`getDocumentTemplatesByOwnerCompany` unit tests cover tenant-vs-company scoping; `GET/POST /api/customer/admin/templates` and `GET/PATCH/DELETE/publish-version /api/customer/admin/templates/[id]` (Customer Admin role gate, no-company 403, ownership-checked 404 when a template belongs to another company or the tenant library, scoped creation); `GET/POST /api/customer/admin/assignments` (company-wide only, rejects templates not owned by the session company, duplicate-assignment 409, autoEnroll + notification passthrough reusing the same lib functions as the main admin route); `GET /api/customer/admin/users` (job-role lookup for the assign dialog); `GET /api/admin/companies/[id]/templates` (admin-only read-only view of a company's self-serve templates)
   - Upload-based documents (P19): `document-conversion.ts` (`isPdfMimeType`/`isConvertibleToPdf`/`convertToPdf` — mocked `fetch` against the Gotenberg API, Basic auth header, error propagation); `document-upload.ts` (`uploadSourceDocument` — PDF passthrough, Word conversion + retained original, filename sanitisation, unsupported-type rejection); `storage.ts` (`uploadBlob`); `document-templates.ts`/`completion-records.ts` extended create/update/publish functions carrying the new fields (including through `TemplateVersionHistory` snapshots); `assignments.ts` (`getAssignmentWithTemplate` mapping the new template fields); `POST /api/admin/templates/upload-document` and the customer-admin equivalent (auth, size limit, unsupported-type 400, conversion-failure 500, success); create/publish-version routes (admin + customer-admin) passing the new fields through; `GET /api/customer/assignments/[id]/document` (auth, company-scoped 404, non-upload-template 404, success SAS URL); `GET /api/admin/templates/[id]/document` (admin-only equivalent for the Preview tab: auth, template-not-found 404, non-upload-template 404, success SAS URL, 500 on SAS generation failure)
   - Fill-and-return (P19 Phase 5): `POST /api/customer/assignments/[id]/upload-submission` (auth, company-scoped 404, 400 when the template isn't `fill-and-return`, size limit, unsupported-type 400, conversion-failure 500, success); `POST /api/customer/assignments/[id]/complete` extended with tests for 400 when a fill-and-return template's submission is missing, 200 with `submittedBlobPath`/`submittedOriginalBlobPath`/`submittedFileName` passed through to `createCompletionRecord` when present, and confirming a submission is *not* required for read-only upload templates
+  - Signature pad: `signature.ts` (`isValidSignatureDataUrl` — PNG data URL format + size-limit validation) unit tests; `completion-pdf.tsx` test covers embedding a signature image and rendering without one; both completion routes (`customer/assignments/[id]/complete`, `signoff/[companyId]/[assignmentId]`) require `signatureDataUrl` (400 when missing/invalid) and pass it through to `generateCompletionPDF`
 - E2E: not yet started
 
 **TDD workflow:** define interface types → write tests → implement to pass tests. Always request tests before implementation. Target >90% coverage on `src/lib/`.
@@ -205,6 +208,6 @@ Add E2E tests (Playwright) once the document model is more stable. Add E2E step 
 
 See `future-considerations.md` for full architectural analysis. Key items still pending:
 
-- **Electronic signing** — server-side PDF (React-PDF) + audit trail done; signature pad (canvas) is next; third-party e-signing only if legally required
+- **Electronic signing** — server-side PDF (React-PDF) + audit trail + canvas signature pad all done; third-party e-signing only if legally required
 - **Multi-tenancy** — schema has `Tenant` model and nullable `tenantId` on `User`; build it when needed
 - **Compliance** — GDPR (UK); data retention policy needed; signed documents retained 3–5 years under UK H&S law
