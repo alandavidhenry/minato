@@ -426,6 +426,29 @@ Key files so far: `infrastructure/modules/gotenberg/`, `infrastructure/modules/m
 
 ---
 
+### P20 — Dashboard Drill-Downs, Settings Cleanup, Template Categorisation ✅ Done
+
+**Goal:** A batch of small admin-side usability fixes: the "Active Assignments" and "Completed This Month" KPI tiles on `/admin` were dead (non-clickable, unlike "Outstanding"/"Overdue"); there was no "Completed This Week" figure; the Azure Integration settings tab was entirely hardcoded/fake (always showed "Connected to Azure AD" regardless of reality, with no live check or functional content); and `/admin/templates` had no way to organise the growing template library (e.g. several COSHH-related documents) or search it.
+
+**Dashboard drill-downs — ✅ Done:**
+- ✅ `getDashboardKPIs` (`src/lib/dashboard.ts`) gains `completedThisWeek` (Monday-start week, UK convention) alongside the existing calendar-month `completedThisMonth`
+- ✅ "Active Assignments" and "Completed This Month" tiles on `/admin` are now `Link`-wrapped like "Outstanding"/"Overdue" already were; a new "Completed This Week" tile was added (grid: `sm:grid-cols-2 lg:grid-cols-5`)
+- ✅ New page `/admin/assignments` — every assignment across every company, unfiltered (deliberately matches the KPI's raw `assignment.count()` exactly; no CSV export or heavy filter toolbar, just a sortable table), backed by `getAllAssignmentsForAdmin()` (`src/lib/assignments.ts`, modelled on the existing `getOutstandingCompletions()` pattern minus the outstanding-only filter) and `GET /api/admin/assignments`
+- ✅ New page `/admin/completions/history` — every completion, client-side filterable by signed date (`from`/`to` query params, deep-linked from the "This Week"/"This Month" KPI tiles), with a PDF download action per row. No lib changes were needed — `getAllCompletionsForAdmin()` already existed and returned exactly what was required
+
+**Settings cleanup — ✅ Done:**
+- ✅ Azure Integration tab removed from `/admin/settings` entirely (was static JSX with a hardcoded "Connected" status — not a real check, no supporting API route, nothing functional to preserve)
+
+**Template categorisation — ✅ Done:**
+- ✅ `DocumentTemplate.category String @default("General")` — fixed 8-value enum (`COSHH`, `Fire Safety`, `First Aid`, `General`, `Manual Handling`, `Other`, `PPE`, `Risk Assessment`; `src/types/document-template.ts`'s `DocumentTemplateCategory`/`DOCUMENT_TEMPLATE_CATEGORIES`)
+- ✅ Editable at any time — behaves like `title`/`description` (updatable via plain edit-and-save, updatable via publish-version, snapshotted into `TemplateVersionHistory`) rather than frozen like `sourceType`, since it's a correctable classification rather than structural content
+- ✅ `create-template-dialog.tsx`/`edit-template-dialog.tsx` both gained a category `Select` field; since these dialogs are shared verbatim with the customer self-serve portal (P17) via `apiBasePath`, company-created templates get a category too — but `/customer/admin/templates` itself was **not** changed to add grouping/search, only `/admin/templates` was
+- ✅ `/admin/templates` restructured to group templates into collapsible sections by category (fixed alphabetical iteration order, empty categories hidden) plus a search bar — mirrors `/admin/users`'s existing company-grouping pattern (`groupUsers`/`renderGroup`/`expandedGroups`) exactly, just grouped by category instead of company
+
+Key files: `src/lib/dashboard.ts`, `src/lib/assignments.ts` (`getAllAssignmentsForAdmin`), `src/app/api/admin/assignments/route.ts`, `src/app/admin/assignments/page.tsx`, `src/app/api/admin/completions/history/route.ts`, `src/app/admin/completions/history/page.tsx`, `src/app/admin/page.tsx`, `src/app/admin/settings/page.tsx`, `prisma/schema.prisma`, `prisma/migrations/20260718211605_add_template_category/`, `src/types/document-template.ts`, `src/lib/document-templates.ts`, `src/components/admin/create-template-dialog.tsx`, `src/components/admin/edit-template-dialog.tsx`, `src/app/admin/templates/page.tsx`
+
+---
+
 ## Document Model
 
 ### Current state (as of 2026-04)

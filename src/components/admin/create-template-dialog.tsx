@@ -15,11 +15,20 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/ui/use-toast'
-import type {
-  DocumentTemplateSourceType,
-  DocumentTemplateUploadMode
+import {
+  DOCUMENT_TEMPLATE_CATEGORIES,
+  type DocumentTemplateCategory,
+  type DocumentTemplateSourceType,
+  type DocumentTemplateUploadMode
 } from '@/types/document-template'
 
 interface CreateTemplateDialogProps {
@@ -42,7 +51,11 @@ export function CreateTemplateDialog({
   apiBasePath = '/api/admin/templates'
 }: CreateTemplateDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const [formData, setFormData] = useState({ title: '', description: '' })
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    category: 'General' as DocumentTemplateCategory
+  })
   const [sourceType, setSourceType] =
     useState<DocumentTemplateSourceType>('form')
   const [uploadMode, setUploadMode] =
@@ -52,12 +65,16 @@ export function CreateTemplateDialog({
   const [isUploadingFile, setIsUploadingFile] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  function handleChange(field: string, value: string) {
+  function handleChange(field: 'title' | 'description', value: string) {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
+  function handleCategoryChange(value: DocumentTemplateCategory) {
+    setFormData((prev) => ({ ...prev, category: value }))
+  }
+
   function resetState() {
-    setFormData({ title: '', description: '' })
+    setFormData({ title: '', description: '', category: 'General' })
     setSourceType('form')
     setUploadMode('read-only')
     setUploadedDocument(null)
@@ -125,6 +142,7 @@ export function CreateTemplateDialog({
         body: JSON.stringify({
           title: formData.title.trim(),
           description: formData.description.trim() || undefined,
+          category: formData.category,
           sourceType,
           ...(sourceType === 'upload' &&
             uploadedDocument && {
@@ -190,6 +208,27 @@ export function CreateTemplateDialog({
                 placeholder='Brief description of the document'
                 disabled={isLoading}
               />
+            </div>
+
+            <div className='grid gap-2'>
+              <Label htmlFor='category'>Category</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(value) =>
+                  handleCategoryChange(value as DocumentTemplateCategory)
+                }
+              >
+                <SelectTrigger id='category' disabled={isLoading}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DOCUMENT_TEMPLATE_CATEGORIES.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <Separator />

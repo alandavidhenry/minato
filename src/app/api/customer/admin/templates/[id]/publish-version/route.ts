@@ -13,6 +13,7 @@ import {
   getUsersByCompany,
   resolveEmailRecipients
 } from '@/lib/user-database'
+import type { DocumentTemplateCategory } from '@/types/document-template'
 import { UserRole } from '@/types/rbac'
 
 export async function POST(
@@ -66,6 +67,7 @@ export async function POST(
       title: updates.title as string | undefined,
       description: updates.description as string | undefined,
       blobPath: updates.blobPath as string | undefined,
+      category: updates.category as DocumentTemplateCategory | undefined,
       ...('formSchema' in updates && {
         formSchema: updates.formSchema as never
       }),

@@ -22,6 +22,7 @@ import { ADMIN_ROLES, type UserRole } from '@/types/rbac'
 interface KPIs {
   activeAssignments: number
   completedThisMonth: number
+  completedThisWeek: number
   outstanding: number
   overdue: number
 }
@@ -37,12 +38,34 @@ interface UserData {
   role: UserRole
 }
 
+function formatDateParam(d: Date): string {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getStartOfMonthParam(): string {
+  const now = new Date()
+  return formatDateParam(new Date(now.getFullYear(), now.getMonth(), 1))
+}
+
+function getStartOfWeekParam(): string {
+  const now = new Date()
+  const day = now.getDay()
+  const diff = (day === 0 ? -6 : 1) - day
+  return formatDateParam(
+    new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff)
+  )
+}
+
 export default function AdminDashboardPage() {
   const [kpisLoading, setKpisLoading] = useState(true)
   const [statsLoading, setStatsLoading] = useState(true)
   const [kpis, setKpis] = useState<KPIs>({
     activeAssignments: 0,
     completedThisMonth: 0,
+    completedThisWeek: 0,
     outstanding: 0,
     overdue: 0
   })
@@ -117,40 +140,68 @@ export default function AdminDashboardPage() {
       <h1 className='text-3xl font-bold'>Admin Dashboard</h1>
 
       {/* Compliance KPI tiles */}
-      <div className='grid gap-4 md:grid-cols-4'>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>
-              Active Assignments
-            </CardTitle>
-            <ClipboardList className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            {kpisLoading ? (
-              <div className='h-8 w-16 animate-pulse rounded bg-muted' />
-            ) : (
-              <div className='text-2xl font-bold'>{kpis.activeAssignments}</div>
-            )}
-          </CardContent>
-        </Card>
+      <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-5'>
+        <Link href='/admin/assignments'>
+          <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <CardTitle className='text-sm font-medium'>
+                Active Assignments
+              </CardTitle>
+              <ClipboardList className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              {kpisLoading ? (
+                <div className='h-8 w-16 animate-pulse rounded bg-muted' />
+              ) : (
+                <div className='text-2xl font-bold'>
+                  {kpis.activeAssignments}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>
-              Completed This Month
-            </CardTitle>
-            <TrendingUp className='h-4 w-4 text-green-500' />
-          </CardHeader>
-          <CardContent>
-            {kpisLoading ? (
-              <div className='h-8 w-16 animate-pulse rounded bg-muted' />
-            ) : (
-              <div className='text-2xl font-bold text-green-600'>
-                {kpis.completedThisMonth}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <Link href={`/admin/completions/history?from=${getStartOfWeekParam()}`}>
+          <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <CardTitle className='text-sm font-medium'>
+                Completed This Week
+              </CardTitle>
+              <TrendingUp className='h-4 w-4 text-green-500' />
+            </CardHeader>
+            <CardContent>
+              {kpisLoading ? (
+                <div className='h-8 w-16 animate-pulse rounded bg-muted' />
+              ) : (
+                <div className='text-2xl font-bold text-green-600'>
+                  {kpis.completedThisWeek}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link
+          href={`/admin/completions/history?from=${getStartOfMonthParam()}`}
+        >
+          <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <CardTitle className='text-sm font-medium'>
+                Completed This Month
+              </CardTitle>
+              <TrendingUp className='h-4 w-4 text-green-500' />
+            </CardHeader>
+            <CardContent>
+              {kpisLoading ? (
+                <div className='h-8 w-16 animate-pulse rounded bg-muted' />
+              ) : (
+                <div className='text-2xl font-bold text-green-600'>
+                  {kpis.completedThisMonth}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
 
         <Link href='/admin/completions/outstanding'>
           <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
@@ -211,6 +262,12 @@ export default function AdminDashboardPage() {
             <Link href='/admin/completions' className='block'>
               <Button variant='outline' className='w-full justify-between'>
                 View all completions
+                <ArrowRight className='h-4 w-4' />
+              </Button>
+            </Link>
+            <Link href='/admin/assignments' className='block'>
+              <Button variant='outline' className='w-full justify-between'>
+                View all assignments
                 <ArrowRight className='h-4 w-4' />
               </Button>
             </Link>

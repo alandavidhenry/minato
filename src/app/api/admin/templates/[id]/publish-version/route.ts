@@ -13,6 +13,7 @@ import {
   getUsersByCompany,
   resolveEmailRecipients
 } from '@/lib/user-database'
+import type { DocumentTemplateCategory } from '@/types/document-template'
 import { ADMIN_ROLES } from '@/types/rbac'
 
 async function getAdminSession() {
@@ -69,6 +70,7 @@ export async function POST(
       title: updates.title as string | undefined,
       description: updates.description as string | undefined,
       blobPath: updates.blobPath as string | undefined,
+      category: updates.category as DocumentTemplateCategory | undefined,
       ...('formSchema' in updates && {
         formSchema: updates.formSchema as never
       }),

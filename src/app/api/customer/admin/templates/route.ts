@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
     const {
       title,
       description,
+      category,
       sourceType,
       uploadMode,
       sourceDocBlobPath,
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
       title,
       description,
       ownerCompanyId: companyId,
+      category,
       sourceType,
       uploadMode,
       sourceDocBlobPath,

@@ -1,6 +1,7 @@
 import type { Prisma } from '@/generated/prisma/client'
 import type { ComprehensionQuestion } from '@/types/comprehension-question'
 import type {
+  DocumentTemplateCategory,
   DocumentTemplateSourceType,
   DocumentTemplateUploadMode
 } from '@/types/document-template'
@@ -19,6 +20,7 @@ export interface DocumentTemplateData {
   version: number
   tenantId: string | null
   ownerCompanyId: string | null
+  category: DocumentTemplateCategory
   sourceType: DocumentTemplateSourceType
   uploadMode: DocumentTemplateUploadMode | null
   sourceDocBlobPath: string | null
@@ -38,6 +40,7 @@ type PrismaDocumentTemplate = {
   version: number
   tenantId: string | null
   ownerCompanyId: string | null
+  category: string
   sourceType: string
   uploadMode: string | null
   sourceDocBlobPath: string | null
@@ -60,6 +63,7 @@ function toDocumentTemplateData(
     version: template.version,
     tenantId: template.tenantId,
     ownerCompanyId: template.ownerCompanyId ?? null,
+    category: template.category as DocumentTemplateCategory,
     sourceType: template.sourceType as DocumentTemplateSourceType,
     uploadMode: template.uploadMode as DocumentTemplateUploadMode | null,
     sourceDocBlobPath: template.sourceDocBlobPath,
@@ -78,6 +82,7 @@ export async function createDocumentTemplate({
   questions,
   tenantId,
   ownerCompanyId,
+  category,
   sourceType,
   uploadMode,
   sourceDocBlobPath,
@@ -91,6 +96,7 @@ export async function createDocumentTemplate({
   questions?: ComprehensionQuestion[]
   tenantId?: string
   ownerCompanyId?: string
+  category?: DocumentTemplateCategory
   sourceType?: DocumentTemplateSourceType
   uploadMode?: DocumentTemplateUploadMode
   sourceDocBlobPath?: string
@@ -107,6 +113,7 @@ export async function createDocumentTemplate({
         questions: toJsonValue(questions),
         tenantId,
         ownerCompanyId,
+        category,
         sourceType,
         uploadMode,
         sourceDocBlobPath,
@@ -175,6 +182,7 @@ export async function updateDocumentTemplate(
     blobPath?: string
     formSchema?: FormSchema | null
     questions?: ComprehensionQuestion[] | null
+    category?: DocumentTemplateCategory
     sourceType?: DocumentTemplateSourceType
     uploadMode?: DocumentTemplateUploadMode
     sourceDocBlobPath?: string
@@ -196,6 +204,9 @@ export async function updateDocumentTemplate(
         }),
         ...('questions' in updates && {
           questions: toJsonValue(updates.questions)
+        }),
+        ...(updates.category !== undefined && {
+          category: updates.category
         }),
         ...(updates.sourceType !== undefined && {
           sourceType: updates.sourceType
@@ -246,6 +257,7 @@ export async function publishNewTemplateVersion(
     blobPath?: string
     formSchema?: FormSchema | null
     questions?: ComprehensionQuestion[] | null
+    category?: DocumentTemplateCategory
     sourceDocBlobPath?: string
     sourceDocOriginalBlobPath?: string
     sourceDocFileName?: string
@@ -268,6 +280,7 @@ export async function publishNewTemplateVersion(
             description: existing.description,
             formSchema: existing.formSchema,
             questions: existing.questions,
+            category: existing.category,
             sourceType: existing.sourceType,
             uploadMode: existing.uploadMode,
             sourceDocBlobPath: existing.sourceDocBlobPath,
@@ -291,6 +304,9 @@ export async function publishNewTemplateVersion(
           }),
           ...('questions' in params && {
             questions: toJsonValue(params.questions)
+          }),
+          ...(params.category !== undefined && {
+            category: params.category
           }),
           ...(params.sourceDocBlobPath !== undefined && {
             sourceDocBlobPath: params.sourceDocBlobPath

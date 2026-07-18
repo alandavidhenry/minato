@@ -116,6 +116,7 @@ model DocumentTemplate {
   version                   Int      @default(1) // incremented each time a new version is published
   tenantId                  String?
   ownerCompanyId            String? // set when created by a company admin via the self-serve portal
+  category                  String   @default("General") // 'COSHH' | 'Fire Safety' | 'First Aid' | 'General' | 'Manual Handling' | 'Other' | 'PPE' | 'Risk Assessment'
   sourceType                String   @default("form") // 'form' | 'upload'
   uploadMode                String? // 'read-only' | 'fill-and-return'; upload templates only
   sourceDocBlobPath         String? // converted, served PDF; upload templates only

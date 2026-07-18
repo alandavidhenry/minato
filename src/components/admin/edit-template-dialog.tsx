@@ -48,9 +48,11 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/ui/use-toast'
 import type { ComprehensionQuestion } from '@/types/comprehension-question'
-import type {
-  DocumentTemplateSourceType,
-  DocumentTemplateUploadMode
+import {
+  DOCUMENT_TEMPLATE_CATEGORIES,
+  type DocumentTemplateCategory,
+  type DocumentTemplateSourceType,
+  type DocumentTemplateUploadMode
 } from '@/types/document-template'
 import type { FormField, FormFieldType } from '@/types/form-schema'
 
@@ -70,6 +72,7 @@ interface Template {
   description: string | null
   formSchema: FormField[] | null
   questions: ComprehensionQuestion[] | null
+  category?: string
   sourceType?: DocumentTemplateSourceType
   uploadMode?: DocumentTemplateUploadMode | null
   sourceDocFileName?: string | null
@@ -121,6 +124,7 @@ export function EditTemplateDialog({
   const [showPublishDialog, setShowPublishDialog] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [category, setCategory] = useState<DocumentTemplateCategory>('General')
   const [fields, setFields] = useState<FormField[]>([])
   const [questions, setQuestions] = useState<ComprehensionQuestion[]>([])
   const [uploadMode, setUploadMode] =
@@ -138,6 +142,7 @@ export function EditTemplateDialog({
     if (template) {
       setTitle(template.title)
       setDescription(template.description ?? '')
+      setCategory((template.category as DocumentTemplateCategory) ?? 'General')
       setFields(template.formSchema ?? [])
       setQuestions(template.questions ?? [])
       setUploadMode(template.uploadMode ?? 'read-only')
@@ -450,6 +455,7 @@ export function EditTemplateDialog({
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim() || null,
+          category,
           formSchema: fields.length > 0 ? fields : null,
           questions: questions.length > 0 ? questions : null,
           ...(isUploadTemplate && { uploadMode }),
@@ -497,6 +503,7 @@ export function EditTemplateDialog({
             changeReason,
             title: title.trim(),
             description: description.trim() || null,
+            category,
             formSchema: fields.length > 0 ? fields : null,
             questions: questions.length > 0 ? questions : null,
             ...(newUpload && {
@@ -577,6 +584,27 @@ export function EditTemplateDialog({
                 placeholder='Brief description of the document'
                 disabled={isLoading}
               />
+            </div>
+
+            <div className='grid gap-2'>
+              <Label htmlFor='edit-category'>Category</Label>
+              <Select
+                value={category}
+                onValueChange={(value) =>
+                  setCategory(value as DocumentTemplateCategory)
+                }
+              >
+                <SelectTrigger id='edit-category' disabled={isLoading}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DOCUMENT_TEMPLATE_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <Separator />

@@ -131,7 +131,6 @@ export default function AdminSettingsPage() {
         <TabsList>
           <TabsTrigger value='general'>General</TabsTrigger>
           <TabsTrigger value='security'>Security</TabsTrigger>
-          <TabsTrigger value='azure'>Azure Integration</TabsTrigger>
           <TabsTrigger value='profiles'>User Profiles</TabsTrigger>
         </TabsList>
 
@@ -344,58 +343,6 @@ export default function AdminSettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Azure Integration Settings */}
-        <TabsContent value='azure'>
-          <Card>
-            <CardHeader>
-              <CardTitle>Azure AD Integration</CardTitle>
-              <CardDescription>
-                Azure AD integration status and settings.
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent className='space-y-4'>
-              <div className='rounded-md bg-blue-50 p-4'>
-                <p className='text-sm text-blue-800'>
-                  Azure AD integration is configured through infrastructure code
-                  (Terraform). To make changes to your Azure AD configuration,
-                  please update your Terraform code and apply the changes.
-                </p>
-              </div>
-
-              <div className='grid gap-2'>
-                <Label className='text-muted-foreground'>
-                  Connection Status
-                </Label>
-                <div className='flex items-center text-green-600'>
-                  <svg
-                    viewBox='0 0 10 10'
-                    className='h-2.5 w-2.5 fill-current mr-2'
-                  >
-                    <circle cx='5' cy='5' r='5' />
-                  </svg>
-                  Connected to Azure AD
-                </div>
-              </div>
-
-              <div className='grid gap-2'>
-                <Label className='text-muted-foreground'>Tenant ID</Label>
-                <div className='text-sm font-mono bg-muted p-2 rounded-md'>
-                  {process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID ??
-                    '00000000-0000-0000-0000-000000000000'}
-                </div>
-              </div>
-
-              <div className='grid gap-2'>
-                <Label className='text-muted-foreground'>Application ID</Label>
-                <div className='text-sm font-mono bg-muted p-2 rounded-md'>
-                  {process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID ??
-                    '00000000-0000-0000-0000-000000000000'}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
         {/* User Profile Permissions */}
         <TabsContent value='profiles'>
           <Card>

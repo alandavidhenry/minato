@@ -39,6 +39,7 @@ const NON_ADMIN_SESSION = { user: { roles: ['Customer User'] } }
 const BASE_KPIS = {
   activeAssignments: 10,
   completedThisMonth: 3,
+  completedThisWeek: 1,
   outstanding: 5,
   overdue: 2
 }
@@ -82,13 +83,14 @@ describe('GET /api/admin/dashboard/stats', () => {
     expect(res.status).toBe(403)
   })
 
-  it('returns 200 with all four KPI fields for admin', async () => {
+  it('returns 200 with all five KPI fields for admin', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
     const res = await getDashboardStats()
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.activeAssignments).toBe(10)
     expect(body.completedThisMonth).toBe(3)
+    expect(body.completedThisWeek).toBe(1)
     expect(body.outstanding).toBe(5)
     expect(body.overdue).toBe(2)
   })
