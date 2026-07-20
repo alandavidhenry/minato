@@ -122,11 +122,11 @@ variable "gotenberg" {
   type = object({
     image  = string
     cpu    = number
-    memory = number
+    memory = string
   })
   default = {
     image  = "docker.io/gotenberg/gotenberg:8"
-    cpu    = 1
-    memory = 2
+    cpu    = 0.5
+    memory = "1Gi"
   }
 }

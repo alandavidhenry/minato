@@ -197,7 +197,7 @@ Modules:
 - `app_service` — App Service plan and web app (Docker)
 - `document_intelligence` — Azure AI Document Intelligence
 - `communication_service` — Azure Communication Services for email
-- `gotenberg` — public Azure Container Instance running Gotenberg, converts uploaded Word documents to PDF; locked down with basic auth rather than VNet-isolated, since the App Service Plan is on the Free (F1) SKU (see `future-considerations.md` P19 for the tradeoff)
+- `gotenberg` — Azure Container App (Consumption plan) running Gotenberg, converts uploaded Word documents to PDF; locked down with basic auth rather than VNet-isolated, since the App Service Plan is on the Free (F1) SKU (see `future-considerations.md` P19 for the tradeoff)
 
 Environments are configured in `infrastructure/env/Development/` and `infrastructure/env/Production/`.
 

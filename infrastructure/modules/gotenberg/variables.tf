@@ -30,15 +30,15 @@ variable "image" {
 }
 
 variable "cpu" {
-  description = "CPU cores allocated to the Gotenberg container"
+  description = "vCPU cores allocated to the Gotenberg container (Container Apps Consumption plan requires this to pair with `memory` from a fixed set, e.g. 0.5/1Gi, 1.0/2Gi)"
   type        = number
-  default     = 1
+  default     = 0.5
 }
 
 variable "memory" {
-  description = "Memory in GB allocated to the Gotenberg container"
-  type        = number
-  default     = 2
+  description = "Memory allocated to the Gotenberg container, e.g. \"1Gi\" (Container Apps Consumption plan requires this to pair with `cpu` from a fixed set)"
+  type        = string
+  default     = "1Gi"
 }
 
 variable "tags" {

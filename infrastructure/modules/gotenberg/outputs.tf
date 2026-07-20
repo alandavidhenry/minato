@@ -1,6 +1,6 @@
 output "url" {
   description = "The base URL of the Gotenberg conversion service"
-  value       = "http://${azurerm_container_group.main.fqdn}:3000"
+  value       = "https://${azurerm_container_app.main.latest_revision_fqdn}"
 }
 
 output "basic_auth_username_secret_versionless_id" {
