@@ -165,7 +165,7 @@ Push any app file change to `main` to trigger the dev deploy pipeline:
 1. Builds and pushes the Docker image to GHCR (`ghcr.io/alandavidhenry/minato`)
 2. Runs `prisma migrate deploy` against Neon
 3. Sets the container image on the Development App Service
-4. Smoke-tests `GET /api/health` (12 retries × 15 s)
+4. Smoke-tests `GET /api/health/deep` (12 retries × 15 s)
 
 For Production, publish a GitHub release from a tag.
 
