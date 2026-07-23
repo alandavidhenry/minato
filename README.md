@@ -90,7 +90,7 @@ The Client Administrator is responsible for:
   DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;
   ```
 
-- Gotenberg (Word→PDF conversion, only needed when working on uploaded-document features): `docker run --rm -p 3000:3000 gotenberg/gotenberg:8`, then set `GOTENBERG_URL=http://localhost:3000`
+- Gotenberg (Word→PDF conversion, only needed when working on uploaded-document features): `docker run --rm -p 3001:3000 gotenberg/gotenberg:8`, then set `GOTENBERG_URL=http://localhost:3000`
 
 ### Setup
 
