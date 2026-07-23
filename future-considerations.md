@@ -701,7 +701,7 @@ Lint, format check, type check, and all Vitest tests (unit + integration) run on
 - No E2E tests in the pipeline — add a Playwright step after the Docker build once E2E tests exist
 - No staging environment — consider adding a `staging` branch/environment between `dev` and `main`
 - No database migration step — ✅ Done. `prisma migrate deploy` runs in `azure-deploy.yml` before the App Service deploy step, using `DATABASE_URL` from GitHub environment secrets.
-- No smoke test after deployment — ✅ Done. `GET /api/health` with 12 retries × 15s runs in `azure-deploy.yml` after the App Service deploy step.
+- No smoke test after deployment — ✅ Done. `GET /api/health/deep` with 12 retries × 15s runs in `azure-deploy.yml` after the App Service deploy step. `GET /api/health` (Azure's continuous health-monitor path) was split off as a dependency-free liveness check after continuous DB pings on the combined route were found to be a likely driver of exceeding Neon's free-tier compute-hour quota — see git history around 2026-07-20.
 
 ### Recommended pipeline order (target state)
 1. Lint + format check + type check + unit/integration tests (`npm run checks`) ✓ done

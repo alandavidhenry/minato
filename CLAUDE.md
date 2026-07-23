@@ -119,7 +119,9 @@ GOTENBERG_BASIC_AUTH_PASSWORD=  # only set in deployed environments
 
 Docker → GitHub Container Registry (ghcr.io) → Azure App Service.
 
-CI/CD via GitHub Actions (`main` branch → dev, release → prod). Deploy order: lint → security scan → Docker build/push → **`prisma migrate deploy`** → Azure App Service deploy → **smoke test** (`GET /api/health` with 12 retries × 15 s). `DATABASE_URL` must be set as a GitHub environment secret (`dev` and `prod` environments).
+CI/CD via GitHub Actions (`main` branch → dev, release → prod). Deploy order: lint → security scan → Docker build/push → **`prisma migrate deploy`** → Azure App Service deploy → **smoke test** (`GET /api/health/deep` with 12 retries × 15 s). `DATABASE_URL` must be set as a GitHub environment secret (`dev` and `prod` environments).
+
+**Health checks are split in two** (`src/app/api/health/route.ts` vs `src/app/api/health/deep/route.ts`): `GET /api/health` is a plain liveness check (no DB/storage calls) — it's the path Azure App Service's built-in health monitor (`health_check_path`, `infrastructure/modules/app_service/`) pings continuously (~every 60 s, for the app's whole lifetime), and a real Neon query on every ping would keep the compute endpoint awake around the clock and defeat autosuspend, burning through Neon's free-tier compute-hour quota in days. `GET /api/health/deep` runs the real DB (`SELECT 1`) + Blob Storage (`getProperties`) checks and is used only by the CI/CD smoke test, which needs to verify actual dependency health after a deploy.
 
 Infrastructure is defined with Terraform in `infrastructure/` (see `infrastructure/readme.md` for provisioning steps). `database_url` is a required Terraform variable — stored in Key Vault and injected into App Service via `@Microsoft.KeyVault(...)` reference.
 
@@ -174,7 +176,7 @@ Core document model:
 **Current coverage:**
 - Unit: full coverage of `src/lib/` and `src/lib/file-system/`
 - Integration:
-  - `health`
+  - `health` (liveness, no dependency calls) and `health/deep` (DB + Blob Storage checks)
   - Admin: user CRUD (`jobRole`, `lineManagerId` PATCH), password reset flows, document API routes, companies/templates/assignments CRUD (company-wide + individual; comprehension questions PATCH; `dueDate`; `targetJobRoles`; notification emails; no-email line manager routing), completions (list + download + status summary with outstanding users and overdue); company completions list (`GET /api/admin/companies/[id]/completions`) is grouped one row per template — superseded versions are dropped (only the current/highest version is shown, since only it can still be completed) and multiple assignments of the same template+version (company-wide + individually auto-enrolled users) are merged into a single row with aggregated completion/outstanding counts; `GET /api/admin/companies/[id]/completions/[templateId]` (`getTemplateCompletionSummaryForCompany`) returns the merged detail view (completions + outstanding users pooled across all current-version assignments for that template)
   - Customer: assignments (list with `jobRole` filtering, get single, complete with field + answer validation, download), completions (list + PDF download)
   - Customer Admin (company-scoped): completions list (auth, role check, company scope from session), assignment status (cross-company 404, blobPath→hasPdf stripping), PDF download (assignment+company chain validation, missing blobPath 404, success SAS URL)
