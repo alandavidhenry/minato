@@ -684,7 +684,7 @@ High coverage on `src/lib/` (>90%) and critical API routes. E2E coverage of the 
 ### When to start spending
 - Custom domain + SSL certificate → upgrade App Service to B1
 - Storage exceeds free tier → Blob Storage pricing is cheap, not a concern
-- Database exceeds Neon free tier → migrate to Neon paid (~$19/month) or Azure Database for PostgreSQL (~£25-50/month)
+- Database exceeds Neon free tier → migrate to Neon paid (~$19/month) or Azure Database for PostgreSQL Flexible Server (~£25-50/month). ✅ Terraform module scaffolded (`infrastructure/modules/postgres_flexible_server/`) but not wired into `modules/minato/main.tf` — provisioning it is a one-line module block plus a `DATABASE_URL` app-setting swap, no application code changes, since `src/lib/prisma.ts` only reads `DATABASE_URL` and both are standard Postgres. See "Optional modules" in `infrastructure/readme.md`.
 - More than 100 emails/day → ACS pricing is low (£0.00025/email)
 
 ---
