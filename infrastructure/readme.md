@@ -17,6 +17,7 @@ infrastructure/
     ├── app_service/
     ├── document_intelligence/
     ├── communication_service/
+    ├── postgres_flexible_server/  # Scaffolded, not wired into minato/ — see below
     └── minato/  # Composition module — orchestrates all others
 ```
 
@@ -224,3 +225,13 @@ Subsequent applies handle this automatically via a `time_sleep` resource in the 
 - Docker image tags — updated by GitHub Actions on every deploy
 - Neon PostgreSQL database schema — managed by `prisma migrate deploy` in the CI pipeline
 - GitHub Actions secrets — set manually (they contain values that only exist after `terraform apply`)
+
+## Optional modules (scaffolded, not provisioned)
+
+`modules/postgres_flexible_server/` defines an Azure Database for PostgreSQL Flexible Server as a paid backup/scale-up path alongside the free Neon tier. It is **not** referenced by `modules/minato/main.tf`, so it costs nothing today — `terraform plan`/`apply` on either environment ignores it entirely.
+
+No app code change is needed to cut over: `src/lib/prisma.ts` only ever reads `DATABASE_URL`, and Flexible Server speaks the same Postgres wire protocol Neon does. To switch:
+1. Add a `module "postgres_flexible_server" { ... }` block to `modules/minato/main.tf` (mirroring how `module "gotenberg"` is wired) and apply.
+2. Point the `DATABASE_URL` app setting at `module.postgres_flexible_server.connection_string_secret_versionless_id` instead of `azurerm_key_vault_secret.database_url`.
+3. Run `prisma migrate deploy` against the new server.
+4. Apply again.
