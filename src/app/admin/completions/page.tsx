@@ -5,6 +5,7 @@ import { AlertTriangle, Building2 } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+import { PageHeader } from '@/components/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -90,15 +91,18 @@ export default function CompletionsPage() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex flex-wrap items-center justify-between gap-4'>
-        <h1 className='text-3xl font-bold'>Completions</h1>
-        <Link href='/admin/completions/outstanding'>
-          <Button variant='outline'>
-            <AlertTriangle className='mr-2 h-4 w-4' />
-            View Outstanding
-          </Button>
-        </Link>
-      </div>
+      <PageHeader
+        title='Completions'
+        description='Sign-off progress for every client company.'
+        actions={
+          <Link href='/admin/completions/outstanding'>
+            <Button variant='surface'>
+              <AlertTriangle className='mr-2 h-4 w-4' />
+              View Outstanding
+            </Button>
+          </Link>
+        }
+      />
 
       <div className='rounded-md border'>
         <Table>

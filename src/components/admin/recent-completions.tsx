@@ -89,7 +89,7 @@ export function RecentCompletions() {
           key={c.id}
           className='flex items-start gap-2 border-b pb-2 last:border-b-0'
         >
-          <span className='mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600 dark:bg-green-900/30'>
+          <span className='mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-success/15 text-success'>
             <CheckCircle2 className='h-4 w-4' />
           </span>
           <div className='flex-1'>

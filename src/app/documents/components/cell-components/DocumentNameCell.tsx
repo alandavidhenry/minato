@@ -98,13 +98,13 @@ export function DocumentNameCell({
   return (
     <div className='flex items-center gap-2'>
       {isFolder ? (
-        <Folder className='h-4 w-4 text-blue-500' />
+        <Folder className='h-4 w-4 text-muted-foreground' />
       ) : (
         <FileIcon className='h-4 w-4' />
       )}
       <button
         onClick={handleClick}
-        className='hover:underline text-blue-600 disabled:text-gray-400'
+        className='hover:underline disabled:text-muted-foreground'
         disabled={!session || isLoading}
       >
         {isLoading ? 'Loading...' : displayName}

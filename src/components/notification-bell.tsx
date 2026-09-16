@@ -81,7 +81,7 @@ export function NotificationBell() {
         >
           <Bell className='h-5 w-5' />
           {overdueCount > 0 && (
-            <span className='absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white'>
+            <span className='absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground'>
               {overdueCount > 99 ? '99+' : overdueCount}
             </span>
           )}
@@ -92,7 +92,7 @@ export function NotificationBell() {
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href={href} className='flex items-center gap-2'>
-            <AlertTriangle className='h-4 w-4 text-red-500' />
+            <AlertTriangle className='h-4 w-4 text-destructive' />
             {overdueCount > 0
               ? `${overdueCount} assignment${overdueCount === 1 ? '' : 's'} overdue`
               : 'No overdue completions'}

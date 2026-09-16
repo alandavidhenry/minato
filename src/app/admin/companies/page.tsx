@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 
 import { CreateCompanyDialog } from '@/components/admin/create-company-dialog'
 import { EditCompanyDialog } from '@/components/admin/edit-company-dialog'
+import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -151,13 +152,16 @@ export default function CompaniesPage() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between'>
-        <h1 className='text-3xl font-bold'>Client Companies</h1>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className='mr-2 h-4 w-4' />
-          Add Company
-        </Button>
-      </div>
+      <PageHeader
+        title='Client Companies'
+        description='The businesses you manage health and safety compliance for.'
+        actions={
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className='mr-2 h-4 w-4' />
+            Add Company
+          </Button>
+        }
+      />
 
       <div className='rounded-md border'>
         <Table>

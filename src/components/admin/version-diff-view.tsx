@@ -25,8 +25,8 @@ function DiffLine({
     <div
       className={
         status === 'added'
-          ? 'rounded-md bg-green-50 px-2 py-1 text-green-900 dark:bg-green-950 dark:text-green-200'
-          : 'rounded-md bg-red-50 px-2 py-1 text-red-900 line-through dark:bg-red-950 dark:text-red-200'
+          ? 'rounded-md bg-success/15 px-2 py-1 text-success'
+          : 'rounded-md bg-destructive/15 px-2 py-1 text-destructive line-through'
       }
     >
       {text}

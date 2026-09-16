@@ -16,7 +16,7 @@ export function PDFErrorView({ error }: PDFErrorViewProps) {
     <div className='container mx-auto py-4'>
       <Card className='p-6'>
         <div className='flex flex-col gap-4 items-center'>
-          <p className='text-red-500'>{error}</p>
+          <p className='text-destructive'>{error}</p>
           <Button
             onClick={() => {
               window.location.href = '/documents'

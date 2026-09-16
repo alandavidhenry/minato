@@ -1,48 +1,53 @@
 'use client'
 
 import {
+  AlertTriangle,
   Building2,
   CheckCircle2,
+  ClipboardList,
   Clock,
   FileCheck,
   FilePlus2,
   FileText,
   FolderOpen,
   Gauge,
+  History,
   Settings,
   Users
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ReactNode } from 'react'
+import { ComponentType } from 'react'
 
 import { useRBAC } from '@/components/providers/rbac-provider'
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { CUSTOMER_ROLES, UserRole } from '@/types/rbac'
 
-interface NavItem {
+export interface NavItem {
   name: string
   href: string
-  icon: ReactNode
+  icon: ComponentType<{ className?: string }>
   // Match only the exact path (used for dashboard/index routes)
   exact?: boolean
 }
 
-interface NavGroup {
-  label?: string
+export interface NavGroup {
+  id: string
+  label: string
   items: NavItem[]
 }
 
-const iconClass = 'h-5 w-5 shrink-0'
-
-// Build the navigation groups appropriate to the signed-in user's roles.
-function useNavGroups(): NavGroup[] {
+/*
+  Every destination is its own row with its own icon, so the sidebar reads as a
+  column of icons when collapsed and as labelled rows when hovered. Groups only
+  provide headings — they are not themselves navigable.
+*/
+export function useNavGroups(): NavGroup[] {
   const { isAdmin, hasRole } = useRBAC()
   const isStaff = hasRole(UserRole.TENANT_STAFF)
   const isCustomerAdmin = hasRole(UserRole.CUSTOMER_ADMIN)
@@ -51,54 +56,57 @@ function useNavGroups(): NavGroup[] {
   if (isAdmin) {
     return [
       {
+        id: 'overview',
+        label: 'Overview',
+        items: [{ name: 'Dashboard', href: '/admin', icon: Gauge, exact: true }]
+      },
+      {
+        id: 'organisation',
+        label: 'Organisation',
         items: [
-          {
-            name: 'Dashboard',
-            href: '/admin',
-            icon: <Gauge className={iconClass} />,
-            exact: true
-          },
-          {
-            name: 'Users',
-            href: '/admin/users',
-            icon: <Users className={iconClass} />
-          },
-          {
-            name: 'Companies',
-            href: '/admin/companies',
-            icon: <Building2 className={iconClass} />
-          },
-          {
-            name: 'Templates',
-            href: '/admin/templates',
-            icon: <FileText className={iconClass} />
-          },
-          {
-            name: 'Completions',
-            href: '/admin/completions',
-            icon: <CheckCircle2 className={iconClass} />
-          },
-          {
-            name: 'Activity Logs',
-            href: '/admin/activity',
-            icon: <Clock className={iconClass} />
-          },
-          {
-            name: 'Settings',
-            href: '/admin/settings',
-            icon: <Settings className={iconClass} />
-          }
+          { name: 'Companies', href: '/admin/companies', icon: Building2 },
+          { name: 'Users', href: '/admin/users', icon: Users }
         ]
       },
       {
-        label: 'Tools',
+        id: 'documents',
+        label: 'Documents',
+        items: [
+          { name: 'Templates', href: '/admin/templates', icon: FileText },
+          { name: 'File library', href: '/documents', icon: FolderOpen }
+        ]
+      },
+      {
+        id: 'compliance',
+        label: 'Compliance',
         items: [
           {
-            name: 'Documents',
-            href: '/documents',
-            icon: <FolderOpen className={iconClass} />
-          }
+            name: 'Completions',
+            href: '/admin/completions',
+            icon: CheckCircle2
+          },
+          {
+            name: 'Outstanding',
+            href: '/admin/completions/outstanding',
+            icon: AlertTriangle
+          },
+          {
+            name: 'History',
+            href: '/admin/completions/history',
+            icon: History
+          },
+          {
+            name: 'Assignments',
+            href: '/admin/assignments',
+            icon: ClipboardList
+          },
+          { name: 'Activity logs', href: '/admin/activity', icon: Clock }
         ]
+      },
+      {
+        id: 'settings',
+        label: 'Settings',
+        items: [{ name: 'General', href: '/admin/settings', icon: Settings }]
       }
     ]
   }
@@ -106,16 +114,18 @@ function useNavGroups(): NavGroup[] {
   if (isCustomer) {
     const groups: NavGroup[] = [
       {
+        id: 'training',
+        label: 'My training',
         items: [
           {
-            name: 'My Documents',
+            name: 'My documents',
             href: '/customer/documents',
-            icon: <FileText className={iconClass} />
+            icon: FileText
           },
           {
-            name: 'Completed Forms',
+            name: 'Completed forms',
             href: '/customer/completions',
-            icon: <FileCheck className={iconClass} />
+            icon: FileCheck
           }
         ]
       }
@@ -123,17 +133,18 @@ function useNavGroups(): NavGroup[] {
 
     if (isCustomerAdmin) {
       groups.push({
-        label: 'Admin',
+        id: 'team',
+        label: 'Team',
         items: [
           {
-            name: 'Team Compliance',
+            name: 'Team compliance',
             href: '/customer/admin/completions',
-            icon: <Users className={iconClass} />
+            icon: Users
           },
           {
-            name: 'Company Templates',
+            name: 'Company templates',
             href: '/customer/admin/templates',
-            icon: <FilePlus2 className={iconClass} />
+            icon: FilePlus2
           }
         ]
       })
@@ -145,13 +156,9 @@ function useNavGroups(): NavGroup[] {
   if (isStaff) {
     return [
       {
-        items: [
-          {
-            name: 'Documents',
-            href: '/documents',
-            icon: <FolderOpen className={iconClass} />
-          }
-        ]
+        id: 'documents',
+        label: 'Documents',
+        items: [{ name: 'File library', href: '/documents', icon: FolderOpen }]
       }
     ]
   }
@@ -159,97 +166,89 @@ function useNavGroups(): NavGroup[] {
   return []
 }
 
-function isActive(pathname: string, item: { href: string; exact?: boolean }) {
+function matchesItem(pathname: string, item: NavItem) {
   if (item.exact) return pathname === item.href
   return pathname === item.href || pathname.startsWith(item.href + '/')
 }
 
-interface SidebarRowProps {
-  icon: ReactNode
-  label: string
-  href: string
-  active?: boolean
-  collapsed: boolean
-  onNavigate?: () => void
+/*
+  Several items share a prefix (/admin/completions also prefixes
+  /admin/completions/outstanding), so the active item is the longest match
+  rather than the first.
+*/
+export function findActiveItem(groups: NavGroup[], pathname: string) {
+  return groups
+    .flatMap((group) => group.items)
+    .filter((item) => matchesItem(pathname, item))
+    .sort((a, b) => b.href.length - a.href.length)[0]
 }
 
-// A single nav link, with a tooltip when collapsed to icon-only.
-function SidebarRow({
-  icon,
-  label,
-  href,
-  active,
-  collapsed,
-  onNavigate
-}: SidebarRowProps) {
-  const className = cn(
-    'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-    collapsed && 'justify-center px-0',
-    active
-      ? 'bg-accent text-accent-foreground'
-      : 'hover:bg-accent hover:text-accent-foreground'
-  )
-
-  const element = (
-    <Link href={href} onClick={onNavigate} className={className}>
-      {icon}
-      {!collapsed && <span className='truncate'>{label}</span>}
-    </Link>
-  )
-
-  if (collapsed) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{element}</TooltipTrigger>
-        <TooltipContent side='right'>{label}</TooltipContent>
-      </Tooltip>
-    )
-  }
-
-  return element
+interface SidebarNavProps {
+  // Labels are present in the DOM either way; expanded fades them in and the
+  // tooltips out, so nothing reflows vertically as the panel widens.
+  readonly expanded: boolean
+  readonly onNavigate?: () => void
 }
 
-interface SidebarContentProps {
-  collapsed?: boolean
-  // Called when a nav item is clicked (used to close the mobile drawer)
-  onNavigate?: () => void
-}
-
-// Shared sidebar body: role-aware nav. Rendered by both the desktop rail and
-// the mobile drawer; account context (profile/sign out) lives in the top bar.
-export function SidebarContent({
-  collapsed = false,
-  onNavigate
-}: SidebarContentProps) {
-  const groups = useNavGroups()
+export function SidebarNav({ expanded, onNavigate }: SidebarNavProps) {
   const pathname = usePathname() ?? ''
+  const groups = useNavGroups()
+  const activeItem = findActiveItem(groups, pathname)
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <div className='flex h-full flex-col p-3'>
-        <nav className='flex-1 space-y-4'>
-          {groups.map((group, index) => (
-            <div key={group.label ?? index} className='space-y-1'>
-              {group.label && !collapsed && (
-                <p className='px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
-                  {group.label}
-                </p>
-              )}
-              {group.items.map((item) => (
-                <SidebarRow
-                  key={item.href}
-                  icon={item.icon}
-                  label={item.name}
-                  href={item.href}
-                  active={isActive(pathname, item)}
-                  collapsed={collapsed}
-                  onNavigate={onNavigate}
-                />
-              ))}
-            </div>
-          ))}
-        </nav>
-      </div>
-    </TooltipProvider>
+    <nav className='flex flex-col gap-3 p-2'>
+      {groups.map((group) => (
+        <div key={group.id} className='flex flex-col gap-0.5'>
+          <p
+            aria-hidden={!expanded}
+            className={cn(
+              'flex h-6 items-center overflow-hidden whitespace-nowrap px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground transition-opacity duration-150',
+              expanded ? 'opacity-100' : 'opacity-0'
+            )}
+          >
+            {group.label}
+          </p>
+
+          {group.items.map((item) => {
+            const Icon = item.icon
+            const active = item.href === activeItem?.href
+
+            const link = (
+              <Link
+                href={item.href}
+                onClick={onNavigate}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'flex h-9 items-center gap-3 rounded-md px-[11px] transition-colors',
+                  active
+                    ? 'bg-sidebar-accent text-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground'
+                )}
+              >
+                <Icon className='h-[18px] w-[18px] shrink-0' />
+                <span
+                  className={cn(
+                    'truncate whitespace-nowrap text-sm transition-opacity duration-150',
+                    expanded ? 'opacity-100' : 'opacity-0'
+                  )}
+                >
+                  {item.name}
+                </span>
+              </Link>
+            )
+
+            // Collapsed rows have no visible label, so they get a tooltip.
+            if (expanded) return <div key={item.href}>{link}</div>
+
+            return (
+              <Tooltip key={item.href}>
+                <TooltipTrigger asChild>{link}</TooltipTrigger>
+                <TooltipContent side='right'>{item.name}</TooltipContent>
+              </Tooltip>
+            )
+          })}
+        </div>
+      ))}
+    </nav>
   )
 }

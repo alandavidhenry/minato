@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { RecentCompletions } from '@/components/admin/recent-completions'
+import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ADMIN_ROLES, type UserRole } from '@/types/rbac'
@@ -137,7 +138,10 @@ export default function AdminDashboardPage() {
 
   return (
     <div className='space-y-6'>
-      <h1 className='text-3xl font-bold'>Admin Dashboard</h1>
+      <PageHeader
+        title='Admin Dashboard'
+        description='Compliance at a glance across every client company.'
+      />
 
       {/* Compliance KPI tiles */}
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-5'>
@@ -167,13 +171,13 @@ export default function AdminDashboardPage() {
               <CardTitle className='text-sm font-medium'>
                 Completed This Week
               </CardTitle>
-              <TrendingUp className='h-4 w-4 text-green-500' />
+              <TrendingUp className='h-4 w-4 text-success' />
             </CardHeader>
             <CardContent>
               {kpisLoading ? (
                 <div className='h-8 w-16 animate-pulse rounded bg-muted' />
               ) : (
-                <div className='text-2xl font-bold text-green-600'>
+                <div className='text-2xl font-bold text-success'>
                   {kpis.completedThisWeek}
                 </div>
               )}
@@ -189,13 +193,13 @@ export default function AdminDashboardPage() {
               <CardTitle className='text-sm font-medium'>
                 Completed This Month
               </CardTitle>
-              <TrendingUp className='h-4 w-4 text-green-500' />
+              <TrendingUp className='h-4 w-4 text-success' />
             </CardHeader>
             <CardContent>
               {kpisLoading ? (
                 <div className='h-8 w-16 animate-pulse rounded bg-muted' />
               ) : (
-                <div className='text-2xl font-bold text-green-600'>
+                <div className='text-2xl font-bold text-success'>
                   {kpis.completedThisMonth}
                 </div>
               )}
@@ -207,13 +211,13 @@ export default function AdminDashboardPage() {
           <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
             <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
               <CardTitle className='text-sm font-medium'>Outstanding</CardTitle>
-              <AlertTriangle className='h-4 w-4 text-amber-500' />
+              <AlertTriangle className='h-4 w-4 text-warning' />
             </CardHeader>
             <CardContent>
               {kpisLoading ? (
                 <div className='h-8 w-16 animate-pulse rounded bg-muted' />
               ) : (
-                <div className='text-2xl font-bold text-amber-600'>
+                <div className='text-2xl font-bold text-warning'>
                   {kpis.outstanding}
                 </div>
               )}
@@ -225,13 +229,13 @@ export default function AdminDashboardPage() {
           <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
             <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
               <CardTitle className='text-sm font-medium'>Overdue</CardTitle>
-              <AlertTriangle className='h-4 w-4 text-red-500' />
+              <AlertTriangle className='h-4 w-4 text-destructive' />
             </CardHeader>
             <CardContent>
               {kpisLoading ? (
                 <div className='h-8 w-16 animate-pulse rounded bg-muted' />
               ) : (
-                <div className='text-2xl font-bold text-red-600'>
+                <div className='text-2xl font-bold text-destructive'>
                   {kpis.overdue}
                 </div>
               )}

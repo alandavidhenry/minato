@@ -1,16 +1,24 @@
 'use client'
 
-import { Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { useEffect, useState } from 'react'
 
-import { SidebarContent } from '@/components/app-sidebar'
+import { SidebarNav } from '@/components/app-sidebar'
 import { Breadcrumbs } from '@/components/breadcrumbs'
+import { CommandPalette } from '@/components/command-palette'
 import { NotificationBell } from '@/components/notification-bell'
+import {
+  isSidebarMode,
+  SIDEBAR_MODE_STORAGE_KEY,
+  SidebarControl,
+  SidebarMode
+} from '@/components/sidebar-control'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { UserMenu } from '@/components/user-menu'
 import { cn } from '@/lib/utils'
 
@@ -23,7 +31,19 @@ function isPublicPath(pathname: string) {
   )
 }
 
-const STORAGE_KEY = 'sidebar-collapsed'
+function BrandMark({ className }: { readonly className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-brand-border bg-brand-tint text-sm font-semibold text-foreground',
+        className
+      )}
+    >
+      M
+    </span>
+  )
+}
 
 function Footer() {
   return (
@@ -43,15 +63,16 @@ function PublicChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <div className='flex min-h-screen flex-col bg-background'>
-      <header className='flex h-16 items-center justify-between border-b px-4'>
-        <Link href='/' className='text-xl font-bold'>
+      <header className='flex h-12 items-center justify-between border-b px-4'>
+        <Link href='/' className='flex items-center gap-2 font-semibold'>
+          <BrandMark />
           Minato
         </Link>
         <div className='flex items-center gap-2'>
           <ThemeToggle />
           {session ? (
             <Button
-              variant='outline'
+              variant='surface'
               onClick={() => signOut({ callbackUrl: '/' })}
             >
               Sign Out
@@ -72,17 +93,16 @@ function PublicChrome({ children }: { children: React.ReactNode }) {
 export function AppShell({ children }: { readonly children: React.ReactNode }) {
   const pathname = usePathname() ?? ''
   const { status } = useSession()
-  const [collapsed, setCollapsed] = useState(false)
+  const [mode, setMode] = useState<SidebarMode>('hover')
+  const [hovering, setHovering] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  // Restore the persisted desktop collapse preference.
+  // Restore the persisted sidebar behaviour.
   useEffect(() => {
-    if (localStorage.getItem(STORAGE_KEY) === 'true') setCollapsed(true)
+    const stored = localStorage.getItem(SIDEBAR_MODE_STORAGE_KEY)
+    if (isSidebarMode(stored)) setMode(stored)
   }, [])
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, String(collapsed))
-  }, [collapsed])
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => {
@@ -97,95 +117,130 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
     return <PublicChrome>{children}</PublicChrome>
   }
 
-  return (
-    <div className='flex min-h-screen flex-col bg-background'>
-      {/* Top bar */}
-      <header className='sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background px-4'>
-        <Button
-          variant='ghost'
-          size='icon'
-          className='md:hidden'
-          onClick={() => setMobileOpen(true)}
-          aria-label='Open menu'
-        >
-          <Menu className='h-5 w-5' />
-        </Button>
-        <Link href='/' className='text-xl font-bold'>
-          Minato
-        </Link>
-        <div className='ml-auto flex items-center gap-2'>
-          <NotificationBell />
-          <ThemeToggle />
-          <UserMenu />
-        </div>
-      </header>
+  const onModeChange = (next: SidebarMode) => {
+    setMode(next)
+    localStorage.setItem(SIDEBAR_MODE_STORAGE_KEY, next)
+  }
 
-      <div className='flex flex-1'>
-        {/* Desktop sidebar rail */}
-        <aside
+  const expanded =
+    mode === 'expanded' || (mode === 'hover' && (hovering || menuOpen))
+  // Only the hover panel floats over the content; a pinned-open sidebar takes
+  // up layout space so it never covers what you are reading.
+  const overlaying = expanded && mode !== 'expanded'
+
+  return (
+    <TooltipProvider delayDuration={0}>
+      <div className='flex h-screen overflow-hidden bg-background'>
+        {/*
+          The spacer holds the collapsed width in the layout so the panel can
+          widen over the content on hover without anything reflowing.
+        */}
+        <div
           className={cn(
-            'hidden shrink-0 flex-col border-r bg-muted/40 transition-[width] duration-200 md:flex',
-            collapsed ? 'md:w-16' : 'md:w-64'
+            'relative hidden shrink-0 transition-[width] duration-150 md:block',
+            mode === 'expanded' ? 'w-56' : 'w-14'
           )}
         >
-          <div className='flex-1 overflow-y-auto'>
-            <SidebarContent collapsed={collapsed} />
-          </div>
-          <div className='border-t p-2'>
-            <Button
-              variant='ghost'
-              size='sm'
-              className={cn('w-full', collapsed && 'justify-center px-0')}
-              onClick={() => setCollapsed((value) => !value)}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              {collapsed ? (
-                <PanelLeftOpen className='h-5 w-5' />
-              ) : (
-                <>
-                  <PanelLeftClose className='h-5 w-5' />
-                  <span>Collapse</span>
-                </>
-              )}
-            </Button>
-          </div>
-        </aside>
+          <aside
+            onMouseEnter={() => setHovering(true)}
+            onMouseLeave={() => setHovering(false)}
+            onFocus={() => setHovering(true)}
+            onBlur={(event) => {
+              if (event.currentTarget.contains(event.relatedTarget)) return
+              setHovering(false)
+            }}
+            className={cn(
+              'absolute inset-y-0 left-0 z-40 flex h-full flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-150',
+              expanded ? 'w-56' : 'w-14',
+              overlaying && 'shadow-lg'
+            )}
+          >
+            <div className='flex h-12 shrink-0 items-center gap-2 overflow-hidden px-[14px]'>
+              <Link href='/' aria-label='Minato home'>
+                <BrandMark />
+              </Link>
+              <span
+                aria-hidden={!expanded}
+                className={cn(
+                  'whitespace-nowrap font-semibold transition-opacity duration-150',
+                  expanded ? 'opacity-100' : 'opacity-0'
+                )}
+              >
+                Minato
+              </span>
+            </div>
 
-        {/* Mobile drawer */}
+            <div className='flex-1 overflow-y-auto overflow-x-hidden'>
+              <SidebarNav expanded={expanded} />
+            </div>
+
+            <div className='shrink-0 px-3 py-2'>
+              <SidebarControl
+                mode={mode}
+                onModeChange={onModeChange}
+                onOpenChange={setMenuOpen}
+              />
+            </div>
+          </aside>
+        </div>
+
+        {/* Mobile drawer — always labelled, no hover affordance on touch */}
         {mobileOpen && (
           <div className='fixed inset-0 z-40 md:hidden'>
             <button
               type='button'
-              className='absolute inset-0 bg-black/50'
+              className='absolute inset-0 bg-scrim'
               onClick={() => setMobileOpen(false)}
               aria-label='Close menu'
             />
-            <div className='animate-in slide-in-from-left absolute inset-y-0 left-0 flex w-64 flex-col bg-background shadow-lg'>
-              <div className='flex h-14 items-center justify-between border-b px-4'>
-                <span className='text-lg font-bold'>Minato</span>
+            <div className='animate-in slide-in-from-left absolute inset-y-0 left-0 flex w-64 flex-col bg-sidebar shadow-lg'>
+              <div className='flex h-12 items-center justify-between border-b border-sidebar-border px-3'>
+                <span className='flex items-center gap-2 font-semibold'>
+                  <BrandMark />
+                  Minato
+                </span>
                 <Button
                   variant='ghost'
                   size='icon'
                   onClick={() => setMobileOpen(false)}
                   aria-label='Close menu'
                 >
-                  <X className='h-5 w-5' />
+                  <X className='h-4 w-4' />
                 </Button>
               </div>
               <div className='flex-1 overflow-y-auto'>
-                <SidebarContent onNavigate={() => setMobileOpen(false)} />
+                <SidebarNav expanded onNavigate={() => setMobileOpen(false)} />
               </div>
             </div>
           </div>
         )}
 
-        <main className='min-w-0 flex-1 p-4 md:p-6'>
-          <Breadcrumbs />
-          {children}
-        </main>
-      </div>
+        <div className='flex min-w-0 flex-1 flex-col'>
+          <header className='flex h-12 shrink-0 items-center gap-2 border-b px-4'>
+            <Button
+              variant='ghost'
+              size='icon'
+              className='md:hidden'
+              onClick={() => setMobileOpen(true)}
+              aria-label='Open menu'
+            >
+              <Menu className='h-4 w-4' />
+            </Button>
+            <Breadcrumbs />
+            <div className='ml-auto flex items-center gap-2'>
+              <CommandPalette />
+              <NotificationBell />
+              <ThemeToggle />
+              <UserMenu />
+            </div>
+          </header>
 
-      <Footer />
-    </div>
+          <main className='min-w-0 flex-1 overflow-y-auto'>
+            <div className='p-4 md:p-6'>{children}</div>
+            <Footer />
+          </main>
+        </div>
+      </div>
+    </TooltipProvider>
   )
 }
