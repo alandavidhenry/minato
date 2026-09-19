@@ -76,8 +76,8 @@
   --radius-xl: 8px;
 
   --font-sans:
-    var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
-    sans-serif;
+    var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', sans-serif;
   --font-mono:
     var(--font-source-code-pro), 'Source Code Pro', ui-monospace, Menlo,
     monospace;

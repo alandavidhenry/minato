@@ -57,7 +57,7 @@ export function useNavGroups(): NavGroup[] {
     return [
       {
         id: 'overview',
-        label: 'Overview',
+        label: '',
         items: [{ name: 'Dashboard', href: '/admin', icon: Gauge, exact: true }]
       },
       {
@@ -196,18 +196,20 @@ export function SidebarNav({ expanded, onNavigate }: SidebarNavProps) {
   const activeItem = findActiveItem(groups, pathname)
 
   return (
-    <nav className='flex flex-col gap-3 p-2'>
+    <nav className='flex flex-col gap-2 p-2'>
       {groups.map((group) => (
         <div key={group.id} className='flex flex-col gap-0.5'>
-          <p
-            aria-hidden={!expanded}
-            className={cn(
-              'flex h-6 items-center overflow-hidden whitespace-nowrap px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground transition-opacity duration-150',
-              expanded ? 'opacity-100' : 'opacity-0'
-            )}
-          >
-            {group.label}
-          </p>
+          {group.label && (
+            <p
+              aria-hidden={!expanded}
+              className={cn(
+                'flex h-5 items-center overflow-hidden whitespace-nowrap px-2 font-mono text-xs font-medium uppercase tracking-wide text-muted-foreground transition-opacity duration-150',
+                expanded ? 'opacity-100' : 'opacity-0'
+              )}
+            >
+              {group.label}
+            </p>
+          )}
 
           {group.items.map((item) => {
             const Icon = item.icon
@@ -219,7 +221,7 @@ export function SidebarNav({ expanded, onNavigate }: SidebarNavProps) {
                 onClick={onNavigate}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex h-9 items-center gap-3 rounded-md px-[11px] transition-colors',
+                  'flex h-8 items-center gap-3 rounded-md px-[11px] transition-colors',
                   active
                     ? 'bg-sidebar-accent text-foreground'
                     : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground'

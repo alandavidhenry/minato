@@ -1,5 +1,5 @@
 // src/app/layout.tsx
-import { Inter, Source_Code_Pro } from 'next/font/google'
+import { Plus_Jakarta_Sans, Source_Code_Pro } from 'next/font/google'
 
 import { AppShell } from '@/components/app-shell'
 import { BreadcrumbProvider } from '@/components/providers/breadcrumb-provider'
@@ -12,7 +12,10 @@ import type { Metadata } from 'next'
 
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  variable: '--font-plus-jakarta-sans'
+})
 
 const sourceCodePro = Source_Code_Pro({
   subsets: ['latin'],
@@ -52,7 +55,9 @@ export default function RootLayout({
         <meta name='color-scheme' content='dark light' />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={`${inter.variable} ${sourceCodePro.variable} font-sans`}>
+      <body
+        className={`${plusJakartaSans.variable} ${sourceCodePro.variable} font-sans`}
+      >
         <ThemeProvider>
           <AuthProvider>
             <RBACProvider>

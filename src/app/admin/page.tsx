@@ -148,7 +148,7 @@ export default function AdminDashboardPage() {
         <Link href='/admin/assignments'>
           <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
             <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-              <CardTitle className='text-sm font-medium'>
+              <CardTitle className='font-mono text-xs font-medium uppercase tracking-wide text-muted-foreground'>
                 Active Assignments
               </CardTitle>
               <ClipboardList className='h-4 w-4 text-muted-foreground' />
@@ -168,7 +168,7 @@ export default function AdminDashboardPage() {
         <Link href={`/admin/completions/history?from=${getStartOfWeekParam()}`}>
           <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
             <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-              <CardTitle className='text-sm font-medium'>
+              <CardTitle className='font-mono text-xs font-medium uppercase tracking-wide text-muted-foreground'>
                 Completed This Week
               </CardTitle>
               <TrendingUp className='h-4 w-4 text-success' />
@@ -190,7 +190,7 @@ export default function AdminDashboardPage() {
         >
           <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
             <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-              <CardTitle className='text-sm font-medium'>
+              <CardTitle className='font-mono text-xs font-medium uppercase tracking-wide text-muted-foreground'>
                 Completed This Month
               </CardTitle>
               <TrendingUp className='h-4 w-4 text-success' />
@@ -210,7 +210,9 @@ export default function AdminDashboardPage() {
         <Link href='/admin/completions/outstanding'>
           <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
             <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-              <CardTitle className='text-sm font-medium'>Outstanding</CardTitle>
+              <CardTitle className='font-mono text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+                Outstanding
+              </CardTitle>
               <AlertTriangle className='h-4 w-4 text-warning' />
             </CardHeader>
             <CardContent>
@@ -228,7 +230,9 @@ export default function AdminDashboardPage() {
         <Link href='/admin/completions/outstanding?overdueOnly=true'>
           <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
             <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-              <CardTitle className='text-sm font-medium'>Overdue</CardTitle>
+              <CardTitle className='font-mono text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+                Overdue
+              </CardTitle>
               <AlertTriangle className='h-4 w-4 text-destructive' />
             </CardHeader>
             <CardContent>
@@ -303,7 +307,9 @@ export default function AdminDashboardPage() {
         <div className='grid gap-4 md:grid-cols-4'>
           <Card>
             <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-              <CardTitle className='text-sm font-medium'>Total Users</CardTitle>
+              <CardTitle className='font-mono text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+                Total Users
+              </CardTitle>
               <Users className='h-4 w-4 text-muted-foreground' />
             </CardHeader>
             <CardContent>
@@ -317,7 +323,9 @@ export default function AdminDashboardPage() {
 
           <Card>
             <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-              <CardTitle className='text-sm font-medium'>Admin Users</CardTitle>
+              <CardTitle className='font-mono text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+                Admin Users
+              </CardTitle>
               <Shield className='h-4 w-4 text-muted-foreground' />
             </CardHeader>
             <CardContent>
@@ -331,7 +339,7 @@ export default function AdminDashboardPage() {
 
           <Card>
             <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-              <CardTitle className='text-sm font-medium'>
+              <CardTitle className='font-mono text-xs font-medium uppercase tracking-wide text-muted-foreground'>
                 Total Companies
               </CardTitle>
               <Building2 className='h-4 w-4 text-muted-foreground' />
@@ -347,7 +355,7 @@ export default function AdminDashboardPage() {
 
           <Card>
             <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-              <CardTitle className='text-sm font-medium'>
+              <CardTitle className='font-mono text-xs font-medium uppercase tracking-wide text-muted-foreground'>
                 Total Documents
               </CardTitle>
               <FileText className='h-4 w-4 text-muted-foreground' />
