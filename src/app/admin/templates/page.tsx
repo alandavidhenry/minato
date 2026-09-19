@@ -18,6 +18,7 @@ import { CreateTemplateDialog } from '@/components/admin/create-template-dialog'
 import { EditTemplateDialog } from '@/components/admin/edit-template-dialog'
 import { PublishVersionDialog } from '@/components/admin/publish-version-dialog'
 import { ViewTemplateDialog } from '@/components/admin/view-template-dialog'
+import { PageHeader } from '@/components/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -299,21 +300,24 @@ export default function TemplatesPage() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between'>
-        <h1 className='text-3xl font-bold'>Document Templates</h1>
-        <div className='flex items-center gap-2'>
-          <Button variant='outline' asChild>
-            <a href='/api/admin/manual' download>
-              <BookOpen className='mr-2 h-4 w-4' />
-              User Guide
-            </a>
-          </Button>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className='mr-2 h-4 w-4' />
-            New Template
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title='Document Templates'
+        description='Reusable health and safety documents, grouped by category.'
+        actions={
+          <>
+            <Button variant='outline' asChild>
+              <a href='/api/admin/manual' download>
+                <BookOpen className='mr-2 h-4 w-4' />
+                User Guide
+              </a>
+            </Button>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className='mr-2 h-4 w-4' />
+              New Template
+            </Button>
+          </>
+        }
+      />
 
       <div className='flex items-center space-x-2'>
         <div className='relative flex-1'>

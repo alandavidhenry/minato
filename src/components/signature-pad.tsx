@@ -59,6 +59,7 @@ export function SignaturePad({ onChange, disabled, error }: SignaturePadProps) {
       <div
         ref={containerRef}
         className={cn(
+          // Always white: the trimmed PNG is embedded into the completion PDF.
           'rounded-md border bg-white',
           error ? 'border-destructive' : 'border-input',
           disabled && 'pointer-events-none opacity-60'

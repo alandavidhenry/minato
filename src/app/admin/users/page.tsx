@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 
 import { CreateUserDialog } from '@/components/admin/create-user-dialog'
 import { UserActionsDropdown } from '@/components/admin/user-actions-dropdown'
+import { PageHeader } from '@/components/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -163,10 +164,7 @@ export default function UsersPage() {
           {user.jobRole ?? '—'}
         </TableCell>
         <TableCell>
-          <Badge
-            variant={user.accountEnabled ? 'outline' : 'secondary'}
-            className={user.accountEnabled ? 'bg-green-100 text-green-800' : ''}
-          >
+          <Badge variant={user.accountEnabled ? 'success' : 'secondary'}>
             {user.accountEnabled ? 'Active' : 'Inactive'}
           </Badge>
         </TableCell>
@@ -220,13 +218,16 @@ export default function UsersPage() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between'>
-        <h1 className='text-3xl font-bold'>User Management</h1>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className='mr-2 h-4 w-4' />
-          Add User
-        </Button>
-      </div>
+      <PageHeader
+        title='User Management'
+        description='Staff and customer accounts across every client company.'
+        actions={
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className='mr-2 h-4 w-4' />
+            Add User
+          </Button>
+        }
+      />
 
       <div className='flex items-center space-x-2'>
         <div className='relative flex-1'>

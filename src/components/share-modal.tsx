@@ -116,7 +116,7 @@ export function ShareModal({
   }
 
   return (
-    <div className='fixed inset-0 z-50 bg-black/50 flex items-center justify-center'>
+    <div className='fixed inset-0 z-50 bg-scrim flex items-center justify-center'>
       <Card
         className={`w-full max-w-md transform transition-all duration-300 p-2 sm:p-4 ${
           isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'

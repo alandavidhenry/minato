@@ -193,8 +193,8 @@ export function ChangeRoleDialog({
 
             {(selectedRole === 'Platform Admin' ||
               selectedRole === 'Tenant Admin') && (
-              <div className='rounded-md bg-amber-50 p-3'>
-                <p className='text-sm text-amber-800'>
+              <div className='rounded-md border border-warning/30 bg-warning/10 p-3'>
+                <p className='text-sm text-warning'>
                   Warning: This role has full access to manage users and
                   settings.
                 </p>

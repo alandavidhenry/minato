@@ -4,123 +4,204 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-
-  --color-chart-1: hsl(var(--chart-1));
-  --color-chart-2: hsl(var(--chart-2));
-  --color-chart-3: hsl(var(--chart-3));
-  --color-chart-4: hsl(var(--chart-4));
-  --color-chart-5: hsl(var(--chart-5));
-
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
-}
-
 /*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
+  Design tokens.
 
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
+  The palette follows Supabase Studio's semantic colour system: a near-black
+  canvas, hairline borders instead of shadows, and the #3ECF8E brand green
+  reserved for primary actions, links, focus rings and active navigation.
+  Values are expressed in OKLCH so that lightness steps are perceptually even
+  across both themes; translucent tokens (muted/accent/border) are foreground
+  overlays, so they composite correctly over whichever surface sits beneath.
 */
-@layer base {
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
-  }
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  --color-brand: var(--brand);
+  --color-brand-tint: var(--brand-tint);
+  --color-brand-border: var(--brand-border);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-field: var(--field);
+  --color-ring: var(--ring);
+  --color-scrim: var(--scrim);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-border: var(--sidebar-border);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
+
+  --font-sans:
+    var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+  --font-mono:
+    var(--font-source-code-pro), 'Source Code Pro', ui-monospace, Menlo,
+    monospace;
 }
 
-@layer utilities {
-  body {
-    font-family: Arial, Helvetica, sans-serif;
-  }
-}
-
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-  }
+  /*
+    Dark is the default theme, so it lives on :root — an unclassed document
+    (before the anti-FOUC script in layout.tsx runs) still paints dark.
+  */
+  :root,
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    color-scheme: dark;
+
+    --background: oklch(0.19 0.0025 159);
+    --foreground: oklch(0.95 0.0028 159);
+
+    --card: oklch(0.215 0.0025 159);
+    --card-foreground: oklch(0.95 0.0028 159);
+    --popover: oklch(0.2275 0.0025 159);
+    --popover-foreground: oklch(0.95 0.0028 159);
+
+    --primary: oklch(0.76 0.15 159);
+    --primary-foreground: oklch(0.19 0.001 159);
+
+    --secondary: oklch(0.95 0.0028 159 / 6.6%);
+    --secondary-foreground: oklch(0.95 0.0028 159);
+
+    --muted: oklch(0.95 0.0028 159 / 3.3%);
+    --muted-foreground: oklch(0.798 0.0028 159);
+    --accent: oklch(0.95 0.0028 159 / 4.9%);
+    --accent-foreground: oklch(0.95 0.0028 159);
+
+    --destructive: oklch(0.75 0.14 25);
+    --destructive-foreground: oklch(0.19 0.001 25);
+    --success: oklch(0.76 0.15 159);
+    --success-foreground: oklch(0.19 0.001 159);
+    --warning: oklch(0.8 0.14 75);
+    --warning-foreground: oklch(0.19 0.001 75);
+    --info: oklch(0.7 0.14 288);
+    --info-foreground: oklch(0.95 0.0028 288);
+
+    /*
+      The brand fill used by primary buttons is a deep green tint carrying
+      normal foreground text, not a bright green plate — bright --brand is for
+      links, focus rings, icons and active nav.
+    */
+    --brand: oklch(0.76 0.15 159);
+    --brand-tint: oklch(0.32 0.09 159);
+    --brand-border: oklch(0.76 0.15 159 / 30%);
+
+    --border: oklch(0.95 0.0028 159 / 7.5%);
+    --border-strong: oklch(0.95 0.0028 159 / 20%);
+    --input: oklch(0.95 0.0028 159 / 13.5%);
+    --field: oklch(0 0 0 / 12%);
+    --ring: oklch(0.76 0.15 159 / 55%);
+    --scrim: oklch(0 0 0 / 60%);
+
+    --sidebar: oklch(0.175 0.0025 159);
+    --sidebar-foreground: oklch(0.798 0.0028 159);
+    --sidebar-accent: oklch(0.95 0.0028 159 / 6.6%);
+    --sidebar-border: oklch(0.95 0.0028 159 / 7.5%);
+
+    --chart-1: oklch(0.76 0.15 159);
+    --chart-2: oklch(0.72 0.13 230);
+    --chart-3: oklch(0.8 0.14 75);
+    --chart-4: oklch(0.7 0.14 300);
+    --chart-5: oklch(0.72 0.14 25);
+
+    --radius: 6px;
+  }
+
+  .light {
+    color-scheme: light;
+
+    --background: oklch(0.97 0.006 240);
+    --foreground: oklch(0.15 0.006 240);
+
+    --card: oklch(0.995 0.003 240);
+    --card-foreground: oklch(0.15 0.006 240);
+    --popover: oklch(0.995 0.003 240);
+    --popover-foreground: oklch(0.15 0.006 240);
+
+    --primary: oklch(0.76 0.15 159);
+    --primary-foreground: oklch(0.1 0 34);
+
+    --secondary: oklch(0.1 0 34 / 6%);
+    --secondary-foreground: oklch(0.1 0 34);
+
+    --muted: oklch(0.1 0 34 / 3.3%);
+    --muted-foreground: oklch(0.413 0 34);
+    --accent: oklch(0.1 0 34 / 4.9%);
+    --accent-foreground: oklch(0.1 0 34);
+
+    --destructive: oklch(0.52 0.14 25);
+    --destructive-foreground: oklch(0.995 0 25);
+    --success: oklch(0.55 0.13 159);
+    --success-foreground: oklch(0.995 0 159);
+    --warning: oklch(0.68 0.14 75);
+    --warning-foreground: oklch(0.1 0 75);
+    --info: oklch(0.54 0.14 288);
+    --info-foreground: oklch(0.995 0 288);
+
+    --brand: oklch(0.6 0.14 159);
+    --brand-tint: oklch(0.94 0.05 159);
+    --brand-border: oklch(0.6 0.14 159 / 30%);
+
+    --border: oklch(0.1 0 34 / 8%);
+    --border-strong: oklch(0.1 0 34 / 16%);
+    --input: oklch(0.1 0 34 / 14%);
+    --field: oklch(0 0 0 / 1.5%);
+    --ring: oklch(0.6 0.14 159 / 55%);
+    --scrim: oklch(0 0 0 / 40%);
+
+    --sidebar: oklch(0.945 0.009 240);
+    --sidebar-foreground: oklch(0.42 0.006 240);
+    --sidebar-accent: oklch(0.15 0.006 240 / 6%);
+    --sidebar-border: oklch(0.15 0.006 240 / 8%);
+
+    --chart-1: oklch(0.6 0.14 159);
+    --chart-2: oklch(0.58 0.13 230);
+    --chart-3: oklch(0.68 0.14 75);
+    --chart-4: oklch(0.56 0.15 300);
+    --chart-5: oklch(0.58 0.16 25);
   }
 }
 
@@ -129,7 +210,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans text-sm antialiased;
   }
   button:not(:disabled),
   a {

@@ -132,7 +132,7 @@ export function QrCodeModal({
     description ?? 'Scan this QR code to access the document'
 
   return (
-    <div className='fixed inset-0 z-50 bg-black/50 flex items-center justify-center'>
+    <div className='fixed inset-0 z-50 bg-scrim flex items-center justify-center'>
       <div
         className={`bg-background rounded-lg shadow-lg p-6 max-w-md w-full transform transition-all duration-300 ${
           isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
@@ -145,7 +145,8 @@ export function QrCodeModal({
           </Button>
         </div>
 
-        <div className='flex flex-col items-center justify-center p-4 bg-white rounded-md'>
+        {/* Always white so the code stays scannable in either theme. */}
+        <div className='flex flex-col items-center justify-center rounded-md bg-white p-4'>
           <QRCodeSVG
             id='document-qr-code'
             value={url}

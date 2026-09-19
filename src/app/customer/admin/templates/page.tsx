@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { CreateTemplateDialog } from '@/components/admin/create-template-dialog'
 import { EditTemplateDialog } from '@/components/admin/edit-template-dialog'
 import { AssignCompanyTemplateDialog } from '@/components/customer/assign-company-template-dialog'
+import { PageHeader } from '@/components/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -211,27 +212,24 @@ export default function CompanyTemplatesPage() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-3xl font-bold'>Company Templates</h1>
-          <p className='text-sm text-muted-foreground mt-1'>
-            Create and assign forms specific to your company — visible only to
-            your employees.
-          </p>
-        </div>
-        <div className='flex items-center gap-2'>
-          <Button variant='outline' asChild>
-            <Link href='/customer/admin/completions'>
-              <Users className='mr-2 h-4 w-4' />
-              Team Compliance
-            </Link>
-          </Button>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className='mr-2 h-4 w-4' />
-            New Template
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title='Company Templates'
+        description='Create and assign forms specific to your company — visible only to your employees.'
+        actions={
+          <>
+            <Button variant='outline' asChild>
+              <Link href='/customer/admin/completions'>
+                <Users className='mr-2 h-4 w-4' />
+                Team Compliance
+              </Link>
+            </Button>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className='mr-2 h-4 w-4' />
+              New Template
+            </Button>
+          </>
+        }
+      />
 
       <div className='rounded-md border'>
         <Table>

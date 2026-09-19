@@ -2,6 +2,8 @@
 
 import { useSession } from 'next-auth/react'
 
+import { PageHeader } from '@/components/page-header'
+
 interface WelcomeHeaderProps {
   readonly title: string
   readonly subtitle?: string
@@ -19,12 +21,11 @@ export function WelcomeHeader({ title, subtitle }: WelcomeHeaderProps) {
   const name = firstName(session?.user?.name)
 
   return (
-    <div className='space-y-1'>
-      <h1 className='text-3xl font-bold'>{title}</h1>
-      <p className='text-sm text-muted-foreground'>
-        {name ? `Welcome back, ${name}.` : 'Welcome back.'}
-        {subtitle ? ` ${subtitle}` : ''}
-      </p>
-    </div>
+    <PageHeader
+      title={title}
+      description={`${name ? `Welcome back, ${name}.` : 'Welcome back.'}${
+        subtitle ? ` ${subtitle}` : ''
+      }`}
+    />
   )
 }

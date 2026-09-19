@@ -4,6 +4,7 @@
 import { Loader2, Save, Shield, UserCog } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
+import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -125,7 +126,10 @@ export default function AdminSettingsPage() {
 
   return (
     <div className='space-y-6'>
-      <h1 className='text-3xl font-bold'>Settings</h1>
+      <PageHeader
+        title='Settings'
+        description='Platform configuration and security policy.'
+      />
 
       <Tabs defaultValue='general'>
         <TabsList>

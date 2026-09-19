@@ -4,6 +4,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 
+import { PageHeader } from '@/components/page-header'
 import { Badge } from '@/components/ui/badge'
 import { SortArrows } from '@/components/ui/data-table/sort-arrows'
 import {
@@ -109,7 +110,10 @@ export default function AllAssignmentsPage() {
 
   return (
     <div className='space-y-6'>
-      <h1 className='text-3xl font-bold'>All Assignments</h1>
+      <PageHeader
+        title='All Assignments'
+        description='Every assignment across every company.'
+      />
 
       <p className='text-sm text-muted-foreground'>
         {sorted.length} {sorted.length === 1 ? 'assignment' : 'assignments'}

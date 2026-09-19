@@ -69,7 +69,7 @@ The Client Administrator is responsible for:
 - **Storage:** Azure Blob Storage (files) + Azure Table Storage (activity logs)
 - **Database:** Neon PostgreSQL (users, password resets) via Prisma ORM
 - **Email:** Azure Communication Services — managed sending domain, no custom domain required
-- **Styling:** Tailwind CSS v4, Radix UI
+- **Styling:** Tailwind CSS v4 (CSS-first OKLCH token layer), Radix UI, `cmdk` command palette — dark theme by default, light available via the toggle
 - **Infrastructure:** Terraform on Azure App Service, deployed via Docker
 
 ## Local Development

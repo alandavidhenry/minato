@@ -5,6 +5,7 @@ import { Download, Eye, FileCheck, QrCode, Share2 } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+import { PageHeader } from '@/components/page-header'
 import { QrCodeModal } from '@/components/qr-code-modal'
 import { ShareModal } from '@/components/share-modal'
 import { Button } from '@/components/ui/button'
@@ -155,7 +156,10 @@ export default function CompletedFormsPage() {
 
   return (
     <div className='space-y-6'>
-      <h1 className='text-3xl font-bold'>Completed Forms</h1>
+      <PageHeader
+        title='Completed Forms'
+        description='Documents you have already signed off.'
+      />
 
       {isLoading ? (
         <div className='flex items-center justify-center h-64'>

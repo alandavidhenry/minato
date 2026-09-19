@@ -6,6 +6,9 @@ import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+
 export function UploadButton() {
   const router = useRouter()
   const { data: session } = useSession()
@@ -41,8 +44,10 @@ export function UploadButton() {
   return (
     <div>
       <label
-        className={`flex items-center gap-2 px-4 py-2 rounded bg-blue-600 text-white cursor-pointer
-          ${!session ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+        className={cn(
+          buttonVariants(),
+          !session && 'cursor-not-allowed opacity-50'
+        )}
       >
         <Upload className='h-4 w-4' />
         <span>{isUploading ? 'Uploading...' : 'Upload Document'}</span>

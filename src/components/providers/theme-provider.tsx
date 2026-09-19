@@ -16,15 +16,29 @@ type ThemeProviderState = {
 }
 
 const initialState: ThemeProviderState = {
-  theme: 'system',
+  theme: 'dark',
   setTheme: () => null
+}
+
+const applyTheme = (theme: Theme) => {
+  const root = window.document.documentElement
+  const resolved =
+    theme === 'system'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
+      : theme
+
+  root.classList.remove('light', 'dark')
+  root.classList.add(resolved)
+  root.style.colorScheme = resolved
 }
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
 export function ThemeProvider({
   children,
-  defaultTheme = 'system',
+  defaultTheme = 'dark',
   storageKey = 'theme',
   ...props
 }: ThemeProviderProps) {
@@ -39,21 +53,16 @@ export function ThemeProvider({
   }, [storageKey])
 
   useEffect(() => {
-    const root = window.document.documentElement
+    applyTheme(theme)
 
-    root.classList.remove('light', 'dark')
+    if (theme !== 'system') return
 
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
-        .matches
-        ? 'dark'
-        : 'light'
+    // Follow the OS while 'system' is selected and the app stays open.
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const onChange = () => applyTheme('system')
 
-      root.classList.add(systemTheme)
-      return
-    }
-
-    root.classList.add(theme)
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
   }, [theme])
 
   // Memoize the context value to prevent unnecessary re-renders

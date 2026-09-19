@@ -129,7 +129,7 @@ export function VersionUploadModal({
   }
 
   return (
-    <div className='fixed inset-0 z-50 bg-black/50 flex items-center justify-center'>
+    <div className='fixed inset-0 z-50 bg-scrim flex items-center justify-center'>
       <div className='bg-background rounded-lg shadow-lg p-6 max-w-md w-full transform transition-all duration-300'>
         <div className='flex justify-between items-center mb-4'>
           <h2 className='text-xl font-bold'>Upload New Version</h2>

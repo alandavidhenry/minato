@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 
+import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -105,7 +106,10 @@ function CompletionsHistoryContent() {
 
   return (
     <div className='space-y-6'>
-      <h1 className='text-3xl font-bold'>Completions History</h1>
+      <PageHeader
+        title='Completions History'
+        description='Every recorded sign-off, filterable by date.'
+      />
 
       <div className='flex flex-wrap items-center gap-4'>
         <div className='flex items-center gap-2'>

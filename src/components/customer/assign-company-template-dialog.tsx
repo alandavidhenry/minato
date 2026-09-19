@@ -61,7 +61,6 @@ export function AssignCompanyTemplateDialog({
       setAutoEnroll(false)
     }
     // fetchUsers is stable (declared in component body, no deps); open is the trigger
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   async function fetchUsers() {

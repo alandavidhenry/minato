@@ -329,7 +329,7 @@ export default function CompanyDetailPage() {
                     </TableCell>
                     <TableCell>
                       {a.template.blobPath ? (
-                        <span className='text-green-600 text-sm'>Yes</span>
+                        <span className='text-sm text-success'>Yes</span>
                       ) : (
                         <span className='text-muted-foreground text-sm'>
                           No
@@ -446,7 +446,7 @@ export default function CompanyDetailPage() {
                         </TableCell>
                         <TableCell>
                           {a.template.blobPath ? (
-                            <span className='text-green-600 text-sm'>Yes</span>
+                            <span className='text-sm text-success'>Yes</span>
                           ) : (
                             <span className='text-muted-foreground text-sm'>
                               No

@@ -448,6 +448,40 @@ Key files so far: `infrastructure/modules/gotenberg/`, `infrastructure/modules/m
 
 Key files: `src/lib/dashboard.ts`, `src/lib/assignments.ts` (`getAllAssignmentsForAdmin`), `src/app/api/admin/assignments/route.ts`, `src/app/admin/assignments/page.tsx`, `src/app/api/admin/completions/history/route.ts`, `src/app/admin/completions/history/page.tsx`, `src/app/admin/page.tsx`, `src/app/admin/settings/page.tsx`, `prisma/schema.prisma`, `prisma/migrations/20260718211605_add_template_category/`, `src/types/document-template.ts`, `src/lib/document-templates.ts`, `src/components/admin/create-template-dialog.tsx`, `src/components/admin/edit-template-dialog.tsx`, `src/app/admin/templates/page.tsx`
 
+### P21 — Supabase-Style UI Redesign ✅ Done
+
+**Goal:** The UI was stock shadcn/ui "new-york" on the default slate palette, unchanged since scaffolding — light-default, `--radius: 0.5rem`, card-wrapped tables, a single 256px sidebar, and a `text-3xl font-bold` page header re-implemented on ~25 pages. It worked, but read as a template rather than a product. Target: Supabase Studio's visual language.
+
+**Why it was cheap:** Supabase's dashboard is built on the same foundation as this project — shadcn/ui components with a Tailwind v4 CSS-first token layer. Their semantic token names *are* shadcn's, so the bulk of the work was a token swap, not a rewrite. The palette values were read directly from `supabase/supabase@master` (`packages/config/tailwind.config.css`, `packages/ui/build/css/source/semantic.css`, `themes/dark.css`, `themes/light.css`); their system derives every colour in OKLCH from a handful of inputs (`--surface`, `--chroma`, `--hue 159`, `--contrast`, `--elevation-step`) — we took the *resolved outputs* as literals rather than porting the derivation engine, which would have been far more machinery than a single-product app needs.
+
+**Decisions taken:**
+- **Dark by default** (light retained, toggleable). Dark values live on `:root` so an unclassed document still paints dark; `.light` overrides. A blocking inline script in `layout.tsx` applies the stored class before first paint — without it, a dark-default app flashes white on every load, since the provider only resolved the theme in an effect.
+- **Inter + Source Code Pro** via `next/font/google`. Supabase's own sans is the proprietary Circular, which can't be shipped; Source Code Pro is their actual mono and is on Google Fonts.
+- **`default` stays the emphasised button.** In Supabase's own vocabulary `default` is the quiet neutral button and `primary` is the green one — adopting that naming verbatim would have silently demoted every existing CTA across ~100 call sites. Instead `default` kept its meaning and took the brand-tint styling, and Supabase's neutral button was added as a new `surface` variant.
+- **Table headers are normal-case, not uppercase.** Supabase Studio's are; uppercase read badly against long column names like "New Employee Health & Safety Induction Checklist".
+
+**What changed:**
+- ✅ `src/app/globals.css` rewritten: `@theme` now passes tokens through directly (`--color-background: var(--background)`) instead of wrapping them in `hsl()`, so tokens can hold OKLCH. New token categories beyond stock shadcn: `--success`/`--warning`/`--info`, `--brand`/`--brand-tint`/`--brand-border`, `--border-strong`, `--field`, `--scrim`, `--sidebar*`. Radius scale pinned explicitly (4/6/8/8px) — `rounded-xl` on `Card` was previously not token-derived at all and fell back to Tailwind's 12px. Chart colours retuned around the green brand.
+- ✅ Two latent bugs fixed: a `@layer utilities { body { font-family: Arial… } }` rule that had been silently overriding `next/font`'s Inter since scaffolding, and a leftover Tailwind v3 compat shim pinning default borders to a hardcoded `--color-gray-200`. Also `--card` was identical to `--background` in dark mode, so cards had zero elevation.
+- ✅ Primitives restyled in place (`button`, `badge`, `card`, `input`, `select`, `textarea`, `table`, `tabs`, `dialog`), public APIs unchanged; control heights normalised to `h-8` (Button was `h-9`, Input/Select `h-10` — they never lined up); Button's focus ring brought to `ring-2 ring-offset-2` like every other primitive. New `ui/skeleton.tsx`, `ui/command.tsx`.
+- ✅ Shell rebuilt as a hover-expanding sidebar + 48px top bar. It was first built as a two-level icon rail (areas) + section nav (pages within the area), then **changed to Supabase's actual model**: one flat list where every destination carries its own icon, collapsed to a 56px rail by default and expanding to 224px on hover, overlaying the content rather than reflowing it. Groups (Overview, Organisation, Documents, Compliance, Settings for admin; My training / Team for customer admin) survive only as headings shown when expanded. `SidebarNav({ expanded })` is the single renderer for both the desktop panel and the mobile drawer. Labels and headings are always in the DOM and fade via opacity so nothing jumps vertically as the panel widens; collapsed rows get a tooltip, expanded rows don't. Expansion is bound to `focus` as well as hover, since hover-only navigation is unreachable by keyboard. Hover is only the *default*: a **Sidebar control** menu at the foot of the sidebar (`sidebar-control.tsx`) offers Expanded / Collapsed / Expand on hover, persisted under `sidebar-mode`. Pinned-expanded takes up layout space rather than overlaying, so it never covers what you are reading. The theme toggle moved out of the sidebar foot to the top bar beside the notification bell to make room for it. Active resolution is *longest* href match, because several items share a prefix (`/admin/completions` vs `/admin/completions/outstanding`). Breadcrumbs moved into the top bar.
+- ✅ Command palette (`cmdk`, one new dependency) over nav destinations plus admin companies/templates, fetched lazily on first open from existing endpoints — no new API routes.
+- ✅ ~57 hardcoded colour occurrences across 21 files replaced with semantic tokens; the four hand-rolled `bg-black/50` + `bg-white` modals had their scrims tokenised. `bg-white` deliberately survives in two places: the signature canvas (its trimmed PNG is embedded into the completion PDF) and the QR code (contrast must stay scannable) — both now carry a comment saying so.
+- ✅ New `page-header.tsx` / `empty-state.tsx` / `table-skeleton.tsx`; `PageHeader` rolled out across `admin/**` and `customer/**`, and `customer/welcome-header.tsx` now wraps it.
+
+**Verified:** `npm run checks` clean (865 tests), production build clean, and both themes walked in the browser across the customer and customer-admin routes.
+
+**Known follow-ups:**
+- ⏳ Back-link page headers (`admin/completions/[companyId]`, `[companyId]/[templateId]`, `admin/companies/[id]`) and the non-shell pages (`profile`, `privacy`, `scan`, `signoff/**`, `documents/error`) still carry their own `text-3xl font-bold` headings — `PageHeader` has no back-link slot yet.
+- ⏳ `EmptyState`/`TableSkeleton` exist but the ~14 bespoke tables still use their own colspan "Loading users..." rows and centred-paragraph empty states.
+- ⏳ **Dark default on kiosk sign-off** (`/signoff/**`) is untested on a bright shop floor, which was the original argument for a light default. If it reads badly, force light on that branch.
+- ⏳ Ctrl+K could not be confirmed end-to-end through browser automation (the synthetic keypress reached Chrome's omnibox rather than the page); the visible search button works, and the shortcut needs a manual check.
+- ⏳ The ~14 bespoke tables are still hand-rolled rather than sharing a `DataTable`; TanStack Table is installed but used only by the documents browser.
+
+Key files: `src/app/globals.css`, `src/app/layout.tsx`, `src/components/providers/theme-provider.tsx`, `src/components/app-shell.tsx`, `src/components/app-sidebar.tsx`, `src/components/command-palette.tsx`, `src/components/page-header.tsx`, `src/components/empty-state.tsx`, `src/components/table-skeleton.tsx`, `src/components/ui/` (button, badge, card, input, select, textarea, table, tabs, dialog, skeleton, command)
+
+---
+
 ---
 
 ## Document Model
