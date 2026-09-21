@@ -1,0 +1,54 @@
+name: Reset Dev Database
+
+# Manual, destructive: drops and recreates the dev schema, reapplies every
+# migration, then reseeds sample data + the Tenant Admin login. Dev-only —
+# hardcoded to the Development environment, never wired to a push trigger.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type RESET-DEV-DB to confirm you want to wipe the dev database
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  reset:
+    name: Reset and reseed dev database
+    runs-on: ubuntu-latest
+    environment: Development
+    steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "RESET-DEV-DB" ]; then
+            echo "Confirmation text did not match — aborting."
+            exit 1
+          fi
+
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Reset schema and reseed sample data
+        run: npx prisma migrate reset --force
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Seed Tenant Admin login
+        run: |
+          RANDOM_PW=$(openssl rand -base64 24)
+          echo "::add-mask::$RANDOM_PW"
+          node scripts/seed-admin.js "$RANDOM_PW" "Alan Henry"
+          echo "Tenant Admin created for $DEFAULT_ADMIN_EMAIL — use 'Forgot your password?' on the sign-in page to set your own password."
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DEFAULT_ADMIN_EMAIL: alandavidhenry@outlook.com
