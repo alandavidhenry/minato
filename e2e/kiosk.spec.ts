@@ -9,6 +9,13 @@ test.describe('Kiosk sign-off', () => {
     page,
     browser
   }) => {
+    // The sidebar defaults to "hover" mode, where the collapsed rail
+    // transiently widens and can intercept clicks on nearby table rows —
+    // pin it "collapsed" so it never overlays the page content.
+    await page.addInitScript(() => {
+      window.localStorage.setItem('sidebar-mode', 'collapsed')
+    })
+
     // Find a seeded company's id as the admin, then load its public,
     // unauthenticated kiosk sign-off page in a fresh browser context. The
     // kiosk only lists no-email workers (prisma/seed.ts gives every third
