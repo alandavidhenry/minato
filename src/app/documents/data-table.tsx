@@ -4,18 +4,16 @@
 import {
   ColumnDef,
   flexRender,
-  getCoreRowModel,
-  useReactTable,
-  getPaginationRowModel,
-  getFilteredRowModel,
+  RowData,
   RowSelectionState,
-  getSortedRowModel,
-  SortingState
+  SortingState,
+  useTable
 } from '@tanstack/react-table'
 import { Trash2 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 
+import { documentTableFeatures } from '@/app/documents/table-features'
 import { DeleteConfirmationModal } from '@/components/delete-confirmation-modal'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -30,17 +28,17 @@ import {
 import { toast } from '@/components/ui/use-toast'
 import { useMediaQuery } from '@/hooks/use-media-query'
 
-interface DataTableProps<TData, TValue> {
-  readonly columns: ColumnDef<TData, TValue>[]
+interface DataTableProps<TData extends RowData> {
+  readonly columns: ColumnDef<typeof documentTableFeatures, TData>[]
   readonly data: TData[]
   readonly readOnly?: boolean
 }
 
-export function DataTable<TData, TValue>({
+export function DataTable<TData extends RowData>({
   columns,
   data,
   readOnly = false
-}: DataTableProps<TData, TValue>) {
+}: DataTableProps<TData>) {
   const { data: session } = useSession()
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
@@ -56,13 +54,10 @@ export function DataTable<TData, TValue>({
     : columns
 
   // Get the table instance
-  const table = useReactTable({
+  const table = useTable({
+    features: documentTableFeatures,
     data,
     columns: visibleColumns,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     state: {
@@ -208,7 +203,7 @@ export function DataTable<TData, TValue>({
                     key={row.id}
                     data-state={row.getIsSelected() && 'selected'}
                   >
-                    {row.getVisibleCells().map((cell) => (
+                    {row.getAllCells().map((cell) => (
                       <TableCell key={cell.id}>
                         {flexRender(
                           cell.column.columnDef.cell,
@@ -236,13 +231,13 @@ export function DataTable<TData, TValue>({
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
                 const nameCell = row
-                  .getVisibleCells()
+                  .getAllCells()
                   .find((cell) => cell.column.id === 'name')
                 const versionCell = row
-                  .getVisibleCells()
+                  .getAllCells()
                   .find((cell) => cell.column.id === 'version')
                 const actionsCell = row
-                  .getVisibleCells()
+                  .getAllCells()
                   .find((cell) => cell.column.id === 'actions')
 
                 return (
@@ -281,7 +276,7 @@ export function DataTable<TData, TValue>({
                         {row.getValue('size')}
                       </div>
                       {row
-                        .getVisibleCells()
+                        .getAllCells()
                         .some((c) => c.column.id === 'type') && (
                         <div>
                           <span className='text-muted-foreground'>Type:</span>{' '}
