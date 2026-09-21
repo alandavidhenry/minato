@@ -3,6 +3,7 @@
 
 import { ColumnDef } from '@tanstack/react-table'
 
+import { documentTableFeatures } from '@/app/documents/table-features'
 import { Document } from '@/app/documents/types/document'
 import { Checkbox } from '@/components/ui/checkbox'
 import { SortArrows } from '@/components/ui/data-table/sort-arrows'
@@ -18,35 +19,36 @@ import { sortBySize } from './helpers/sort-helper'
 
 // Columns used at the root level — company folders only.
 // No selection, no actions, no type, no version.
-export const rootColumns: ColumnDef<Document>[] = [
-  {
-    accessorKey: 'name',
-    header: 'Name',
-    cell: ({ row }) => (
-      <DocumentNameCell
-        name={row.getValue('name')}
-        type='folder'
-        hasVersions={false}
-        isFolder={true}
-        path={row.original.path}
-      />
-    ),
-    enableSorting: true
-  },
-  {
-    accessorKey: 'uploadedAt',
-    header: 'Creation Date',
-    enableSorting: true
-  },
-  {
-    accessorKey: 'size',
-    header: 'Total Size',
-    enableSorting: true,
-    sortingFn: sortBySize
-  }
-]
+export const rootColumns: ColumnDef<typeof documentTableFeatures, Document>[] =
+  [
+    {
+      accessorKey: 'name',
+      header: 'Name',
+      cell: ({ row }) => (
+        <DocumentNameCell
+          name={row.getValue('name')}
+          type='folder'
+          hasVersions={false}
+          isFolder={true}
+          path={row.original.path}
+        />
+      ),
+      enableSorting: true
+    },
+    {
+      accessorKey: 'uploadedAt',
+      header: 'Creation Date',
+      enableSorting: true
+    },
+    {
+      accessorKey: 'size',
+      header: 'Total Size',
+      enableSorting: true,
+      sortFn: sortBySize
+    }
+  ]
 
-export const columns: ColumnDef<Document>[] = [
+export const columns: ColumnDef<typeof documentTableFeatures, Document>[] = [
   // Selection column
   {
     id: 'select',
@@ -68,8 +70,7 @@ export const columns: ColumnDef<Document>[] = [
         disabled={false}
       />
     ),
-    enableSorting: false,
-    enableHiding: false
+    enableSorting: false
   },
   // Document details columns
   {
@@ -135,7 +136,7 @@ export const columns: ColumnDef<Document>[] = [
       </div>
     ),
     enableSorting: true,
-    sortingFn: sortBySize
+    sortFn: sortBySize
   },
   {
     id: 'version',
