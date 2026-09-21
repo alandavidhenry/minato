@@ -192,8 +192,21 @@ describe('POST /api/auth/reset-password', () => {
     expect((await res.json()).error).toMatch(/invalid or expired/i)
   })
 
+  it('returns 400 when the token is valid but the user no longer exists', async () => {
+    mockPrisma.passwordReset.findUnique.mockResolvedValue(TOKEN_RECORD)
+    mockPrisma.user.findUnique.mockResolvedValue(null)
+    const req = jsonRequest('http://localhost/api/auth/reset-password', {
+      token: VALID_TOKEN,
+      password: 'newPassword1'
+    })
+    const res = await resetPassword(req)
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/invalid or expired/i)
+  })
+
   it('returns 200 and changes the password on success', async () => {
     mockPrisma.passwordReset.findUnique.mockResolvedValue(TOKEN_RECORD)
+    mockPrisma.user.findUnique.mockResolvedValue(BASE_USER)
     const req = jsonRequest('http://localhost/api/auth/reset-password', {
       token: VALID_TOKEN,
       password: 'newPassword1'
@@ -202,5 +215,9 @@ describe('POST /api/auth/reset-password', () => {
     expect(res.status).toBe(200)
     expect((await res.json()).success).toBe(true)
     expect(mockBcrypt.hash).toHaveBeenCalledWith('newPassword1', 10)
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: BASE_USER.id },
+      data: { passwordHash: '$newhashed' }
+    })
   })
 })

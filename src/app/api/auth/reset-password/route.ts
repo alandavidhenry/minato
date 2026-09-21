@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { deleteResetToken, validateResetToken } from '@/lib/password-reset'
-import { changePassword } from '@/lib/user-database'
+import { changePassword, getUserByEmail } from '@/lib/user-database'
 
 export async function POST(request: Request) {
   try {
@@ -29,7 +29,15 @@ export async function POST(request: Request) {
       )
     }
 
-    const success = await changePassword(email, password)
+    const user = await getUserByEmail(email)
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Invalid or expired reset link' },
+        { status: 400 }
+      )
+    }
+
+    const success = await changePassword(user.id, password)
     if (!success) {
       return NextResponse.json(
         { error: 'Failed to reset password' },
