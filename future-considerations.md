@@ -691,7 +691,7 @@ Add a `tenantId` foreign key to every table. All queries are scoped by `tenantId
 ## Testing Strategy
 
 ### Current state
-Vitest is configured. Unit and integration tests are in place. E2E tests are not yet written.
+Vitest is configured. Unit and integration tests are in place. Playwright E2E tests cover the core user journeys (see below) and run in CI.
 
 **Stack:**
 
@@ -699,7 +699,7 @@ Vitest is configured. Unit and integration tests are in place. E2E tests are not
 |---|---|---|
 | Unit | Vitest | Done — full coverage of `src/lib/` and `src/lib/file-system/` |
 | Integration | Vitest (direct route handler calls) | Done — health, admin user CRUD, forgot/reset password, all document routes |
-| E2E | Playwright | Not yet started |
+| E2E | Playwright | Done — sign-in (valid/invalid/unauthenticated redirects), Admin dashboard + sidebar nav + company list, Customer/Customer Admin landing pages, public kiosk sign-off; runs in CI via `.github/workflows/playwright.yml` |
 | Coverage | Vitest built-in (`v8`) | Configured |
 
 **Integration tests cover all document routes** (`src/app/api/__tests__/documents.test.ts`): upload, download, delete, move, rename, share, versions — auth checks, validation, success paths, and failure paths for each.
@@ -715,7 +715,7 @@ This works well and catches design problems early. Always request tests before i
 **Test discipline (non-negotiable):** update existing tests whenever code changes; write new tests whenever new code is added.
 
 ### What remains
-- **E2E tests (Playwright)** — sign in, view documents, admin manages users. Add once the document model is more stable, as UI tests are brittle against layout changes. Add Playwright step to CI after the suite exists.
+- **More E2E coverage** — the initial `e2e/` suite covers sign-in, admin navigation, and the customer/kiosk landing pages. Document upload/versioning, assignment creation, and the full sign-off flow (comprehension questions + signature) are still only covered at the integration (Vitest) level — add E2E coverage for these once the UI settles further, since UI tests are brittle against layout changes.
 
 ### Coverage target
 High coverage on `src/lib/` (>90%) and critical API routes. E2E coverage of the five to ten most important user journeys. Do not chase 100% coverage at the expense of test quality.
@@ -748,21 +748,20 @@ High coverage on `src/lib/` (>90%) and critical API routes. E2E coverage of the 
 ## Deployment Pipeline
 
 ### Current state
-GitHub Actions: lint → security scan → Docker build/push → Azure deploy → release. Triggered on `main` (prod) and `dev` (dev environment) branches.
+GitHub Actions: lint → security scan → Playwright E2E → Docker build/push → Azure deploy → release. Triggered on `main` (prod) and `dev` (dev environment) branches.
 
 ### Current state
-Lint, format check, type check, and all Vitest tests (unit + integration) run on every PR and release via `lint-format.yml`.
+Lint, format check, type check, and all Vitest tests (unit + integration) run on every PR and release via `lint-format.yml`. Playwright E2E tests run via `playwright.yml` on every PR and release too.
 
 ### Gaps to address
-- No E2E tests in the pipeline — add a Playwright step after the Docker build once E2E tests exist
 - No staging environment — consider adding a `staging` branch/environment between `dev` and `main`
 - No database migration step — ✅ Done. `prisma migrate deploy` runs in `azure-deploy.yml` before the App Service deploy step, using `DATABASE_URL` from GitHub environment secrets.
 - No smoke test after deployment — ✅ Done. `GET /api/health/deep` with 12 retries × 15s runs in `azure-deploy.yml` after the App Service deploy step. `GET /api/health` (Azure's continuous health-monitor path) was split off as a dependency-free liveness check after continuous DB pings on the combined route were found to be a likely driver of exceeding Neon's free-tier compute-hour quota — see git history around 2026-07-20.
 
 ### Recommended pipeline order (target state)
 1. Lint + format check + type check + unit/integration tests (`npm run checks`) ✓ done
-2. Docker build + push
-3. E2E tests against the built app (Playwright) — not yet
+2. E2E tests against a built+started app (Playwright) ✓ done — `playwright.yml`, runs before the Docker build
+3. Docker build + push
 4. Database migration (`prisma migrate deploy`) ✓ done — runs in `azure-deploy.yml` before deploy
 5. Azure deploy
 6. Post-deploy smoke test ✓ done — runs in `azure-deploy.yml` after deploy

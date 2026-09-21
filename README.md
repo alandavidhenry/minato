@@ -148,6 +148,8 @@ npm run checks       # Lint + format check + TypeScript + tests (full quality ga
 npm test             # Run all tests
 npm run test:watch   # Run tests in watch mode
 npm run test:coverage # Run tests with coverage report
+npm run test:e2e     # Run Playwright end-to-end tests
+npm run test:e2e:ui  # Run Playwright tests in UI mode
 npm run docker:up    # Start local Postgres, Azurite and Gotenberg
 npm run docker:down  # Stop them
 npm run docker:logs  # Tail their logs
@@ -179,6 +181,25 @@ npm run test:coverage     # Generate coverage report (output in coverage/)
 
 All tests run in CI on every PR and release — no Azure credentials or running services are needed.
 
+### End-to-end tests (Playwright)
+
+`e2e/` covers the core user journeys against a real running app — sign-in (valid/invalid credentials, unauthenticated redirects), the Admin portal (dashboard KPIs, sidebar navigation, company list), Customer/Customer Admin landing pages, and the public kiosk sign-off page. Unlike the Vitest suite, these need `npm run docker:up` (Postgres, Azurite, Gotenberg), a migrated + seeded database, and the app running.
+
+```bash
+npm run docker:up
+npx prisma migrate deploy
+node scripts/create-storage-container.js
+node scripts/seed-admin.js <password> "Your Name"   # tenant admin — see .env.local's DEFAULT_ADMIN_EMAIL
+npm run db:seed                                     # sample companies/templates/assignments
+npm run dev                                         # or: npm run build && npm run start
+
+E2E_ADMIN_EMAIL=<your_admin_email> E2E_ADMIN_PASSWORD=<password> npm run test:e2e
+```
+
+The Customer Admin/User accounts (`E2E_CUSTOMER_ADMIN_EMAIL`/`E2E_CUSTOMER_USER_EMAIL`/`E2E_CUSTOMER_PASSWORD`) default to `prisma/seed.ts`'s deterministic seed values, so they only need overriding if you seeded with a custom `SEED_PASSWORD`. See `e2e/credentials.ts` for the full list of env vars.
+
+In CI (`.github/workflows/playwright.yml`), Postgres and Gotenberg run as service containers, Azurite is started directly (so `--skipApiVersionCheck` can be passed), and the app is built and started before Playwright runs against it — no `.env.local` needed there.
+
 ## Email (Password Reset)
 
 Transactional email is handled by [Azure Communication Services (Email)](https://azure.microsoft.com/en-us/products/communication-services). An Azure-managed sending domain (`DoNotReply@<uuid>.azurecomm.net`) is provisioned automatically by Terraform — no custom domain ownership or DNS setup required. Free tier: 100 emails/day.
@@ -189,9 +210,11 @@ The ACS resources are defined in `infrastructure/modules/communication_service/`
 
 | Trigger | Workflow | What happens |
 |---|---|---|
-| PR opened/updated → `main` | `pr-check.yml` | Lint, security scan, Docker build (no push) |
-| Merge to `main` | `dev-deploy.yml` | Lint, security scan, build+push, DB migrate, deploy to dev, smoke test |
-| Release published in GitHub UI | `prod-deploy.yml` | Build+push, DB migrate, deploy to prod, smoke test |
+| PR opened/updated → `main` | `pr-check.yml` | Lint, security scan, Playwright E2E, Docker build (no push) |
+| Merge to `main` | `dev-deploy.yml` | Lint, security scan, Playwright E2E, build+push, DB migrate, deploy to dev, smoke test |
+| Release published in GitHub UI | `prod-deploy.yml` | Lint, Playwright E2E, build+push, DB migrate, deploy to prod, smoke test |
+
+`playwright.yml` (called by all three) spins up Postgres/Azurite/Gotenberg, migrates and seeds a throwaway database, builds and starts the app, and runs the `e2e/` suite against it.
 
 The smoke test polls `GET /api/health/deep` (up to 12 × 15 s = 3 min) and fails the deployment if the app does not return `{ "status": "ok" }`. That route checks both the PostgreSQL database and Azure Blob Storage. `GET /api/health` (the path Azure App Service's built-in health monitor pings continuously) is a plain liveness check with no dependency calls — it stays cheap on purpose so it doesn't keep the Neon compute endpoint awake around the clock and defeat autosuspend.
 

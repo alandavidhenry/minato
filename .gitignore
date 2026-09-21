@@ -12,6 +12,10 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
+/playwright/.auth
+/blob-report
 
 # next.js
 /.next/
@@ -31,6 +35,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env
+.env.azure
 .env.local
 .env.production
 
@@ -68,3 +73,4 @@ github_pat.txt
 dev-credentials.txt
 .VSCodeCounter
 /src/generated/prisma
+example_docs
