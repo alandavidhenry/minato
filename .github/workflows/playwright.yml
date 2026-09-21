@@ -1,0 +1,134 @@
+name: Playwright E2E
+
+on:
+  workflow_call:
+    inputs:
+      fail_on_error:
+        description: Whether to fail the workflow if tests fail
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: minato
+          POSTGRES_PASSWORD: minato
+          POSTGRES_DB: minato
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U minato -d minato"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      gotenberg:
+        image: gotenberg/gotenberg:8
+        ports:
+          - 3001:3000
+
+    env:
+      AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;
+      AZURE_STORAGE_CONTAINER_NAME: documents
+      USE_AZURITE: 'true'
+      NEXTAUTH_SECRET: playwright-ci-secret
+      NEXTAUTH_URL: http://localhost:3000
+      DEFAULT_ADMIN_EMAIL: admin@e2e.example.com
+      DATABASE_URL: postgresql://minato:minato@localhost:5432/minato
+      GOTENBERG_URL: http://localhost:3001
+      CRON_SECRET: playwright-ci-cron-secret
+      E2E_ADMIN_EMAIL: admin@e2e.example.com
+      E2E_ADMIN_PASSWORD: playwright-admin-password
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Start Azurite
+        # Run directly (rather than as a `services:` container) since that
+        # API only forwards docker options, not a custom command — and
+        # --skipApiVersionCheck is required: the @azure SDK versions this
+        # project pins send an x-ms-version newer than Azurite recognizes
+        # without it (see docker-compose.yml).
+        run: |
+          docker run -d --name azurite \
+            -p 10000:10000 -p 10001:10001 -p 10002:10002 \
+            mcr.microsoft.com/azure-storage/azurite \
+            azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck --silent
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run database migrations
+        run: npx prisma migrate deploy
+
+      - name: Create the storage container
+        run: node scripts/create-storage-container.js
+
+      - name: Seed the tenant admin
+        run: node scripts/seed-admin.js "$E2E_ADMIN_PASSWORD" "E2E Admin"
+
+      - name: Seed sample companies, templates and assignments
+        run: npm run db:seed -- "$SEED_PASSWORD"
+        env:
+          SEED_PASSWORD: playwright-seed-password
+
+      - name: Build the app
+        run: npm run build
+
+      - name: Start the app
+        run: nohup npm run start > app.log 2>&1 &
+
+      - name: Wait for the app to be ready
+        run: |
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:3000/api/health > /dev/null; then
+              echo "App is up after $i attempt(s)"
+              exit 0
+            fi
+            echo "Attempt $i: not ready yet — retrying in 3s..."
+            sleep 3
+          done
+          echo "App did not become ready in time"
+          exit 1
+
+      - name: Show app logs on failure
+        if: failure()
+        run: cat app.log
+
+      - name: Run Playwright tests
+        run: npm run test:e2e
+        env:
+          E2E_CUSTOMER_PASSWORD: playwright-seed-password
+        continue-on-error: ${{ !inputs.fail_on_error }}
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

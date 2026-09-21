@@ -15,9 +15,11 @@ npm run checks       # Run lint + format check + TypeScript type check + tests
 npm test             # Run all tests (unit + integration)
 npm run test:watch   # Run tests in watch mode
 npm run test:coverage # Run tests with coverage report
+npm run test:e2e     # Run Playwright E2E tests (needs docker:up + a migrated/seeded DB + the app running)
+npm run test:e2e:ui  # Run Playwright tests in UI mode
 ```
 
-`npm run checks` is the full quality gate — run it before committing.
+`npm run checks` is the full quality gate — run it before committing. `npm run test:e2e` is not part of `checks` (it needs external services running) — see `README.md`'s "End-to-end tests" section for setup.
 
 ## Architecture
 
@@ -130,7 +132,7 @@ AI_FOUNDRY_API_VERSION=   # optional; defaults to 2024-10-21 if unset
 
 Docker → GitHub Container Registry (ghcr.io) → Azure App Service.
 
-CI/CD via GitHub Actions (`main` branch → dev, release → prod). Deploy order: lint → security scan → Docker build/push → **`prisma migrate deploy`** → Azure App Service deploy → **smoke test** (`GET /api/health/deep` with 12 retries × 15 s). `DATABASE_URL` must be set as a GitHub environment secret (`dev` and `prod` environments).
+CI/CD via GitHub Actions (`main` branch → dev, release → prod). Deploy order: lint → security scan → **Playwright E2E** (`.github/workflows/playwright.yml`, called from `pr-check.yml`/`dev-deploy.yml`/`prod-deploy.yml` — spins up Postgres/Azurite/Gotenberg, migrates + seeds a throwaway DB, builds and starts the app, runs `e2e/` against it) → Docker build/push → **`prisma migrate deploy`** → Azure App Service deploy → **smoke test** (`GET /api/health/deep` with 12 retries × 15 s). `DATABASE_URL` must be set as a GitHub environment secret (`dev` and `prod` environments).
 
 **Health checks are split in two** (`src/app/api/health/route.ts` vs `src/app/api/health/deep/route.ts`): `GET /api/health` is a plain liveness check (no DB/storage calls) — it's the path Azure App Service's built-in health monitor (`health_check_path`, `infrastructure/modules/app_service/`) pings continuously (~every 60 s, for the app's whole lifetime), and a real Neon query on every ping would keep the compute endpoint awake around the clock and defeat autosuspend, burning through Neon's free-tier compute-hour quota in days. `GET /api/health/deep` runs the real DB (`SELECT 1`) + Blob Storage (`getProperties`) checks and is used only by the CI/CD smoke test, which needs to verify actual dependency health after a deploy.
 
@@ -210,7 +212,7 @@ Core document model:
   - Signature pad: `signature.ts` (`isValidSignatureDataUrl` — PNG data URL format + size-limit validation) unit tests; `completion-pdf.tsx` test covers embedding a signature image and rendering without one; both completion routes (`customer/assignments/[id]/complete`, `signoff/[companyId]/[assignmentId]`) require `signatureDataUrl` (400 when missing/invalid) and pass it through to `generateCompletionPDF`
   - Dashboard drill-downs and template categories (P20): `dashboard.ts` (`getDashboardKPIs` — Monday-start `completedThisWeek` window including the Sunday-rollback edge case, calendar-month `completedThisMonth`, unit-tested directly against mocked Prisma for the first time); `GET /api/admin/dashboard/stats` extended for the new `completedThisWeek` field; `getAllAssignmentsForAdmin` (`src/lib/assignments.ts` — unscoped, unfiltered, mirrors the KPI's raw `assignment.count()`) + `GET /api/admin/assignments`; `GET /api/admin/completions/history` (thin wrapper over the existing unfiltered `getAllCompletionsForAdmin`, no lib changes needed); `document-templates.ts`'s `category` field threaded through create/update/publish (including the `TemplateVersionHistory` snapshot, editable at publish time like `title`/`description`) and both admin + customer-admin template routes (create passthrough, publish-version passthrough)
   - LLM-generated comprehension questions: `storage.ts` (`downloadBlob`); `document-text-extraction.ts` (`extractTextFromPdfBuffer` — mocked `pdfjs-dist/legacy/build/pdf.mjs`, page/character truncation, parse-failure error); `comprehension-question-source.ts` (`getTemplateSourceText` — form-template field-label concatenation with `section` fields excluded, upload-template PDF extraction, missing-blob-path and too-short-extracted-text errors); `comprehension-question-generation.ts` (`generateComprehensionQuestions` — mocked `fetch` against the Azure AI Foundry chat-completions endpoint, missing-env-var guard, invalid-answer/duplicate-option filtering, all-invalid and non-JSON/non-ok-response error paths); `POST /api/admin/templates/[id]/generate-questions` (auth, 404, 400 on source-text failure, 500 on generation failure, success returning the suggested questions) — admin-portal-only, nothing is persisted by this route
-- E2E: not yet started
+- E2E: Playwright (`e2e/`) — `auth.setup.ts` signs in as a seeded Tenant Admin, Customer Admin and Customer User (storage state reused by dependent tests, per `e2e/credentials.ts`); `sign-in.spec.ts` (invalid credentials, `/customer/**` unauthenticated → sign-in via `src/proxy.ts`, `/admin` unauthenticated → `/unauthorized` via client-side `AdminPageGuard`); `admin.spec.ts` (dashboard KPIs, sidebar navigation to Companies/Templates/Users, seeded company list); `customer.spec.ts` (Customer User documents page, Customer Admin completions page); `kiosk.spec.ts` (public `/signoff/[companyId]` — finds a seeded company with a no-email worker as the admin, then loads the kiosk page unauthenticated in a fresh browser context). Runs against a real built-and-started app with a migrated/seeded database — not part of `npm run checks`; see `README.md` for local setup and `.github/workflows/playwright.yml` for the CI equivalent.
 
 **TDD workflow:** define interface types → write tests → implement to pass tests. Always request tests before implementation. Target >90% coverage on `src/lib/`.
 

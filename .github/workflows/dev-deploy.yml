@@ -6,6 +6,9 @@ on:
     paths:
       - src/**
       - public/**
+      - e2e/**
+      - playwright.config.ts
+      - prisma/**
       - package.json
       - package-lock.json
       - next.config.mjs
@@ -29,9 +32,13 @@ jobs:
     name: Security Scan
     uses: ./.github/workflows/security-scan.yml
 
+  e2e:
+    name: Playwright E2E
+    uses: ./.github/workflows/playwright.yml
+
   setup:
     name: Extract Version
-    needs: [lint_and_test, security_scan]
+    needs: [lint_and_test, security_scan, e2e]
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
