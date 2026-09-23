@@ -5,9 +5,11 @@ import { Download, Eye, FileCheck, QrCode, Share2 } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
 import { QrCodeModal } from '@/components/qr-code-modal'
 import { ShareModal } from '@/components/share-modal'
+import { TableSkeleton } from '@/components/table-skeleton'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -162,12 +164,16 @@ export default function CompletedFormsPage() {
       />
 
       {isLoading ? (
-        <div className='flex items-center justify-center h-64'>
-          <p className='text-muted-foreground'>Loading completed forms...</p>
+        <div className='rounded-md border'>
+          <Table>
+            <TableBody>
+              <TableSkeleton columns={3} />
+            </TableBody>
+          </Table>
         </div>
       ) : grouped.length === 0 ? (
-        <div className='flex items-center justify-center h-64'>
-          <p className='text-muted-foreground'>No completed forms yet.</p>
+        <div className='rounded-md border'>
+          <EmptyState title='No completed forms yet' />
         </div>
       ) : (
         <div className='rounded-md border'>

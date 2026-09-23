@@ -5,7 +5,9 @@ import { AlertTriangle, Building2 } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
+import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -52,20 +54,14 @@ export default function CompletionsPage() {
 
   function renderRows() {
     if (isLoading) {
-      return (
-        <TableRow>
-          <TableCell colSpan={2} className='h-24 text-center'>
-            Loading...
-          </TableCell>
-        </TableRow>
-      )
+      return <TableSkeleton columns={2} />
     }
 
     if (companies.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={2} className='h-24 text-center'>
-            No completions yet.
+          <TableCell colSpan={2} className='p-0'>
+            <EmptyState title='No completions yet' />
           </TableCell>
         </TableRow>
       )

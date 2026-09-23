@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { CustomerAdminPageGuard } from '@/components/auth/permission-guard'
 import { WelcomeHeader } from '@/components/customer/welcome-header'
+import { EmptyState } from '@/components/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -261,13 +262,14 @@ function TeamCompletionsContent() {
           <p className='text-muted-foreground'>Loading...</p>
         </div>
       ) : filtered.length === 0 ? (
-        <div className='flex items-center justify-center h-64'>
-          <p className='text-muted-foreground'>
-            {groups.length === 0
-              ? 'No assignments yet.'
-              : 'No results match your filters.'}
-          </p>
-        </div>
+        <EmptyState
+          className='h-64'
+          title={
+            groups.length === 0
+              ? 'No assignments yet'
+              : 'No results match your filters'
+          }
+        />
       ) : (
         <div className='rounded-md border'>
           <Table>

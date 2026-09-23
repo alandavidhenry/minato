@@ -8,6 +8,7 @@ import { useSession } from 'next-auth/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { FormFieldRenderer } from '@/components/form-field-renderer'
+import { PageHeader } from '@/components/page-header'
 import { useBreadcrumbLabel } from '@/components/providers/breadcrumb-provider'
 import { SignaturePad } from '@/components/signature-pad'
 import { Button } from '@/components/ui/button'
@@ -318,14 +319,12 @@ export default function CompleteDocumentPage() {
 
   return (
     <div className='max-w-2xl mx-auto space-y-6 p-6'>
-      <div>
-        <h1 className='text-3xl font-bold'>{assignment.template.title}</h1>
-        {assignment.template.description && (
-          <p className='mt-1 text-muted-foreground'>
-            {assignment.template.description}
-          </p>
-        )}
-      </div>
+      <PageHeader
+        title={assignment.template.title}
+        description={assignment.template.description}
+        backHref='/customer/documents'
+        backLabel='Back to Documents'
+      />
 
       <form onSubmit={handleSubmit} className='space-y-6'>
         {assignment.template.sourceType === 'upload' ? (

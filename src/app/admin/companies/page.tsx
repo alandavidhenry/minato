@@ -7,7 +7,9 @@ import { useEffect, useState } from 'react'
 
 import { CreateCompanyDialog } from '@/components/admin/create-company-dialog'
 import { EditCompanyDialog } from '@/components/admin/edit-company-dialog'
+import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
+import { TableSkeleton } from '@/components/table-skeleton'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -98,20 +100,17 @@ export default function CompaniesPage() {
 
   function renderRows() {
     if (isLoading) {
-      return (
-        <TableRow>
-          <TableCell colSpan={3} className='h-24 text-center'>
-            Loading companies...
-          </TableCell>
-        </TableRow>
-      )
+      return <TableSkeleton columns={3} />
     }
 
     if (companies.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={3} className='h-24 text-center'>
-            No companies yet. Add your first client company.
+          <TableCell colSpan={3} className='p-0'>
+            <EmptyState
+              title='No companies yet'
+              description='Add your first client company.'
+            />
           </TableCell>
         </TableRow>
       )

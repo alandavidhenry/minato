@@ -6,6 +6,9 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
+import { PageHeader } from '@/components/page-header'
+import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SortArrows } from '@/components/ui/data-table/sort-arrows'
@@ -312,29 +315,31 @@ function OutstandingCompletionsContent() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex flex-wrap items-center justify-between gap-4'>
-        <h1 className='text-3xl font-bold'>Outstanding Completions</h1>
-        <div className='flex gap-2'>
-          <Button
-            variant='outline'
-            onClick={() => exportToCsv(filteredAndSorted)}
-            disabled={isLoading || filteredAndSorted.length === 0}
-          >
-            <Download className='mr-2 h-4 w-4' />
-            Export CSV
-          </Button>
-          <Button
-            variant='outline'
-            onClick={handleExportXlsx}
-            disabled={
-              isLoading || filteredAndSorted.length === 0 || isExportingXlsx
-            }
-          >
-            <FileSpreadsheet className='mr-2 h-4 w-4' />
-            {isExportingXlsx ? 'Exporting…' : 'Export XLSX'}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title='Outstanding Completions'
+        actions={
+          <>
+            <Button
+              variant='outline'
+              onClick={() => exportToCsv(filteredAndSorted)}
+              disabled={isLoading || filteredAndSorted.length === 0}
+            >
+              <Download className='mr-2 h-4 w-4' />
+              Export CSV
+            </Button>
+            <Button
+              variant='outline'
+              onClick={handleExportXlsx}
+              disabled={
+                isLoading || filteredAndSorted.length === 0 || isExportingXlsx
+              }
+            >
+              <FileSpreadsheet className='mr-2 h-4 w-4' />
+              {isExportingXlsx ? 'Exporting…' : 'Export XLSX'}
+            </Button>
+          </>
+        }
+      />
 
       {/* Filters */}
       <div className='flex flex-wrap items-center gap-4'>
@@ -448,17 +453,22 @@ function OutstandingCompletionsContent() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7} className='h-24 text-center'>
-                  Loading...
-                </TableCell>
-              </TableRow>
+              <TableSkeleton columns={7} />
             ) : filteredAndSorted.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className='h-24 text-center'>
-                  {rows.length === 0
-                    ? 'No outstanding completions. Everything is up to date.'
-                    : 'No results match your filters.'}
+                <TableCell colSpan={7} className='p-0'>
+                  <EmptyState
+                    title={
+                      rows.length === 0
+                        ? 'No outstanding completions'
+                        : 'No results match your filters'
+                    }
+                    description={
+                      rows.length === 0
+                        ? 'Everything is up to date.'
+                        : undefined
+                    }
+                  />
                 </TableCell>
               </TableRow>
             ) : (
@@ -508,7 +518,9 @@ function OutstandingCompletionsContent() {
 
 export default function OutstandingCompletionsPage() {
   return (
-    <Suspense fallback={<div className='text-3xl font-bold'>Loading...</div>}>
+    <Suspense
+      fallback={<p className='text-sm text-muted-foreground'>Loading...</p>}
+    >
       <OutstandingCompletionsContent />
     </Suspense>
   )

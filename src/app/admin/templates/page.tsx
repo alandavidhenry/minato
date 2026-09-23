@@ -18,7 +18,9 @@ import { CreateTemplateDialog } from '@/components/admin/create-template-dialog'
 import { EditTemplateDialog } from '@/components/admin/edit-template-dialog'
 import { PublishVersionDialog } from '@/components/admin/publish-version-dialog'
 import { ViewTemplateDialog } from '@/components/admin/view-template-dialog'
+import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
+import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -336,27 +338,22 @@ export default function TemplatesPage() {
         <div className='rounded-md border'>
           <Table>
             <TableBody>
-              <TableRow>
-                <TableCell colSpan={3} className='h-24 text-center'>
-                  Loading templates...
-                </TableCell>
-              </TableRow>
+              <TableSkeleton columns={3} />
             </TableBody>
           </Table>
         </div>
       ) : groups.length === 0 ? (
         <div className='rounded-md border'>
-          <Table>
-            <TableBody>
-              <TableRow>
-                <TableCell colSpan={3} className='h-24 text-center'>
-                  {templates.length === 0
-                    ? 'No templates yet. Create your first document template.'
-                    : 'No templates found.'}
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+          <EmptyState
+            title={
+              templates.length === 0 ? 'No templates yet' : 'No templates found'
+            }
+            description={
+              templates.length === 0
+                ? 'Create your first document template.'
+                : undefined
+            }
+          />
         </div>
       ) : (
         <div className='space-y-3'>{groups.map(renderGroup)}</div>

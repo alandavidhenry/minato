@@ -3,7 +3,6 @@
 
 import {
   AlertCircle,
-  ArrowLeft,
   CheckCircle2,
   Clock,
   Download,
@@ -11,11 +10,13 @@ import {
   Trash2
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
-import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
+import { PageHeader } from '@/components/page-header'
 import { useBreadcrumbLabel } from '@/components/providers/breadcrumb-provider'
+import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -275,23 +276,14 @@ export default function TemplateCompletionsPage() {
 
   function renderCompletionRows() {
     if (isLoading) {
-      return (
-        <TableRow>
-          <TableCell colSpan={5} className='h-24 text-center'>
-            Loading...
-          </TableCell>
-        </TableRow>
-      )
+      return <TableSkeleton columns={5} />
     }
 
     if (completions.length === 0) {
       return (
         <TableRow>
-          <TableCell
-            colSpan={5}
-            className='h-12 text-center text-muted-foreground'
-          >
-            No completions yet.
+          <TableCell colSpan={5} className='p-0'>
+            <EmptyState title='No completions yet' />
           </TableCell>
         </TableRow>
       )
@@ -371,18 +363,13 @@ export default function TemplateCompletionsPage() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center gap-4'>
-        <Link
-          href={`/admin/completions/${companyId}`}
-          className='flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'
-        >
-          <ArrowLeft className='h-4 w-4' />
-          {companyName || 'Back'}
-        </Link>
-        <h1 className='text-3xl font-bold'>{templateTitle || '...'}</h1>
-        {dueDate && (
-          <div className='flex items-center gap-2'>
-            {isOverdue ? (
+      <PageHeader
+        title={templateTitle || '...'}
+        backHref={`/admin/completions/${companyId}`}
+        backLabel={companyName || 'Back'}
+        actions={
+          dueDate ? (
+            isOverdue ? (
               <Badge variant='destructive' className='gap-1'>
                 <AlertCircle className='h-3 w-3' />
                 Overdue —{' '}
@@ -402,10 +389,10 @@ export default function TemplateCompletionsPage() {
                   year: 'numeric'
                 })}
               </Badge>
-            )}
-          </div>
-        )}
-      </div>
+            )
+          ) : undefined
+        }
+      />
 
       {selected.size > 0 && (
         <div className='flex items-center gap-3'>

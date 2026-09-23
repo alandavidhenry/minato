@@ -7,7 +7,9 @@ import { useEffect, useState } from 'react'
 import { CreateTemplateDialog } from '@/components/admin/create-template-dialog'
 import { EditTemplateDialog } from '@/components/admin/edit-template-dialog'
 import { AssignCompanyTemplateDialog } from '@/components/customer/assign-company-template-dialog'
+import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
+import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -130,20 +132,17 @@ export default function CompanyTemplatesPage() {
 
   function renderRows() {
     if (isLoading) {
-      return (
-        <TableRow>
-          <TableCell colSpan={3} className='h-24 text-center'>
-            Loading templates...
-          </TableCell>
-        </TableRow>
-      )
+      return <TableSkeleton columns={3} />
     }
 
     if (templates.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={3} className='h-24 text-center'>
-            No company templates yet. Create your first internal form.
+          <TableCell colSpan={3} className='p-0'>
+            <EmptyState
+              title='No company templates yet'
+              description='Create your first internal form.'
+            />
           </TableCell>
         </TableRow>
       )

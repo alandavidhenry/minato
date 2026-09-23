@@ -1,4 +1,6 @@
 // src/app/privacy/page.tsx
+import { PageHeader } from '@/components/page-header'
+
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -8,10 +10,7 @@ export const metadata: Metadata = {
 export default function PrivacyPolicy() {
   return (
     <div className='max-w-3xl mx-auto space-y-8 py-8'>
-      <div>
-        <h1 className='text-3xl font-bold'>Privacy Policy</h1>
-        <p className='mt-2 text-muted-foreground'>Last updated: May 2026</p>
-      </div>
+      <PageHeader title='Privacy Policy' description='Last updated: May 2026' />
 
       <section className='space-y-3'>
         <h2 className='text-xl font-semibold'>1. Who we are</h2>
