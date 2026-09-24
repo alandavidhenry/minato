@@ -4,6 +4,8 @@ import { Download, Eye, FileUp, Search } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { ComplianceDashboard } from '@/components/admin/ComplianceDashboard'
+import { EmptyState } from '@/components/empty-state'
+import { PageHeader } from '@/components/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -182,7 +184,7 @@ export default function ActivityLogsPage() {
   if (isLoading) {
     return (
       <div className='space-y-6'>
-        <h1 className='text-3xl font-bold'>Activity Logs</h1>
+        <PageHeader title='Activity Logs' />
         <div className='flex items-center justify-center p-8'>
           <div className='h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent'></div>
         </div>
@@ -192,7 +194,7 @@ export default function ActivityLogsPage() {
 
   return (
     <div className='space-y-6'>
-      <h1 className='text-3xl font-bold'>Activity Logs</h1>
+      <PageHeader title='Activity Logs' />
 
       {/* Compliance dashboard */}
       <ComplianceDashboard />
@@ -289,8 +291,8 @@ export default function ActivityLogsPage() {
           <TableBody>
             {filteredLogs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className='h-24 text-center'>
-                  No activity logs found.
+                <TableCell colSpan={4} className='p-0'>
+                  <EmptyState title='No activity logs found' />
                 </TableCell>
               </TableRow>
             ) : (

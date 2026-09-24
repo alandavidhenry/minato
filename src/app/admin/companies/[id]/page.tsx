@@ -9,6 +9,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { AssignTemplateDialog } from '@/components/admin/assign-template-dialog'
 import { AssignToUserDialog } from '@/components/admin/assign-to-user-dialog'
 import { EditCompanyDialog } from '@/components/admin/edit-company-dialog'
+import { EmptyState } from '@/components/empty-state'
+import { PageHeader } from '@/components/page-header'
 import { useBreadcrumbLabel } from '@/components/providers/breadcrumb-provider'
 import { QrCodeModal } from '@/components/qr-code-modal'
 import { Badge } from '@/components/ui/badge'
@@ -238,23 +240,20 @@ export default function CompanyDetailPage() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center gap-4'>
-        <Link
-          href='/admin/companies'
-          className='flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'
-        >
-          <ArrowLeft className='h-4 w-4' />
-          Back
-        </Link>
-        <h1 className='text-3xl font-bold'>{company.name}</h1>
-        <Button
-          variant='ghost'
-          size='sm'
-          onClick={() => setShowEditDialog(true)}
-        >
-          <Pencil className='h-4 w-4' />
-        </Button>
-      </div>
+      <PageHeader
+        title={company.name}
+        backHref='/admin/companies'
+        backLabel='Back to Companies'
+        actions={
+          <Button
+            variant='ghost'
+            size='sm'
+            onClick={() => setShowEditDialog(true)}
+          >
+            <Pencil className='h-4 w-4' />
+          </Button>
+        }
+      />
 
       {/* Kiosk sign-off link */}
       <div className='rounded-md border p-4 space-y-2'>
@@ -313,9 +312,11 @@ export default function CompanyDetailPage() {
             <TableBody>
               {assignments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className='h-24 text-center'>
-                    No templates assigned yet. Click &quot;Assign Template&quot;
-                    to get started.
+                  <TableCell colSpan={7} className='p-0'>
+                    <EmptyState
+                      title='No templates assigned yet'
+                      description='Click "Assign Template" to get started.'
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -392,16 +393,10 @@ export default function CompanyDetailPage() {
 
         {usersWithIndividualAssignments.length === 0 ? (
           <div className='rounded-md border'>
-            <Table>
-              <TableBody>
-                <TableRow>
-                  <TableCell className='h-24 text-center text-muted-foreground'>
-                    No individual assignments yet. Use &quot;Assign to
-                    User&quot; to give specific users extra templates.
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+            <EmptyState
+              title='No individual assignments yet'
+              description='Use "Assign to User" to give specific users extra templates.'
+            />
           </div>
         ) : (
           <div className='space-y-4'>

@@ -15,6 +15,7 @@ import { useState } from 'react'
 
 import { documentTableFeatures } from '@/app/documents/table-features'
 import { DeleteConfirmationModal } from '@/components/delete-confirmation-modal'
+import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -215,11 +216,8 @@ export function DataTable<TData extends RowData>({
                 ))
               ) : (
                 <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className='h-24 text-center'
-                  >
-                    No documents found.
+                  <TableCell colSpan={columns.length} className='p-0'>
+                    <EmptyState title='No documents found' />
                   </TableCell>
                 </TableRow>
               )}

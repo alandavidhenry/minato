@@ -3,6 +3,7 @@
 
 import { useEffect } from 'react'
 
+import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 
 export default function Error({
@@ -18,10 +19,10 @@ export default function Error({
 
   return (
     <div className='grid gap-4'>
-      <h1 className='text-3xl font-bold'>Something went wrong!</h1>
-      <p className='text-muted-foreground'>
-        Failed to load documents. Please try again.
-      </p>
+      <PageHeader
+        title='Something went wrong!'
+        description='Failed to load documents. Please try again.'
+      />
       <div>
         <Button onClick={() => reset()}>Try again</Button>
       </div>

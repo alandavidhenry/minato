@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 import { WelcomeHeader } from '@/components/customer/welcome-header'
+import { EmptyState } from '@/components/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -157,11 +158,11 @@ export default function CustomerDocumentsPage() {
 
   if (assignments.length === 0) {
     return (
-      <div className='flex items-center justify-center h-64'>
-        <p className='text-muted-foreground'>
-          No documents have been assigned to your company yet.
-        </p>
-      </div>
+      <EmptyState
+        className='h-64'
+        title='No documents assigned yet'
+        description='Documents assigned to your company will appear here.'
+      />
     )
   }
 

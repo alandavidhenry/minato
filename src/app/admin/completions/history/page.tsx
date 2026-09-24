@@ -6,7 +6,9 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
+import { TableSkeleton } from '@/components/table-skeleton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -155,17 +157,17 @@ function CompletionsHistoryContent() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={5} className='h-24 text-center'>
-                  Loading...
-                </TableCell>
-              </TableRow>
+              <TableSkeleton columns={5} />
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className='h-24 text-center'>
-                  {completions.length === 0
-                    ? 'No completions yet.'
-                    : 'No completions match this date range.'}
+                <TableCell colSpan={5} className='p-0'>
+                  <EmptyState
+                    title={
+                      completions.length === 0
+                        ? 'No completions yet'
+                        : 'No completions match this date range'
+                    }
+                  />
                 </TableCell>
               </TableRow>
             ) : (
@@ -210,7 +212,9 @@ function CompletionsHistoryContent() {
 
 export default function CompletionsHistoryPage() {
   return (
-    <Suspense fallback={<div className='text-3xl font-bold'>Loading...</div>}>
+    <Suspense
+      fallback={<p className='text-sm text-muted-foreground'>Loading...</p>}
+    >
       <CompletionsHistoryContent />
     </Suspense>
   )

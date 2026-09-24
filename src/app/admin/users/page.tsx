@@ -6,7 +6,9 @@ import { useState, useEffect } from 'react'
 
 import { CreateUserDialog } from '@/components/admin/create-user-dialog'
 import { UserActionsDropdown } from '@/components/admin/user-actions-dropdown'
+import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
+import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -246,25 +248,13 @@ export default function UsersPage() {
         <div className='rounded-md border'>
           <Table>
             <TableBody>
-              <TableRow>
-                <TableCell colSpan={6} className='h-24 text-center'>
-                  Loading users...
-                </TableCell>
-              </TableRow>
+              <TableSkeleton columns={6} />
             </TableBody>
           </Table>
         </div>
       ) : groups.length === 0 ? (
         <div className='rounded-md border'>
-          <Table>
-            <TableBody>
-              <TableRow>
-                <TableCell colSpan={6} className='h-24 text-center'>
-                  No users found.
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+          <EmptyState title='No users found' />
         </div>
       ) : (
         <div className='space-y-3'>{groups.map(renderGroup)}</div>

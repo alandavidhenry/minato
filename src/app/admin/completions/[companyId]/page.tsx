@@ -1,12 +1,15 @@
 // src/app/admin/completions/[companyId]/page.tsx
 'use client'
 
-import { AlertCircle, ArrowLeft, FileText } from 'lucide-react'
+import { AlertCircle, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
+import { PageHeader } from '@/components/page-header'
 import { useBreadcrumbLabel } from '@/components/providers/breadcrumb-provider'
+import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -72,20 +75,14 @@ export default function CompanyCompletionsPage() {
 
   function renderRows() {
     if (isLoading) {
-      return (
-        <TableRow>
-          <TableCell colSpan={5} className='h-24 text-center'>
-            Loading...
-          </TableCell>
-        </TableRow>
-      )
+      return <TableSkeleton columns={5} />
     }
 
     if (groups.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={5} className='h-24 text-center'>
-            No templates assigned to this company.
+          <TableCell colSpan={5} className='p-0'>
+            <EmptyState title='No templates assigned to this company' />
           </TableCell>
         </TableRow>
       )
@@ -155,16 +152,11 @@ export default function CompanyCompletionsPage() {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center gap-4'>
-        <Link
-          href='/admin/completions'
-          className='flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'
-        >
-          <ArrowLeft className='h-4 w-4' />
-          Completions
-        </Link>
-        <h1 className='text-3xl font-bold'>{companyName || '...'}</h1>
-      </div>
+      <PageHeader
+        title={companyName || '...'}
+        backHref='/admin/completions'
+        backLabel='Completions'
+      />
 
       <div className='rounded-md border'>
         <Table>

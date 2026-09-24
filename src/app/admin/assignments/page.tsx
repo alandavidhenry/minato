@@ -4,7 +4,9 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
+import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { SortArrows } from '@/components/ui/data-table/sort-arrows'
 import {
@@ -133,15 +135,11 @@ export default function AllAssignmentsPage() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={6} className='h-24 text-center'>
-                  Loading...
-                </TableCell>
-              </TableRow>
+              <TableSkeleton columns={6} />
             ) : sorted.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className='h-24 text-center'>
-                  No assignments yet.
+                <TableCell colSpan={6} className='p-0'>
+                  <EmptyState title='No assignments yet' />
                 </TableCell>
               </TableRow>
             ) : (

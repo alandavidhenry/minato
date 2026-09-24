@@ -4,6 +4,7 @@ import { Loader2, Save, ShieldCheck } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useCallback, useEffect, useState } from 'react'
 
+import { PageHeader } from '@/components/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -184,7 +185,7 @@ export default function ProfilePage() {
 
   return (
     <div className='max-w-2xl mx-auto py-8 px-4 space-y-6'>
-      <h1 className='text-3xl font-bold'>Your Profile</h1>
+      <PageHeader title='Your Profile' />
 
       {/* Profile Information */}
       <Card>
