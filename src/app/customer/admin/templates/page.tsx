@@ -7,19 +7,11 @@ import { useEffect, useState } from 'react'
 import { CreateTemplateDialog } from '@/components/admin/create-template-dialog'
 import { EditTemplateDialog } from '@/components/admin/edit-template-dialog'
 import { AssignCompanyTemplateDialog } from '@/components/customer/assign-company-template-dialog'
-import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
-import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
+import { DataTable } from '@/components/ui/data-table/data-table'
+import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import { toast } from '@/components/ui/use-toast'
 import type { ComprehensionQuestion } from '@/types/comprehension-question'
 import type {
@@ -27,6 +19,8 @@ import type {
   DocumentTemplateUploadMode
 } from '@/types/document-template'
 import type { FormField } from '@/types/form-schema'
+
+import type { ColumnDef } from '@tanstack/react-table'
 
 interface Template {
   id: string
@@ -130,28 +124,14 @@ export default function CompanyTemplatesPage() {
     toast({ title: 'Assigned', description: 'Template assigned successfully.' })
   }
 
-  function renderRows() {
-    if (isLoading) {
-      return <TableSkeleton columns={3} />
-    }
-
-    if (templates.length === 0) {
-      return (
-        <TableRow>
-          <TableCell colSpan={3} className='p-0'>
-            <EmptyState
-              title='No company templates yet'
-              description='Create your first internal form.'
-            />
-          </TableCell>
-        </TableRow>
-      )
-    }
-
-    return templates.map((template) => (
-      <TableRow key={template.id}>
-        <TableCell className='font-medium'>
-          <div className='flex items-center gap-2'>
+  const columns: ColumnDef<typeof dataTableFeatures, Template>[] = [
+    {
+      accessorKey: 'title',
+      header: 'Title',
+      cell: ({ row }) => {
+        const template = row.original
+        return (
+          <div className='flex items-center gap-2 font-medium'>
             {template.title}
             {template.sourceType === 'upload' && (
               <Badge variant='outline' className='text-xs'>
@@ -169,22 +149,33 @@ export default function CompanyTemplatesPage() {
               </Badge>
             )}
           </div>
-        </TableCell>
-        <TableCell className='text-muted-foreground'>
-          {template.description ?? '—'}
-        </TableCell>
-
-        <TableCell>
+        )
+      }
+    },
+    {
+      accessorKey: 'description',
+      header: 'Description',
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>
+          {row.original.description ?? '—'}
+        </span>
+      )
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      meta: { align: 'right' },
+      cell: ({ row }) => {
+        const template = row.original
+        const isAssigned = assignedTemplateIds.includes(template.id)
+        return (
           <div className='flex flex-col items-end gap-1 min-[520px]:flex-row min-[520px]:justify-end'>
             <Button
               variant='ghost'
               size='sm'
-              title={
-                assignedTemplateIds.includes(template.id)
-                  ? 'Already assigned'
-                  : 'Assign to employees'
-              }
-              disabled={assignedTemplateIds.includes(template.id)}
+              title={isAssigned ? 'Already assigned' : 'Assign to employees'}
+              disabled={isAssigned}
               onClick={() => setAssigningTemplate(template)}
             >
               <Send className='h-4 w-4' />
@@ -204,10 +195,10 @@ export default function CompanyTemplatesPage() {
               <Trash2 className='h-4 w-4' />
             </Button>
           </div>
-        </TableCell>
-      </TableRow>
-    ))
-  }
+        )
+      }
+    }
+  ]
 
   return (
     <div className='space-y-6'>
@@ -230,19 +221,13 @@ export default function CompanyTemplatesPage() {
         }
       />
 
-      <div className='rounded-md border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Description</TableHead>
-
-              <TableHead className='text-right'>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>{renderRows()}</TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={templates}
+        isLoading={isLoading}
+        emptyTitle='No company templates yet'
+        emptyDescription='Create your first internal form.'
+      />
 
       <CreateTemplateDialog
         open={showCreateDialog}

@@ -15,15 +15,12 @@ import { useBreadcrumbLabel } from '@/components/providers/breadcrumb-provider'
 import { QrCodeModal } from '@/components/qr-code-modal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
+import { DataTable } from '@/components/ui/data-table/data-table'
+import { nullableDateSortValue } from '@/components/ui/data-table/sort-utils'
+import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import { toast } from '@/components/ui/use-toast'
+
+import type { ColumnDef } from '@tanstack/react-table'
 
 interface Company {
   id: string
@@ -65,6 +62,62 @@ interface CompanyTemplate {
   version: number
   createdAt: string
 }
+
+function formatDueDate(iso: string | null): string {
+  return iso
+    ? new Date(iso).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      })
+    : '—'
+}
+
+function HasFileCell({ blobPath }: { readonly blobPath: string | null }) {
+  return blobPath ? (
+    <span className='text-sm text-success'>Yes</span>
+  ) : (
+    <span className='text-muted-foreground text-sm'>No</span>
+  )
+}
+
+const companyTemplateColumns: ColumnDef<
+  typeof dataTableFeatures,
+  CompanyTemplate
+>[] = [
+  {
+    accessorKey: 'title',
+    header: 'Title',
+    cell: ({ row }) => <span className='font-medium'>{row.original.title}</span>
+  },
+  {
+    accessorKey: 'description',
+    header: 'Description',
+    cell: ({ row }) => (
+      <span className='text-muted-foreground'>
+        {row.original.description ?? '—'}
+      </span>
+    )
+  },
+  {
+    accessorKey: 'version',
+    header: 'Version',
+    cell: ({ row }) => (
+      <Badge variant='secondary' className='text-xs'>
+        v{row.original.version}
+      </Badge>
+    )
+  },
+  {
+    accessorKey: 'createdAt',
+    header: 'Created',
+    cell: ({ row }) => (
+      <span className='text-muted-foreground'>
+        {new Date(row.original.createdAt).toLocaleDateString()}
+      </span>
+    )
+  }
+]
 
 export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -206,6 +259,163 @@ export default function CompanyDetailPage() {
     toast({ title: 'Assigned', description: 'Template assigned successfully.' })
   }
 
+  const companyAssignmentColumns: ColumnDef<
+    typeof dataTableFeatures,
+    Assignment
+  >[] = [
+    {
+      id: 'template',
+      accessorFn: (row) => row.template.title,
+      header: 'Template',
+      cell: ({ row }) => (
+        <span className='font-medium'>{row.original.template.title}</span>
+      )
+    },
+    {
+      id: 'description',
+      accessorFn: (row) => row.template.description ?? '',
+      header: 'Description',
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>
+          {row.original.template.description ?? '—'}
+        </span>
+      )
+    },
+    {
+      id: 'hasFile',
+      header: 'Has File',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <HasFileCell blobPath={row.original.template.blobPath} />
+      )
+    },
+    {
+      id: 'jobRoles',
+      header: 'Job Roles',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>
+          {row.original.targetJobRoles && row.original.targetJobRoles.length > 0
+            ? row.original.targetJobRoles.join(', ')
+            : '—'}
+        </span>
+      )
+    },
+    {
+      id: 'dueDate',
+      accessorFn: (row) => nullableDateSortValue(row.dueDate),
+      sortFn: 'basic',
+      header: 'Due date',
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>
+          {formatDueDate(row.original.dueDate)}
+        </span>
+      )
+    },
+    {
+      id: 'createdAt',
+      accessorFn: (row) => row.createdAt,
+      header: 'Assigned',
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>
+          {new Date(row.original.createdAt).toLocaleDateString()}
+        </span>
+      )
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      meta: { align: 'right' },
+      cell: ({ row }) => (
+        <Button
+          variant='ghost'
+          size='sm'
+          onClick={() =>
+            handleRemove(row.original.id, row.original.template.title)
+          }
+        >
+          <Trash2 className='h-4 w-4' />
+        </Button>
+      )
+    }
+  ]
+
+  function makeUserAssignmentColumns(
+    userName: string
+  ): ColumnDef<typeof dataTableFeatures, Assignment>[] {
+    return [
+      {
+        id: 'template',
+        accessorFn: (row) => row.template.title,
+        header: 'Template',
+        cell: ({ row }) => (
+          <span className='font-medium'>{row.original.template.title}</span>
+        )
+      },
+      {
+        id: 'description',
+        accessorFn: (row) => row.template.description ?? '',
+        header: 'Description',
+        cell: ({ row }) => (
+          <span className='text-muted-foreground'>
+            {row.original.template.description ?? '—'}
+          </span>
+        )
+      },
+      {
+        id: 'hasFile',
+        header: 'Has File',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <HasFileCell blobPath={row.original.template.blobPath} />
+        )
+      },
+      {
+        id: 'dueDate',
+        accessorFn: (row) => nullableDateSortValue(row.dueDate),
+        sortFn: 'basic',
+        header: 'Due date',
+        cell: ({ row }) => (
+          <span className='text-muted-foreground'>
+            {formatDueDate(row.original.dueDate)}
+          </span>
+        )
+      },
+      {
+        id: 'createdAt',
+        accessorFn: (row) => row.createdAt,
+        header: 'Assigned',
+        cell: ({ row }) => (
+          <span className='text-muted-foreground'>
+            {new Date(row.original.createdAt).toLocaleDateString()}
+          </span>
+        )
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        enableSorting: false,
+        meta: { align: 'right' },
+        cell: ({ row }) => (
+          <Button
+            variant='ghost'
+            size='sm'
+            onClick={() =>
+              handleRemoveUserAssignment(
+                row.original.id,
+                row.original.template.title,
+                userName
+              )
+            }
+          >
+            <Trash2 className='h-4 w-4' />
+          </Button>
+        )
+      }
+    ]
+  }
+
   if (isLoading) {
     return (
       <div className='flex items-center justify-center h-64'>
@@ -296,79 +506,12 @@ export default function CompanyDetailPage() {
           </Button>
         </div>
 
-        <div className='rounded-md border'>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Template</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Has File</TableHead>
-                <TableHead>Job Roles</TableHead>
-                <TableHead>Due date</TableHead>
-                <TableHead>Assigned</TableHead>
-                <TableHead className='text-right'>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {assignments.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className='p-0'>
-                    <EmptyState
-                      title='No templates assigned yet'
-                      description='Click "Assign Template" to get started.'
-                    />
-                  </TableCell>
-                </TableRow>
-              ) : (
-                assignments.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell className='font-medium'>
-                      {a.template.title}
-                    </TableCell>
-                    <TableCell className='text-muted-foreground'>
-                      {a.template.description ?? '—'}
-                    </TableCell>
-                    <TableCell>
-                      {a.template.blobPath ? (
-                        <span className='text-sm text-success'>Yes</span>
-                      ) : (
-                        <span className='text-muted-foreground text-sm'>
-                          No
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className='text-muted-foreground'>
-                      {a.targetJobRoles && a.targetJobRoles.length > 0
-                        ? a.targetJobRoles.join(', ')
-                        : '—'}
-                    </TableCell>
-                    <TableCell className='text-muted-foreground'>
-                      {a.dueDate
-                        ? new Date(a.dueDate).toLocaleDateString('en-GB', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                          })
-                        : '—'}
-                    </TableCell>
-                    <TableCell className='text-muted-foreground'>
-                      {new Date(a.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className='text-right'>
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        onClick={() => handleRemove(a.id, a.template.title)}
-                      >
-                        <Trash2 className='h-4 w-4' />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <DataTable
+          columns={companyAssignmentColumns}
+          data={assignments}
+          emptyTitle='No templates assigned yet'
+          emptyDescription='Click "Assign Template" to get started.'
+        />
       </div>
 
       {/* Individual user assignments */}
@@ -419,66 +562,11 @@ export default function CompanyDetailPage() {
                     </span>
                   )}
                 </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Template</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Has File</TableHead>
-                      <TableHead>Due date</TableHead>
-                      <TableHead>Assigned</TableHead>
-                      <TableHead className='text-right'>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {ua.map((a) => (
-                      <TableRow key={a.id}>
-                        <TableCell className='font-medium'>
-                          {a.template.title}
-                        </TableCell>
-                        <TableCell className='text-muted-foreground'>
-                          {a.template.description ?? '—'}
-                        </TableCell>
-                        <TableCell>
-                          {a.template.blobPath ? (
-                            <span className='text-sm text-success'>Yes</span>
-                          ) : (
-                            <span className='text-muted-foreground text-sm'>
-                              No
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className='text-muted-foreground'>
-                          {a.dueDate
-                            ? new Date(a.dueDate).toLocaleDateString('en-GB', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric'
-                              })
-                            : '—'}
-                        </TableCell>
-                        <TableCell className='text-muted-foreground'>
-                          {new Date(a.createdAt).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell className='text-right'>
-                          <Button
-                            variant='ghost'
-                            size='sm'
-                            onClick={() =>
-                              handleRemoveUserAssignment(
-                                a.id,
-                                a.template.title,
-                                user.displayName
-                              )
-                            }
-                          >
-                            <Trash2 className='h-4 w-4' />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <DataTable
+                  columns={makeUserAssignmentColumns(user.displayName)}
+                  data={ua}
+                  wrapperClassName=''
+                />
               </div>
             ))}
           </div>
@@ -496,36 +584,7 @@ export default function CompanyDetailPage() {
             </p>
           </div>
 
-          <div className='rounded-md border'>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Version</TableHead>
-                  <TableHead>Created</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {companyTemplates.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell className='font-medium'>{t.title}</TableCell>
-                    <TableCell className='text-muted-foreground'>
-                      {t.description ?? '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant='secondary' className='text-xs'>
-                        v{t.version}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className='text-muted-foreground'>
-                      {new Date(t.createdAt).toLocaleDateString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <DataTable columns={companyTemplateColumns} data={companyTemplates} />
         </div>
       )}
 

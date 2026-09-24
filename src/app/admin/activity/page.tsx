@@ -4,10 +4,11 @@ import { Download, Eye, FileUp, Search } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { ComplianceDashboard } from '@/components/admin/ComplianceDashboard'
-import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DataTable } from '@/components/ui/data-table/data-table'
+import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -16,16 +17,10 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
 import { ActivityType } from '@/lib/activity-logger'
+
+import type { ColumnDef } from '@tanstack/react-table'
 
 interface ActivityLog {
   id: string
@@ -110,6 +105,45 @@ function exportToCsv(logs: ActivityLog[]) {
   link.click()
   URL.revokeObjectURL(url)
 }
+
+const columns: ColumnDef<typeof dataTableFeatures, ActivityLog>[] = [
+  {
+    accessorKey: 'timestamp',
+    header: 'Date & Time',
+    cell: ({ row }) => (
+      <span className='whitespace-nowrap'>
+        {formatDateTime(row.original.timestamp)}
+      </span>
+    )
+  },
+  {
+    accessorKey: 'userName',
+    header: 'User'
+  },
+  {
+    accessorKey: 'activityType',
+    header: 'Activity',
+    cell: ({ row }) => (
+      <Badge
+        variant={getActivityBadgeVariant(row.original.activityType)}
+        className='flex items-center gap-1'
+      >
+        {getActivityIcon(row.original.activityType)}
+        {ACTIVITY_TYPE_LABELS[row.original.activityType] ??
+          row.original.activityType}
+      </Badge>
+    )
+  },
+  {
+    accessorKey: 'fileName',
+    header: 'File',
+    cell: ({ row }) => (
+      <span className='block max-w-xs truncate' title={row.original.fileName}>
+        {row.original.fileName}
+      </span>
+    )
+  }
+]
 
 export default function ActivityLogsPage() {
   const [logs, setLogs] = useState<ActivityLog[]>([])
@@ -278,49 +312,11 @@ export default function ActivityLogsPage() {
       </div>
 
       {/* Activity Logs Table */}
-      <div className='rounded-md border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date &amp; Time</TableHead>
-              <TableHead>User</TableHead>
-              <TableHead>Activity</TableHead>
-              <TableHead>File</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredLogs.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className='p-0'>
-                  <EmptyState title='No activity logs found' />
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredLogs.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell className='whitespace-nowrap'>
-                    {formatDateTime(log.timestamp)}
-                  </TableCell>
-                  <TableCell>{log.userName}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={getActivityBadgeVariant(log.activityType)}
-                      className='flex items-center gap-1'
-                    >
-                      {getActivityIcon(log.activityType)}
-                      {ACTIVITY_TYPE_LABELS[log.activityType] ??
-                        log.activityType}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className='max-w-xs truncate' title={log.fileName}>
-                    {log.fileName}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={filteredLogs}
+        emptyTitle='No activity logs found'
+      />
     </div>
   )
 }

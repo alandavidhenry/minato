@@ -5,26 +5,43 @@ import { AlertTriangle, Building2 } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
-import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
-import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
+import { DataTable } from '@/components/ui/data-table/data-table'
+import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import { toast } from '@/components/ui/use-toast'
+
+import type { ColumnDef } from '@tanstack/react-table'
 
 interface CompanyWithCount {
   id: string
   name: string
   completionCount: number
 }
+
+const columns: ColumnDef<typeof dataTableFeatures, CompanyWithCount>[] = [
+  {
+    accessorKey: 'name',
+    header: 'Company',
+    cell: ({ row }) => (
+      <Link
+        href={`/admin/completions/${row.original.id}`}
+        className='flex items-center gap-2 font-medium'
+      >
+        <Building2 className='h-4 w-4 text-muted-foreground' />
+        {row.original.name}
+      </Link>
+    )
+  },
+  {
+    accessorKey: 'completionCount',
+    header: 'Completions',
+    cell: ({ row }) => (
+      <Badge variant='secondary'>{row.original.completionCount}</Badge>
+    )
+  }
+]
 
 export default function CompletionsPage() {
   const [companies, setCompanies] = useState<CompanyWithCount[]>([])
@@ -52,39 +69,6 @@ export default function CompletionsPage() {
     }
   }
 
-  function renderRows() {
-    if (isLoading) {
-      return <TableSkeleton columns={2} />
-    }
-
-    if (companies.length === 0) {
-      return (
-        <TableRow>
-          <TableCell colSpan={2} className='p-0'>
-            <EmptyState title='No completions yet' />
-          </TableCell>
-        </TableRow>
-      )
-    }
-
-    return companies.map((company) => (
-      <TableRow key={company.id} className='cursor-pointer hover:bg-muted/50'>
-        <TableCell>
-          <Link
-            href={`/admin/completions/${company.id}`}
-            className='flex items-center gap-2 font-medium'
-          >
-            <Building2 className='h-4 w-4 text-muted-foreground' />
-            {company.name}
-          </Link>
-        </TableCell>
-        <TableCell>
-          <Badge variant='secondary'>{company.completionCount}</Badge>
-        </TableCell>
-      </TableRow>
-    ))
-  }
-
   return (
     <div className='space-y-6'>
       <PageHeader
@@ -100,17 +84,13 @@ export default function CompletionsPage() {
         }
       />
 
-      <div className='rounded-md border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Company</TableHead>
-              <TableHead>Completions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>{renderRows()}</TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={companies}
+        isLoading={isLoading}
+        emptyTitle='No completions yet'
+        rowClassName={() => 'cursor-pointer'}
+      />
     </div>
   )
 }

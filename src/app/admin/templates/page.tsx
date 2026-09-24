@@ -23,15 +23,10 @@ import { PageHeader } from '@/components/page-header'
 import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DataTable } from '@/components/ui/data-table/data-table'
+import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import { Input } from '@/components/ui/input'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
+import { Table, TableBody } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
 import type { ComprehensionQuestion } from '@/types/comprehension-question'
 import {
@@ -40,6 +35,8 @@ import {
   type DocumentTemplateUploadMode
 } from '@/types/document-template'
 import type { FormField } from '@/types/form-schema'
+
+import type { ColumnDef } from '@tanstack/react-table'
 
 interface Template {
   id: string
@@ -206,11 +203,14 @@ export default function TemplatesPage() {
 
   const groups = groupTemplates(filteredTemplates)
 
-  function renderTemplateRow(template: Template) {
-    return (
-      <TableRow key={template.id}>
-        <TableCell className='font-medium'>
-          <div className='flex items-center gap-2'>
+  const templateColumns: ColumnDef<typeof dataTableFeatures, Template>[] = [
+    {
+      accessorKey: 'title',
+      header: 'Title',
+      cell: ({ row }) => {
+        const template = row.original
+        return (
+          <div className='flex items-center gap-2 font-medium'>
             {template.title}
             {template.sourceType === 'upload' && (
               <Badge variant='outline' className='text-xs'>
@@ -223,12 +223,26 @@ export default function TemplatesPage() {
               </Badge>
             )}
           </div>
-        </TableCell>
-        <TableCell className='text-muted-foreground'>
-          {template.description ?? '—'}
-        </TableCell>
-
-        <TableCell>
+        )
+      }
+    },
+    {
+      accessorKey: 'description',
+      header: 'Description',
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>
+          {row.original.description ?? '—'}
+        </span>
+      )
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      meta: { align: 'right' },
+      cell: ({ row }) => {
+        const template = row.original
+        return (
           <div className='flex flex-col items-end gap-1 min-[520px]:flex-row min-[520px]:justify-end'>
             <Button
               variant='ghost'
@@ -260,10 +274,10 @@ export default function TemplatesPage() {
               <Trash2 className='h-4 w-4' />
             </Button>
           </div>
-        </TableCell>
-      </TableRow>
-    )
-  }
+        )
+      }
+    }
+  ]
 
   function renderGroup(group: TemplateGroup) {
     const isExpanded = expandedGroups.has(group.id)
@@ -284,16 +298,12 @@ export default function TemplatesPage() {
         </button>
         {isExpanded && (
           <div className='border-t'>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className='text-right'>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>{group.templates.map(renderTemplateRow)}</TableBody>
-            </Table>
+            <DataTable
+              columns={templateColumns}
+              data={group.templates}
+              getRowId={(template) => template.id}
+              wrapperClassName=''
+            />
           </div>
         )}
       </div>

@@ -6,12 +6,12 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 
-import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
-import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { SortArrows } from '@/components/ui/data-table/sort-arrows'
+import { DataTable } from '@/components/ui/data-table/data-table'
+import { nullableDateSortValue } from '@/components/ui/data-table/sort-utils'
+import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -27,15 +27,9 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
+
+import type { ColumnDef, SortingState } from '@tanstack/react-table'
 
 interface OutstandingRow {
   assignmentId: string
@@ -58,11 +52,36 @@ interface Company {
   name: string
 }
 
-type SortKey = 'dueDate' | 'company' | 'template' | 'overdue'
-
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString()
+}
+
+type SortableValue = string | number
+
+const SORT_ACCESSORS: Record<string, (r: OutstandingRow) => SortableValue> = {
+  company: (r) => r.company.name,
+  template: (r) => r.template.title,
+  dueDate: (r) => nullableDateSortValue(r.dueDate),
+  overdue: (r) => Number(r.isOverdue)
+}
+
+function compareValues(a: SortableValue, b: SortableValue): number {
+  return typeof a === 'string' && typeof b === 'string'
+    ? a.localeCompare(b)
+    : (a as number) - (b as number)
+}
+
+// Mirrors DataTable's own column sorting so CSV/XLSX exports respect the
+// currently displayed sort order.
+function sortRows(rows: OutstandingRow[], sorting: SortingState) {
+  const [sort] = sorting
+  const accessor = sort && SORT_ACCESSORS[sort.id]
+  if (!sort || !accessor) return rows
+  const sorted = [...rows].sort((a, b) =>
+    compareValues(accessor(a), accessor(b))
+  )
+  return sort.desc ? sorted.reverse() : sorted
 }
 
 function quoteCsvCell(value: string | number): string {
@@ -160,8 +179,9 @@ function OutstandingCompletionsContent() {
     searchParams.get('overdueOnly') === 'true'
   )
 
-  const [sortKey, setSortKey] = useState<SortKey>('dueDate')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: 'dueDate', desc: false }
+  ])
 
   useEffect(() => {
     fetch('/api/admin/companies')
@@ -213,17 +233,8 @@ function OutstandingCompletionsContent() {
     )
   }
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortKey(key)
-      setSortDir('asc')
-    }
-  }
-
-  const filteredAndSorted = useMemo(() => {
-    const filtered = rows.filter((r) => {
+  const filtered = useMemo(() => {
+    return rows.filter((r) => {
       if (
         selectedCompanyIds.length > 0 &&
         !selectedCompanyIds.includes(r.company.id)
@@ -245,30 +256,6 @@ function OutstandingCompletionsContent() {
       if (overdueOnly && !r.isOverdue) return false
       return true
     })
-
-    const sorted = [...filtered].sort((a, b) => {
-      let cmp: number
-      switch (sortKey) {
-        case 'company':
-          cmp = a.company.name.localeCompare(b.company.name)
-          break
-        case 'template':
-          cmp = a.template.title.localeCompare(b.template.title)
-          break
-        case 'overdue':
-          cmp = Number(a.isOverdue) - Number(b.isOverdue)
-          break
-        case 'dueDate':
-        default:
-          if (a.dueDate === null && b.dueDate === null) cmp = 0
-          else if (a.dueDate === null) cmp = 1
-          else if (b.dueDate === null) cmp = -1
-          else cmp = a.dueDate.localeCompare(b.dueDate)
-      }
-      return sortDir === 'asc' ? cmp : -cmp
-    })
-
-    return sorted
   }, [
     rows,
     selectedCompanyIds,
@@ -276,10 +263,13 @@ function OutstandingCompletionsContent() {
     jobRoleFilter,
     fromDate,
     toDate,
-    overdueOnly,
-    sortKey,
-    sortDir
+    overdueOnly
   ])
+
+  const filteredAndSorted = useMemo(
+    () => sortRows(filtered, sorting),
+    [filtered, sorting]
+  )
 
   async function handleExportXlsx() {
     setIsExportingXlsx(true)
@@ -296,22 +286,82 @@ function OutstandingCompletionsContent() {
     }
   }
 
-  function renderSortableHead(label: string, key: SortKey) {
-    return (
-      <TableHead
-        className='cursor-pointer select-none'
-        onClick={() => toggleSort(key)}
-      >
-        <span className='inline-flex items-center'>
-          {label}
-          <SortArrows
-            sorted={sortKey === key}
-            direction={sortKey === key ? sortDir : false}
-          />
+  const columns: ColumnDef<typeof dataTableFeatures, OutstandingRow>[] = [
+    {
+      id: 'company',
+      accessorFn: SORT_ACCESSORS.company,
+      header: 'Company',
+      cell: ({ row }) => (
+        <Link
+          href={`/admin/companies/${row.original.company.id}`}
+          className='font-medium hover:underline'
+        >
+          {row.original.company.name}
+        </Link>
+      )
+    },
+    {
+      id: 'template',
+      accessorFn: SORT_ACCESSORS.template,
+      header: 'Template',
+      cell: ({ row }) => (
+        <Link href='/admin/templates' className='hover:underline'>
+          {row.original.template.title}
+        </Link>
+      )
+    },
+    {
+      id: 'version',
+      accessorKey: 'templateVersion',
+      header: 'Version',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <Badge variant='secondary'>v{row.original.templateVersion}</Badge>
+      )
+    },
+    {
+      accessorKey: 'assignedTo',
+      header: 'Assigned To',
+      enableSorting: false
+    },
+    {
+      id: 'dueDate',
+      accessorFn: SORT_ACCESSORS.dueDate,
+      sortFn: 'basic',
+      header: 'Due Date',
+      cell: ({ row }) => (
+        <span className='whitespace-nowrap'>
+          {formatDate(row.original.dueDate)}
         </span>
-      </TableHead>
-    )
-  }
+      )
+    },
+    {
+      id: 'overdue',
+      accessorFn: SORT_ACCESSORS.overdue,
+      sortFn: 'basic',
+      header: 'Overdue',
+      cell: ({ row }) =>
+        row.original.isOverdue ? (
+          <Badge variant='destructive'>
+            {row.original.daysOverdue}{' '}
+            {row.original.daysOverdue === 1 ? 'day' : 'days'}
+          </Badge>
+        ) : (
+          <span className='text-muted-foreground'>—</span>
+        )
+    },
+    {
+      id: 'lastReminder',
+      accessorFn: (row) => nullableDateSortValue(row.lastReminderSentAt),
+      sortFn: 'basic',
+      header: 'Last Reminder',
+      cell: ({ row }) => (
+        <span className='whitespace-nowrap text-muted-foreground'>
+          {formatDate(row.original.lastReminderSentAt)}
+        </span>
+      )
+    }
+  ]
 
   return (
     <div className='space-y-6'>
@@ -438,80 +488,22 @@ function OutstandingCompletionsContent() {
         {filteredAndSorted.length === 1 ? 'result' : 'results'}
       </p>
 
-      <div className='rounded-md border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {renderSortableHead('Company', 'company')}
-              {renderSortableHead('Template', 'template')}
-              <TableHead>Version</TableHead>
-              <TableHead>Assigned To</TableHead>
-              {renderSortableHead('Due Date', 'dueDate')}
-              {renderSortableHead('Overdue', 'overdue')}
-              <TableHead>Last Reminder</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableSkeleton columns={7} />
-            ) : filteredAndSorted.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className='p-0'>
-                  <EmptyState
-                    title={
-                      rows.length === 0
-                        ? 'No outstanding completions'
-                        : 'No results match your filters'
-                    }
-                    description={
-                      rows.length === 0
-                        ? 'Everything is up to date.'
-                        : undefined
-                    }
-                  />
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredAndSorted.map((r) => (
-                <TableRow key={r.assignmentId}>
-                  <TableCell className='font-medium'>
-                    <Link
-                      href={`/admin/companies/${r.company.id}`}
-                      className='hover:underline'
-                    >
-                      {r.company.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Link href='/admin/templates' className='hover:underline'>
-                      {r.template.title}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant='secondary'>v{r.templateVersion}</Badge>
-                  </TableCell>
-                  <TableCell>{r.assignedTo}</TableCell>
-                  <TableCell className='whitespace-nowrap'>
-                    {formatDate(r.dueDate)}
-                  </TableCell>
-                  <TableCell>
-                    {r.isOverdue ? (
-                      <Badge variant='destructive'>
-                        {r.daysOverdue} {r.daysOverdue === 1 ? 'day' : 'days'}
-                      </Badge>
-                    ) : (
-                      <span className='text-muted-foreground'>—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className='text-muted-foreground whitespace-nowrap'>
-                    {formatDate(r.lastReminderSentAt)}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={filteredAndSorted}
+        getRowId={(row) => row.assignmentId}
+        isLoading={isLoading}
+        emptyTitle={
+          rows.length === 0
+            ? 'No outstanding completions'
+            : 'No results match your filters'
+        }
+        emptyDescription={
+          rows.length === 0 ? 'Everything is up to date.' : undefined
+        }
+        sorting={sorting}
+        onSortingChange={setSorting}
+      />
     </div>
   )
 }

@@ -13,28 +13,22 @@ import dynamic from 'next/dynamic'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
-import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
 import { useBreadcrumbLabel } from '@/components/providers/breadcrumb-provider'
-import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { DataTable } from '@/components/ui/data-table/data-table'
+import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
+
+import type { ColumnDef } from '@tanstack/react-table'
 
 const PDFRenderer = dynamic(
   () =>
@@ -274,59 +268,77 @@ export default function TemplateCompletionsPage() {
     completions.length > 0 && selected.size === completions.length
   const someChecked = selected.size > 0 && selected.size < completions.length
 
-  function renderCompletionRows() {
-    if (isLoading) {
-      return <TableSkeleton columns={5} />
-    }
-
-    if (completions.length === 0) {
-      return (
-        <TableRow>
-          <TableCell colSpan={5} className='p-0'>
-            <EmptyState title='No completions yet' />
-          </TableCell>
-        </TableRow>
+  const completionColumns: ColumnDef<typeof dataTableFeatures, Completion>[] = [
+    {
+      id: 'select',
+      enableSorting: false,
+      header: () => (
+        <Checkbox
+          checked={someChecked ? 'indeterminate' : allChecked}
+          onCheckedChange={toggleAll}
+          aria-label='Select all'
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={selected.has(row.original.id)}
+          onCheckedChange={() => toggleOne(row.original.id)}
+          aria-label='Select row'
+        />
       )
-    }
-
-    return completions.map((completion) => (
-      <TableRow
-        key={completion.id}
-        data-state={selected.has(completion.id) ? 'selected' : undefined}
-      >
-        <TableCell className='w-10'>
-          <Checkbox
-            checked={selected.has(completion.id)}
-            onCheckedChange={() => toggleOne(completion.id)}
-            aria-label='Select row'
-          />
-        </TableCell>
-        <TableCell>
-          <div>{completion.signer.displayName}</div>
+    },
+    {
+      id: 'completedBy',
+      accessorFn: (row) => row.signer.displayName,
+      header: 'Completed by',
+      cell: ({ row }) => (
+        <>
+          <div>{row.original.signer.displayName}</div>
           <div className='text-xs text-muted-foreground'>
-            {completion.signer.email}
+            {row.original.signer.email}
           </div>
-        </TableCell>
-        <TableCell className='text-muted-foreground'>
-          {new Date(completion.signedAt).toLocaleString('en-GB', {
+        </>
+      )
+    },
+    {
+      id: 'signedAt',
+      accessorFn: (row) => new Date(row.signedAt).getTime(),
+      sortFn: 'basic',
+      header: 'Date',
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>
+          {new Date(row.original.signedAt).toLocaleString('en-GB', {
             day: '2-digit',
             month: 'short',
             year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
           })}
-        </TableCell>
-        <TableCell>
-          {completion.blobPath ? (
-            <Badge variant='default' className='gap-1'>
-              <CheckCircle2 className='h-3 w-3' />
-              PDF ready
-            </Badge>
-          ) : (
-            <Badge variant='secondary'>No PDF</Badge>
-          )}
-        </TableCell>
-        <TableCell className='text-right'>
+        </span>
+      )
+    },
+    {
+      id: 'pdf',
+      header: 'PDF',
+      enableSorting: false,
+      cell: ({ row }) =>
+        row.original.blobPath ? (
+          <Badge variant='default' className='gap-1'>
+            <CheckCircle2 className='h-3 w-3' />
+            PDF ready
+          </Badge>
+        ) : (
+          <Badge variant='secondary'>No PDF</Badge>
+        )
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      meta: { align: 'right' },
+      cell: ({ row }) => {
+        const completion = row.original
+        return (
           <div className='flex items-center justify-end gap-1'>
             {completion.blobPath && (
               <>
@@ -356,10 +368,25 @@ export default function TemplateCompletionsPage() {
               <Trash2 className='h-4 w-4' />
             </Button>
           </div>
-        </TableCell>
-      </TableRow>
-    ))
-  }
+        )
+      }
+    }
+  ]
+
+  const outstandingColumns: ColumnDef<
+    typeof dataTableFeatures,
+    OutstandingUser
+  >[] = [
+    { accessorKey: 'displayName', header: 'Name' },
+    {
+      accessorKey: 'email',
+      header: 'Email',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>{row.original.email}</span>
+      )
+    }
+  ]
 
   return (
     <div className='space-y-6'>
@@ -414,26 +441,15 @@ export default function TemplateCompletionsPage() {
       {/* Completed */}
       <div>
         <h2 className='text-lg font-semibold mb-3'>Completed</h2>
-        <div className='rounded-md border'>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className='w-10'>
-                  <Checkbox
-                    checked={someChecked ? 'indeterminate' : allChecked}
-                    onCheckedChange={toggleAll}
-                    aria-label='Select all'
-                  />
-                </TableHead>
-                <TableHead>Completed by</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>PDF</TableHead>
-                <TableHead className='text-right'>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>{renderCompletionRows()}</TableBody>
-          </Table>
-        </div>
+        <DataTable
+          columns={completionColumns}
+          data={completions}
+          isLoading={isLoading}
+          emptyTitle='No completions yet'
+          rowClassName={(row) =>
+            selected.has(row.id) ? 'bg-muted' : undefined
+          }
+        />
       </div>
 
       <Dialog
@@ -473,26 +489,11 @@ export default function TemplateCompletionsPage() {
               </Badge>
             )}
           </h2>
-          <div className='rounded-md border'>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {outstandingUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>{user.displayName}</TableCell>
-                    <TableCell className='text-muted-foreground'>
-                      {user.email}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <DataTable
+            columns={outstandingColumns}
+            data={outstandingUsers}
+            getRowId={(user) => user.id}
+          />
         </div>
       )}
     </div>
