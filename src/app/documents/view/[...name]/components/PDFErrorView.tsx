@@ -1,6 +1,7 @@
 'use client'
 
 import { ArrowLeft } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -10,6 +11,8 @@ interface PDFErrorViewProps {
 }
 
 export function PDFErrorView({ error }: PDFErrorViewProps) {
+  const router = useRouter()
+
   if (!error) return null
 
   return (
@@ -17,11 +20,7 @@ export function PDFErrorView({ error }: PDFErrorViewProps) {
       <Card className='p-6'>
         <div className='flex flex-col gap-4 items-center'>
           <p className='text-destructive'>{error}</p>
-          <Button
-            onClick={() => {
-              window.location.href = '/documents'
-            }}
-          >
+          <Button onClick={() => router.push('/documents')}>
             <ArrowLeft className='h-4 w-4 mr-2' />
             Back to Documents
           </Button>

@@ -48,12 +48,23 @@ vi.mock('@/lib/storage', () => ({
   deleteBlob: mockDeleteBlob
 }))
 
+const { mockGetAdminTenantId, mockGetCompletionRetentionYears } = vi.hoisted(
+  () => ({
+    mockGetAdminTenantId: vi.fn(),
+    mockGetCompletionRetentionYears: vi.fn()
+  })
+)
+vi.mock('@/lib/user-database', () => ({
+  getAdminTenantId: mockGetAdminTenantId,
+  getCompletionRetentionYears: mockGetCompletionRetentionYears
+}))
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const ADMIN_SESSION = { user: { roles: ['Tenant Admin'] } }
-const NON_ADMIN_SESSION = { user: { roles: ['Customer User'] } }
+const ADMIN_SESSION = { user: { id: 'admin_1', roles: ['Tenant Admin'] } }
+const NON_ADMIN_SESSION = { user: { id: 'user_1', roles: ['Customer User'] } }
 
 const BASE_COMPANY = {
   id: 'company_123',
@@ -122,6 +133,10 @@ beforeEach(() => {
   mockDelete.mockResolvedValue(true)
   mockGenerateSasToken.mockResolvedValue('https://blob.example.com/sas-url')
   mockDeleteBlob.mockResolvedValue(undefined)
+  mockGetAdminTenantId.mockResolvedValue('tenant_1')
+  // Retention 0 years = never blocks deletion, so pre-existing tests that
+  // don't care about retention keep passing unchanged.
+  mockGetCompletionRetentionYears.mockResolvedValue(0)
 })
 
 // ---------------------------------------------------------------------------
@@ -375,5 +390,33 @@ describe('DELETE /api/admin/completions/[id]', () => {
     const res = await deleteCompletion(req, idParams('record_123'))
     expect(res.status).toBe(200)
     expect(mockDeleteBlob).not.toHaveBeenCalled()
+  })
+
+  it('returns 403 and does not delete when still within the retention period', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetById.mockResolvedValue(BASE_COMPLETION) // signedAt: 2024-01-01
+    mockGetCompletionRetentionYears.mockResolvedValue(5)
+    const req = new NextRequest(
+      'http://localhost/api/admin/completions/record_123',
+      { method: 'DELETE' }
+    )
+    const res = await deleteCompletion(req, idParams('record_123'))
+    expect(res.status).toBe(403)
+    expect((await res.json()).error).toMatch(/data retention policy/i)
+    expect(mockDelete).not.toHaveBeenCalled()
+    expect(mockDeleteBlob).not.toHaveBeenCalled()
+  })
+
+  it('returns 500 when the tenant cannot be resolved', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetById.mockResolvedValue(BASE_COMPLETION)
+    mockGetAdminTenantId.mockResolvedValue(null)
+    const req = new NextRequest(
+      'http://localhost/api/admin/completions/record_123',
+      { method: 'DELETE' }
+    )
+    const res = await deleteCompletion(req, idParams('record_123'))
+    expect(res.status).toBe(500)
+    expect(mockDelete).not.toHaveBeenCalled()
   })
 })

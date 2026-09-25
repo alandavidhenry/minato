@@ -7,6 +7,7 @@ import {
   Clock,
   Download,
   Eye,
+  Lock,
   Trash2
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
@@ -26,7 +27,17 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@/components/ui/tooltip'
 import { toast } from '@/components/ui/use-toast'
+import {
+  DEFAULT_COMPLETION_RETENTION_YEARS,
+  getRetentionEndDate,
+  isWithinRetentionPeriod
+} from '@/lib/data-retention'
 
 import type { ColumnDef } from '@tanstack/react-table'
 
@@ -75,6 +86,9 @@ export default function TemplateCompletionsPage() {
   } | null>(null)
   const [viewPdfData, setViewPdfData] = useState<Uint8Array | null>(null)
   const [viewLoading, setViewLoading] = useState(false)
+  const [retentionYears, setRetentionYears] = useState(
+    DEFAULT_COMPLETION_RETENTION_YEARS
+  )
 
   useBreadcrumbLabel(
     `/admin/completions/${companyId}`,
@@ -89,9 +103,10 @@ export default function TemplateCompletionsPage() {
     setIsLoading(true)
     setSelected(new Set())
     try {
-      const [companyRes, completionsRes] = await Promise.all([
+      const [companyRes, completionsRes, retentionRes] = await Promise.all([
         fetch(`/api/admin/companies/${companyId}`),
-        fetch(`/api/admin/companies/${companyId}/completions/${templateId}`)
+        fetch(`/api/admin/companies/${companyId}/completions/${templateId}`),
+        fetch('/api/admin/settings/data-retention')
       ])
       if (!companyRes.ok) throw new Error('Company not found')
       if (!completionsRes.ok) throw new Error('Failed to load data')
@@ -99,6 +114,10 @@ export default function TemplateCompletionsPage() {
         companyRes.json(),
         completionsRes.json()
       ])
+      if (retentionRes.ok) {
+        const retentionData = await retentionRes.json()
+        setRetentionYears(retentionData.retentionYears)
+      }
       setCompanyName(companyData.company.name)
       setCompletions(completionsData.completions)
       setOutstandingUsers(completionsData.outstandingUsers ?? [])
@@ -120,6 +139,10 @@ export default function TemplateCompletionsPage() {
     fetchData()
   }, [fetchData])
 
+  function isProtected(completion: Completion) {
+    return isWithinRetentionPeriod(completion.signedAt, retentionYears)
+  }
+
   function toggleOne(id: string) {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -129,11 +152,13 @@ export default function TemplateCompletionsPage() {
     })
   }
 
+  const selectableCompletions = completions.filter((c) => !isProtected(c))
+
   function toggleAll() {
-    if (selected.size === completions.length) {
+    if (selected.size === selectableCompletions.length) {
       setSelected(new Set())
     } else {
-      setSelected(new Set(completions.map((c) => c.id)))
+      setSelected(new Set(selectableCompletions.map((c) => c.id)))
     }
   }
 
@@ -265,8 +290,10 @@ export default function TemplateCompletionsPage() {
   }
 
   const allChecked =
-    completions.length > 0 && selected.size === completions.length
-  const someChecked = selected.size > 0 && selected.size < completions.length
+    selectableCompletions.length > 0 &&
+    selected.size === selectableCompletions.length
+  const someChecked =
+    selected.size > 0 && selected.size < selectableCompletions.length
 
   const completionColumns: ColumnDef<typeof dataTableFeatures, Completion>[] = [
     {
@@ -283,6 +310,7 @@ export default function TemplateCompletionsPage() {
         <Checkbox
           checked={selected.has(row.original.id)}
           onCheckedChange={() => toggleOne(row.original.id)}
+          disabled={isProtected(row.original)}
           aria-label='Select row'
         />
       )
@@ -338,6 +366,7 @@ export default function TemplateCompletionsPage() {
       meta: { align: 'right' },
       cell: ({ row }) => {
         const completion = row.original
+        const protectedByRetention = isProtected(completion)
         return (
           <div className='flex items-center justify-end gap-1'>
             {completion.blobPath && (
@@ -359,14 +388,34 @@ export default function TemplateCompletionsPage() {
                 </Button>
               </>
             )}
-            <Button
-              variant='ghost'
-              size='sm'
-              disabled={deleting === completion.id}
-              onClick={() => handleDelete(completion)}
-            >
-              <Trash2 className='h-4 w-4' />
-            </Button>
+            {protectedByRetention ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button variant='ghost' size='sm' disabled>
+                      <Lock className='h-4 w-4' />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Protected until{' '}
+                  {getRetentionEndDate(
+                    completion.signedAt,
+                    retentionYears
+                  ).toLocaleDateString('en-GB')}{' '}
+                  under the {retentionYears}-year data retention policy
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <Button
+                variant='ghost'
+                size='sm'
+                disabled={deleting === completion.id}
+                onClick={() => handleDelete(completion)}
+              >
+                <Trash2 className='h-4 w-4' />
+              </Button>
+            )}
           </div>
         )
       }

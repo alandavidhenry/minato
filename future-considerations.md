@@ -482,6 +482,25 @@ Key files: `src/app/globals.css`, `src/app/layout.tsx`, `src/components/provider
 
 ---
 
+### P22 — Data Retention Guard on Completion Deletion ✅ Done
+
+**Goal:** `future-considerations.md`'s Compliance section flagged a real gap: `DELETE /api/admin/completions/[id]` (and the bulk-select delete on `/admin/completions/[companyId]/[templateId]`) let an admin permanently hard-delete a signed completion — including its PDF blob — at any time, with only a browser `confirm()` in the way. That directly contradicts the "immutable signed PDF, retained 3–5 years" requirement for UK H&S compliance. Rather than removing the delete feature outright (still needed for correcting genuine mistakes, e.g. a test record), a retention window now blocks it while the record is still within its statutory retention period.
+
+**Implemented:**
+- ✅ `Tenant.completionRetentionYears Int @default(5)` (migration `20260925135941_add_completion_retention_years`) — configurable per tenant rather than a hardcoded constant, editable by an admin without a code change
+- ✅ `src/lib/data-retention.ts` — pure `isWithinRetentionPeriod`/`getRetentionEndDate` date-window logic, deliberately free of any `prisma` import so it's safe to share between server routes and the `'use client'` admin completions page
+- ✅ `src/lib/user-database.ts` gains `getAdminTenantId` (resolves an admin's own tenant, falling back to the single tenant row — the same fallback `profile-permissions`'s route-local helper already used, now shared), `getCompletionRetentionYears`, `updateCompletionRetentionYears`
+- ✅ `GET`/`PATCH /api/admin/settings/data-retention` — same shape as the existing `profile-permissions` settings route; validates `retentionYears` is an integer between 1 and 50
+- ✅ `DELETE /api/admin/completions/[id]` — resolves the acting admin's tenant, fetches the retention period, and returns 403 with an explanatory message + `retentionEnd` ISO date if the completion's `signedAt` is still within the window; 500 if the tenant can't be resolved at all (fail closed rather than silently allowing deletion). Both the single-record and bulk-select delete flows on the completions detail page go through this one endpoint, so both are covered by one guard.
+- ✅ `/admin/settings` gained a "Data Retention" tab (same form pattern as "User Profile Permissions") where the retention period is edited
+- ✅ `/admin/completions/[companyId]/[templateId]` — fetches the current retention policy alongside its existing data, disables the row checkbox and swaps the delete button for a disabled lock icon (with a tooltip showing the unlock date) on any completion still within the window; bulk "select all" only ever selects unprotected rows, so the UI proactively prevents attempting a blocked delete rather than only reporting the 403 after the fact
+
+**Deliberately out of scope:** GDPR right-to-erasure/anonymisation (a user asking to be forgotten while their signed documents must still be retained) is a separate, larger feature — this pass only protects existing signed records from admin-initiated hard deletion.
+
+**See [`data-management.md`](./data-management.md)** for the deeper design discussion this raised: Azure Blob immutability policies (why the current guard is app-level only, and what Azure-enforced protection would take), the GDPR erasure-vs-retention conflict for a closing client company, per-company/jurisdiction retention variability, and whether per-company blob containers are worth it — none of this is built yet, but the decisions interact with each other and are worth reading before extending P22.
+
+Key files: `prisma/schema.prisma`, `prisma/migrations/20260925135941_add_completion_retention_years/`, `src/lib/data-retention.ts`, `src/lib/user-database.ts`, `src/app/api/admin/settings/data-retention/route.ts`, `src/app/api/admin/settings/profile-permissions/route.ts`, `src/app/api/admin/completions/[id]/route.ts`, `src/app/admin/settings/page.tsx`, `src/app/admin/completions/[companyId]/[templateId]/page.tsx`
+
 ---
 
 ## Document Model
@@ -506,7 +525,7 @@ All of Steps 1–8 are now complete:
 
 **Remaining for the completion flow:**
 - ✅ Signature pad (canvas) — `react-signature-canvas`, embedded drawn signature into PDF (Step 8) — see Electronic Signing below for details
-- Data retention / immutability policy — prevent deletion of completion blobs
+- ✅ Data retention / immutability policy — see P22: prevents deletion of completion blobs during the configurable retention window
 
 ### Target model
 The correct mental model is **templates → assignments → completions**:
@@ -660,11 +679,12 @@ Defer until there is a clear use case. The programmatic PDF generation approach 
 - ✅ `POST /api/admin/templates/[id]/generate-questions` — admin-only, writes nothing to the database. Returns suggested questions; nothing is persisted until the admin reviews and clicks the existing Save/Publish actions (the human-review gate is just the pre-existing template-save flow, no new persistence path was needed).
 - ✅ `edit-template-dialog.tsx` — "Generate with AI" button next to "Add Question" in the (already `sourceType`-agnostic) Comprehension Questions section; appends suggestions to the existing `questions` state for the admin to edit/delete before saving. Hidden when the dialog is mounted via the customer self-serve portal's `apiBasePath` (see below).
 
+**Customer self-serve portal (P17) parity — ✅ Done (2026-09-25):** `POST /api/customer/admin/templates/[id]/generate-questions` mirrors the admin route, gated on `UserRole.CUSTOMER_ADMIN` + `session.user.customerCompanyId`, with the same ownership check (404) as the other customer-admin template routes when the template belongs to another company or the tenant library. `edit-template-dialog.tsx`'s "Generate with AI" button now calls `${apiBasePath}/${template.id}/generate-questions` instead of a hardcoded admin path, and the button is always shown (the `canGenerateQuestions`/`apiBasePath`-gated hiding was removed) since both portals now have the route.
+
 **Deliberately out of scope for this pass:**
-- **Customer self-serve portal (P17) parity** — `/customer/admin/templates` doesn't get this button yet; only the main admin portal (`/api/admin/templates/[id]/generate-questions`) was built. Mirroring the route to `/api/customer/admin/templates/[id]/generate-questions` and passing it through the dialog's existing `apiBasePath` prop would be the natural follow-up, matching how `upload-document` and `publish-version` are already mirrored to both portals.
 - **Scanned/image-only PDFs** — `extractTextFromPdfBuffer` only reads a PDF's embedded text layer; a scanned document with no text layer throws a clear error rather than silently generating nothing. OCR (Azure Document Intelligence, already provisioned but unused — see above) would be needed to support these, and is the same underlying gap as the deferred "structured data extraction" item above.
 
-Key files: `infrastructure/modules/ai_foundry/`, `infrastructure/modules/minato/main.tf`, `infrastructure/env/{Development,Production}/{main.tf,variables.tf,outputs.tf,terraform.tfvars}`, `src/lib/storage.ts`, `src/lib/document-text-extraction.ts`, `src/lib/comprehension-question-source.ts`, `src/lib/comprehension-question-generation.ts`, `src/app/api/admin/templates/[id]/generate-questions/route.ts`, `src/components/admin/edit-template-dialog.tsx`
+Key files: `infrastructure/modules/ai_foundry/`, `infrastructure/modules/minato/main.tf`, `infrastructure/env/{Development,Production}/{main.tf,variables.tf,outputs.tf,terraform.tfvars}`, `src/lib/storage.ts`, `src/lib/document-text-extraction.ts`, `src/lib/comprehension-question-source.ts`, `src/lib/comprehension-question-generation.ts`, `src/app/api/admin/templates/[id]/generate-questions/route.ts`, `src/app/api/customer/admin/templates/[id]/generate-questions/route.ts`, `src/components/admin/edit-template-dialog.tsx`
 
 ---
 
@@ -715,7 +735,7 @@ This works well and catches design problems early. Always request tests before i
 **Test discipline (non-negotiable):** update existing tests whenever code changes; write new tests whenever new code is added.
 
 ### What remains
-- **More E2E coverage** — the initial `e2e/` suite covers sign-in, admin navigation, and the customer/kiosk landing pages. Document upload/versioning, assignment creation, and the full sign-off flow (comprehension questions + signature) are still only covered at the integration (Vitest) level — add E2E coverage for these once the UI settles further, since UI tests are brittle against layout changes.
+- **More E2E coverage** — the `e2e/` suite now covers sign-in, admin navigation, template creation/version publishing (`templates.spec.ts`), assignment creation (`assignments.spec.ts`), the full customer sign-off flow — form fields, comprehension question, declaration, signature (`completion.spec.ts`) — and the customer/kiosk landing pages. Still only integration-tested: upload-based (Word/PDF) document flows (P19) and fill-and-return submissions — worth adding once that UI is judged stable enough to be worth the Gotenberg-dependent E2E setup cost.
 
 ### Coverage target
 High coverage on `src/lib/` (>90%) and critical API routes. E2E coverage of the five to ten most important user journeys. Do not chase 100% coverage at the expense of test quality.
@@ -771,18 +791,22 @@ Lint, format check, type check, and all Vitest tests (unit + integration) run on
 
 ## Compliance & Data Protection
 
+**See [`data-management.md`](./data-management.md)** for the full design discussion behind this section — Azure Blob immutability, the erasure-vs-retention conflict, per-company/jurisdiction retention, and container isolation.
+
 ### GDPR (UK)
 - All data is UK-resident (Azure UK South / UK West regions)
 - Personal data includes: user names, email addresses, signed documents (may contain signatures, employee names)
-- Retention policy needed: how long are completed/signed documents kept? Who can delete them?
-- Right to erasure: design user deletion to anonymise rather than hard-delete where documents must be retained for compliance purposes
+- ✅ Retention policy — see P22: `Tenant.completionRetentionYears` (default 5) blocks admin deletion of a signed `CompletionRecord` (and its PDF blob) until the retention window has elapsed; configurable at `/admin/settings`'s "Data Retention" tab
+- Right to erasure: design user deletion to anonymise rather than hard-delete where documents must be retained for compliance purposes — **still not implemented**; P22 only protects existing signed records from premature deletion, it doesn't yet handle a user asking to be forgotten while their documents must be retained
 
 ### Health & Safety regulations
 - Signed H&S checklists may need to be retained for a defined period (typically 3-5 years under UK H&S law)
 - The immutable signed PDF approach (content-addressed blob path) supports this naturally
+- ✅ Enforced — see P22
 - Audit trail in activity logs supports evidence of compliance
 
 ### Actions needed
-- Add a data retention policy to the admin settings
+- ✅ Add a data retention policy to the admin settings — done, see P22
 - Add a privacy policy page
 - Confirm with Simon whether any industry-specific H&S standards require certified e-signatures vs simple audit trails
+- Design the GDPR right-to-erasure/anonymisation flow — see `data-management.md` §4 for the specific conflict with statutory retention (e.g. a client company closing down) and what an override would need

@@ -138,11 +138,6 @@ export function EditTemplateDialog({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isUploadTemplate = template?.sourceType === 'upload'
-  // AI question generation is admin-portal-only for now — the customer
-  // self-serve portal passes a different apiBasePath and doesn't get this
-  // route, so the button is hidden there rather than shown broken.
-  const canGenerateQuestions =
-    !apiBasePath || apiBasePath === '/api/admin/templates'
 
   useEffect(() => {
     if (template) {
@@ -325,7 +320,7 @@ export function EditTemplateDialog({
     setIsGeneratingQuestions(true)
     try {
       const response = await fetch(
-        `/api/admin/templates/${template.id}/generate-questions`,
+        `${apiBasePath}/${template.id}/generate-questions`,
         { method: 'POST' }
       )
 
@@ -998,22 +993,20 @@ export function EditTemplateDialog({
                   </p>
                 </div>
                 <div className='flex items-center gap-2'>
-                  {canGenerateQuestions && (
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='sm'
-                      onClick={handleGenerateQuestions}
-                      disabled={isLoading || isGeneratingQuestions}
-                    >
-                      {isGeneratingQuestions ? (
-                        <Loader2 className='mr-1 h-3 w-3 animate-spin' />
-                      ) : (
-                        <Sparkles className='mr-1 h-3 w-3' />
-                      )}
-                      Generate with AI
-                    </Button>
-                  )}
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    onClick={handleGenerateQuestions}
+                    disabled={isLoading || isGeneratingQuestions}
+                  >
+                    {isGeneratingQuestions ? (
+                      <Loader2 className='mr-1 h-3 w-3 animate-spin' />
+                    ) : (
+                      <Sparkles className='mr-1 h-3 w-3' />
+                    )}
+                    Generate with AI
+                  </Button>
                   <Button
                     type='button'
                     variant='outline'
