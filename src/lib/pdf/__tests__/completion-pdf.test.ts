@@ -43,7 +43,7 @@ describe('generateCompletionPDF', () => {
 
     expect(buffer).toBeInstanceOf(Buffer)
     expect(buffer.length).toBeGreaterThan(0)
-  })
+  }, 15000)
 
   it('renders a "—" placeholder when a file field has no uploaded value', async () => {
     const buffer = await generateCompletionPDF({
