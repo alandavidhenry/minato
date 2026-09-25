@@ -228,7 +228,7 @@ Add E2E tests (Playwright) once the document model is more stable. Add E2E step 
 
 ## Future Considerations
 
-See `future-considerations.md` for full architectural analysis. Key items still pending:
+See `future-considerations.md` for full architectural analysis, and `product-roadmap.md` for the product plan (feature gaps, automations, SaaS prerequisites, subscription tiers). Key items still pending:
 
 - **Electronic signing** — server-side PDF (React-PDF) + audit trail + canvas signature pad all done; third-party e-signing only if legally required
 - **Multi-tenancy** — schema has `Tenant` model and nullable `tenantId` on `User`; build it when needed
