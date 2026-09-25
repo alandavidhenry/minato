@@ -183,7 +183,7 @@ All tests run in CI on every PR and release — no Azure credentials or running 
 
 ### End-to-end tests (Playwright)
 
-`e2e/` covers the core user journeys against a real running app — sign-in (valid/invalid credentials, unauthenticated redirects), the Admin portal (dashboard KPIs, sidebar navigation, company list), Customer/Customer Admin landing pages, and the public kiosk sign-off page. Unlike the Vitest suite, these need `npm run docker:up` (Postgres, Azurite, Gotenberg), a migrated + seeded database, and the app running.
+`e2e/` covers the core user journeys against a real running app — sign-in (valid/invalid credentials, unauthenticated redirects), the Admin portal (dashboard KPIs, sidebar navigation, company list), template creation and version publishing, assignment creation, the full customer sign-off flow (form fields, comprehension question, declaration, signature), Customer/Customer Admin landing pages, and the public kiosk sign-off page. Unlike the Vitest suite, these need `npm run docker:up` (Postgres, Azurite, Gotenberg), a migrated + seeded database, and the app running.
 
 ```bash
 npm run docker:up
