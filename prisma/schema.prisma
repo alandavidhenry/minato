@@ -19,10 +19,11 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model Tenant {
-  id                 String   @id @default(cuid())
-  name               String
-  createdAt          DateTime @default(now())
-  profilePermissions Json? // ProfilePermissions: which fields customer users may self-edit
+  id                        String   @id @default(cuid())
+  name                      String
+  createdAt                 DateTime @default(now())
+  profilePermissions        Json? // ProfilePermissions: which fields customer users may self-edit
+  completionRetentionYears  Int      @default(5) // years a signed CompletionRecord must be retained before an admin may delete it (UK H&S guidance: 3-5 years)
 
   users             User[]
   customerCompanies CustomerCompany[]

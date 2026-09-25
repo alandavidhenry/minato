@@ -1,7 +1,7 @@
 // src/app/admin/settings/page.tsx
 'use client'
 
-import { Loader2, Save, Shield, UserCog } from 'lucide-react'
+import { Archive, Loader2, Save, Shield, UserCog } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { PageHeader } from '@/components/page-header'
@@ -19,6 +19,11 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from '@/components/ui/use-toast'
+import {
+  DEFAULT_COMPLETION_RETENTION_YEARS,
+  MAX_COMPLETION_RETENTION_YEARS,
+  MIN_COMPLETION_RETENTION_YEARS
+} from '@/lib/data-retention'
 import type { ProfilePermissions } from '@/lib/user-database'
 
 type GeneralSettingValue = string | boolean
@@ -81,6 +86,55 @@ export default function AdminSettingsPage() {
     }
   }
 
+  const [retentionYears, setRetentionYears] = useState(
+    DEFAULT_COMPLETION_RETENTION_YEARS
+  )
+  const [isLoadingRetention, setIsLoadingRetention] = useState(true)
+  const [isSavingRetention, setIsSavingRetention] = useState(false)
+
+  const fetchRetention = useCallback(async () => {
+    setIsLoadingRetention(true)
+    try {
+      const res = await fetch('/api/admin/settings/data-retention')
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setRetentionYears(data.retentionYears)
+    } catch {
+      // keep default
+    } finally {
+      setIsLoadingRetention(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchRetention()
+  }, [fetchRetention])
+
+  async function handleSaveRetention(e: React.FormEvent) {
+    e.preventDefault()
+    setIsSavingRetention(true)
+    try {
+      const res = await fetch('/api/admin/settings/data-retention', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ retentionYears })
+      })
+      if (!res.ok) throw new Error()
+      toast({
+        title: 'Success',
+        description: 'Data retention policy saved.'
+      })
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to save the data retention policy.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsSavingRetention(false)
+    }
+  }
+
   const [securitySettings, setSecuritySettings] = useState({
     passwordMinLength: 8,
     passwordExpireDays: 90,
@@ -136,6 +190,7 @@ export default function AdminSettingsPage() {
           <TabsTrigger value='general'>General</TabsTrigger>
           <TabsTrigger value='security'>Security</TabsTrigger>
           <TabsTrigger value='profiles'>User Profiles</TabsTrigger>
+          <TabsTrigger value='retention'>Data Retention</TabsTrigger>
         </TabsList>
 
         {/* General Settings */}
@@ -439,6 +494,72 @@ export default function AdminSettingsPage() {
                     <>
                       <Save className='mr-2 h-4 w-4' />
                       Save Permissions
+                    </>
+                  )}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </TabsContent>
+
+        {/* Data Retention */}
+        <TabsContent value='retention'>
+          <Card>
+            <form onSubmit={handleSaveRetention}>
+              <CardHeader>
+                <CardTitle className='flex items-center gap-2'>
+                  <Archive className='h-5 w-5' />
+                  Data Retention Policy
+                </CardTitle>
+                <CardDescription>
+                  UK health & safety regulations typically require signed
+                  compliance documents to be retained for 3–5 years. Signed
+                  completions cannot be deleted by admins until this many years
+                  have passed since signing.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className='space-y-4'>
+                {isLoadingRetention ? (
+                  <div className='flex items-center gap-2 text-muted-foreground text-sm'>
+                    <Loader2 className='h-4 w-4 animate-spin' />
+                    Loading…
+                  </div>
+                ) : (
+                  <div className='grid gap-2'>
+                    <Label htmlFor='retentionYears'>
+                      Retention period (years)
+                    </Label>
+                    <Input
+                      id='retentionYears'
+                      type='number'
+                      min={MIN_COMPLETION_RETENTION_YEARS}
+                      max={MAX_COMPLETION_RETENTION_YEARS}
+                      className='w-32'
+                      value={retentionYears}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setRetentionYears(Number.parseInt(e.target.value) || 0)
+                      }
+                      disabled={isSavingRetention}
+                    />
+                  </div>
+                )}
+              </CardContent>
+
+              <CardFooter>
+                <Button
+                  type='submit'
+                  disabled={isSavingRetention || isLoadingRetention}
+                >
+                  {isSavingRetention ? (
+                    <>
+                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <Save className='mr-2 h-4 w-4' />
+                      Save Policy
                     </>
                   )}
                 </Button>

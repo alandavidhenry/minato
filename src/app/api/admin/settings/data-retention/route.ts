@@ -3,9 +3,14 @@ import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
 import {
+  DEFAULT_COMPLETION_RETENTION_YEARS,
+  MAX_COMPLETION_RETENTION_YEARS,
+  MIN_COMPLETION_RETENTION_YEARS
+} from '@/lib/data-retention'
+import {
   getAdminTenantId,
-  getTenantProfilePermissions,
-  updateProfilePermissions
+  getCompletionRetentionYears,
+  updateCompletionRetentionYears
 } from '@/lib/user-database'
 import { ADMIN_ROLES, UserRole } from '@/types/rbac'
 
@@ -20,8 +25,13 @@ export async function GET() {
   if (!tenantId)
     return Response.json({ error: 'No tenant found' }, { status: 404 })
 
-  const permissions = await getTenantProfilePermissions(tenantId)
-  return Response.json({ permissions })
+  const retentionYears = await getCompletionRetentionYears(tenantId)
+  return Response.json({
+    retentionYears,
+    min: MIN_COMPLETION_RETENTION_YEARS,
+    max: MAX_COMPLETION_RETENTION_YEARS,
+    default: DEFAULT_COMPLETION_RETENTION_YEARS
+  })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -31,19 +41,27 @@ export async function PATCH(req: NextRequest) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const body = await req.json()
+  const retentionYears = Number(body.retentionYears)
+
+  if (
+    !Number.isInteger(retentionYears) ||
+    retentionYears < MIN_COMPLETION_RETENTION_YEARS ||
+    retentionYears > MAX_COMPLETION_RETENTION_YEARS
+  ) {
+    return Response.json(
+      {
+        error: `retentionYears must be an integer between ${MIN_COMPLETION_RETENTION_YEARS} and ${MAX_COMPLETION_RETENTION_YEARS}.`
+      },
+      { status: 400 }
+    )
+  }
+
   const tenantId = await getAdminTenantId(session.user.id)
   if (!tenantId)
     return Response.json({ error: 'No tenant found' }, { status: 404 })
 
-  const body = await req.json()
-  const { canEditDisplayName, canEditEmail, canEditJobRole } = body
-
-  const ok = await updateProfilePermissions(tenantId, {
-    ...(typeof canEditDisplayName === 'boolean' && { canEditDisplayName }),
-    ...(typeof canEditEmail === 'boolean' && { canEditEmail }),
-    ...(typeof canEditJobRole === 'boolean' && { canEditJobRole })
-  })
-
+  const ok = await updateCompletionRetentionYears(tenantId, retentionYears)
   if (!ok) return Response.json({ error: 'Failed to save' }, { status: 500 })
   return Response.json({ success: true })
 }
