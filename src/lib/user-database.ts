@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs'
 
 import { Prisma } from '@/generated/prisma/client'
 
+import { DEFAULT_COMPLETION_RETENTION_YEARS } from './data-retention'
 import prisma from './prisma'
 
 export interface ProfilePermissions {
@@ -283,6 +284,48 @@ export async function updateProfilePermissions(
       data: {
         profilePermissions: merged as unknown as Prisma.InputJsonValue
       }
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Resolves the tenant an admin acts on behalf of: the admin's own tenantId
+// if set, otherwise the single tenant row (this app is single-tenant today).
+export async function getAdminTenantId(
+  adminUserId: string
+): Promise<string | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: adminUserId },
+    select: { tenantId: true }
+  })
+  if (user?.tenantId) return user.tenantId
+  const tenant = await prisma.tenant.findFirst({ select: { id: true } })
+  return tenant?.id ?? null
+}
+
+export async function getCompletionRetentionYears(
+  tenantId: string
+): Promise<number> {
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } })
+    return (
+      tenant?.completionRetentionYears ?? DEFAULT_COMPLETION_RETENTION_YEARS
+    )
+  } catch {
+    return DEFAULT_COMPLETION_RETENTION_YEARS
+  }
+}
+
+export async function updateCompletionRetentionYears(
+  tenantId: string,
+  years: number
+): Promise<boolean> {
+  try {
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { completionRetentionYears: years }
     })
     return true
   } catch {

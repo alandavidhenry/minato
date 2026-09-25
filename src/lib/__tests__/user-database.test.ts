@@ -4,12 +4,15 @@ import {
   changePassword,
   createUser,
   deleteUser,
+  getAdminTenantId,
   getAllUsers,
+  getCompletionRetentionYears,
   getProfilePermissions,
   getTenantProfilePermissions,
   getUserByEmail,
   getUserById,
   resolveEmailRecipients,
+  updateCompletionRetentionYears,
   updateProfilePermissions,
   updateUser,
   updateUserProfile,
@@ -520,6 +523,73 @@ describe('updateProfilePermissions', () => {
     const result = await updateProfilePermissions('tenant_1', {
       canEditDisplayName: false
     })
+    expect(result).toBe(false)
+  })
+})
+
+describe('getAdminTenantId', () => {
+  it("returns the admin's own tenantId when set", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ tenantId: 'tenant_1' })
+    const id = await getAdminTenantId('admin_1')
+    expect(id).toBe('tenant_1')
+    expect(mockPrisma.tenant.findFirst).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the single tenant row when the admin has no tenantId', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ tenantId: null })
+    mockPrisma.tenant.findFirst.mockResolvedValue({ id: 'tenant_1' })
+    const id = await getAdminTenantId('admin_1')
+    expect(id).toBe('tenant_1')
+  })
+
+  it('returns null when no tenant exists at all', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null)
+    mockPrisma.tenant.findFirst.mockResolvedValue(null)
+    const id = await getAdminTenantId('admin_1')
+    expect(id).toBeNull()
+  })
+})
+
+describe('getCompletionRetentionYears', () => {
+  it('returns the default when the tenant has no value set', async () => {
+    mockPrisma.tenant.findUnique.mockResolvedValue({
+      ...BASE_TENANT,
+      completionRetentionYears: null
+    })
+    const years = await getCompletionRetentionYears('tenant_1')
+    expect(years).toBe(5)
+  })
+
+  it('returns the stored value', async () => {
+    mockPrisma.tenant.findUnique.mockResolvedValue({
+      ...BASE_TENANT,
+      completionRetentionYears: 7
+    })
+    const years = await getCompletionRetentionYears('tenant_1')
+    expect(years).toBe(7)
+  })
+
+  it('returns the default on error', async () => {
+    mockPrisma.tenant.findUnique.mockRejectedValue(new Error('db error'))
+    const years = await getCompletionRetentionYears('tenant_1')
+    expect(years).toBe(5)
+  })
+})
+
+describe('updateCompletionRetentionYears', () => {
+  it('updates the tenant and returns true', async () => {
+    mockPrisma.tenant.update.mockResolvedValue(BASE_TENANT)
+    const result = await updateCompletionRetentionYears('tenant_1', 7)
+    expect(result).toBe(true)
+    expect(mockPrisma.tenant.update).toHaveBeenCalledWith({
+      where: { id: 'tenant_1' },
+      data: { completionRetentionYears: 7 }
+    })
+  })
+
+  it('returns false on error', async () => {
+    mockPrisma.tenant.update.mockRejectedValue(new Error('db error'))
+    const result = await updateCompletionRetentionYears('tenant_1', 7)
     expect(result).toBe(false)
   })
 })

@@ -7,6 +7,7 @@ import {
   Clock,
   Download,
   Eye,
+  Lock,
   Trash2
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
@@ -34,7 +35,17 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@/components/ui/tooltip'
 import { toast } from '@/components/ui/use-toast'
+import {
+  DEFAULT_COMPLETION_RETENTION_YEARS,
+  getRetentionEndDate,
+  isWithinRetentionPeriod
+} from '@/lib/data-retention'
 
 const PDFRenderer = dynamic(
   () =>
@@ -81,6 +92,9 @@ export default function TemplateCompletionsPage() {
   } | null>(null)
   const [viewPdfData, setViewPdfData] = useState<Uint8Array | null>(null)
   const [viewLoading, setViewLoading] = useState(false)
+  const [retentionYears, setRetentionYears] = useState(
+    DEFAULT_COMPLETION_RETENTION_YEARS
+  )
 
   useBreadcrumbLabel(
     `/admin/completions/${companyId}`,
@@ -95,9 +109,10 @@ export default function TemplateCompletionsPage() {
     setIsLoading(true)
     setSelected(new Set())
     try {
-      const [companyRes, completionsRes] = await Promise.all([
+      const [companyRes, completionsRes, retentionRes] = await Promise.all([
         fetch(`/api/admin/companies/${companyId}`),
-        fetch(`/api/admin/companies/${companyId}/completions/${templateId}`)
+        fetch(`/api/admin/companies/${companyId}/completions/${templateId}`),
+        fetch('/api/admin/settings/data-retention')
       ])
       if (!companyRes.ok) throw new Error('Company not found')
       if (!completionsRes.ok) throw new Error('Failed to load data')
@@ -105,6 +120,10 @@ export default function TemplateCompletionsPage() {
         companyRes.json(),
         completionsRes.json()
       ])
+      if (retentionRes.ok) {
+        const retentionData = await retentionRes.json()
+        setRetentionYears(retentionData.retentionYears)
+      }
       setCompanyName(companyData.company.name)
       setCompletions(completionsData.completions)
       setOutstandingUsers(completionsData.outstandingUsers ?? [])
@@ -126,6 +145,10 @@ export default function TemplateCompletionsPage() {
     fetchData()
   }, [fetchData])
 
+  function isProtected(completion: Completion) {
+    return isWithinRetentionPeriod(completion.signedAt, retentionYears)
+  }
+
   function toggleOne(id: string) {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -135,11 +158,13 @@ export default function TemplateCompletionsPage() {
     })
   }
 
+  const selectableCompletions = completions.filter((c) => !isProtected(c))
+
   function toggleAll() {
-    if (selected.size === completions.length) {
+    if (selected.size === selectableCompletions.length) {
       setSelected(new Set())
     } else {
-      setSelected(new Set(completions.map((c) => c.id)))
+      setSelected(new Set(selectableCompletions.map((c) => c.id)))
     }
   }
 
@@ -271,8 +296,10 @@ export default function TemplateCompletionsPage() {
   }
 
   const allChecked =
-    completions.length > 0 && selected.size === completions.length
-  const someChecked = selected.size > 0 && selected.size < completions.length
+    selectableCompletions.length > 0 &&
+    selected.size === selectableCompletions.length
+  const someChecked =
+    selected.size > 0 && selected.size < selectableCompletions.length
 
   function renderCompletionRows() {
     if (isLoading) {
@@ -289,76 +316,100 @@ export default function TemplateCompletionsPage() {
       )
     }
 
-    return completions.map((completion) => (
-      <TableRow
-        key={completion.id}
-        data-state={selected.has(completion.id) ? 'selected' : undefined}
-      >
-        <TableCell className='w-10'>
-          <Checkbox
-            checked={selected.has(completion.id)}
-            onCheckedChange={() => toggleOne(completion.id)}
-            aria-label='Select row'
-          />
-        </TableCell>
-        <TableCell>
-          <div>{completion.signer.displayName}</div>
-          <div className='text-xs text-muted-foreground'>
-            {completion.signer.email}
-          </div>
-        </TableCell>
-        <TableCell className='text-muted-foreground'>
-          {new Date(completion.signedAt).toLocaleString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
-        </TableCell>
-        <TableCell>
-          {completion.blobPath ? (
-            <Badge variant='default' className='gap-1'>
-              <CheckCircle2 className='h-3 w-3' />
-              PDF ready
-            </Badge>
-          ) : (
-            <Badge variant='secondary'>No PDF</Badge>
-          )}
-        </TableCell>
-        <TableCell className='text-right'>
-          <div className='flex items-center justify-end gap-1'>
-            {completion.blobPath && (
-              <>
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  onClick={() => handleView(completion)}
-                >
-                  <Eye className='h-4 w-4' />
-                </Button>
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  disabled={downloading === completion.id}
-                  onClick={() => handleDownload(completion)}
-                >
-                  <Download className='h-4 w-4' />
-                </Button>
-              </>
+    return completions.map((completion) => {
+      const protectedByRetention = isProtected(completion)
+      return (
+        <TableRow
+          key={completion.id}
+          data-state={selected.has(completion.id) ? 'selected' : undefined}
+        >
+          <TableCell className='w-10'>
+            <Checkbox
+              checked={selected.has(completion.id)}
+              onCheckedChange={() => toggleOne(completion.id)}
+              disabled={protectedByRetention}
+              aria-label='Select row'
+            />
+          </TableCell>
+          <TableCell>
+            <div>{completion.signer.displayName}</div>
+            <div className='text-xs text-muted-foreground'>
+              {completion.signer.email}
+            </div>
+          </TableCell>
+          <TableCell className='text-muted-foreground'>
+            {new Date(completion.signedAt).toLocaleString('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </TableCell>
+          <TableCell>
+            {completion.blobPath ? (
+              <Badge variant='default' className='gap-1'>
+                <CheckCircle2 className='h-3 w-3' />
+                PDF ready
+              </Badge>
+            ) : (
+              <Badge variant='secondary'>No PDF</Badge>
             )}
-            <Button
-              variant='ghost'
-              size='sm'
-              disabled={deleting === completion.id}
-              onClick={() => handleDelete(completion)}
-            >
-              <Trash2 className='h-4 w-4' />
-            </Button>
-          </div>
-        </TableCell>
-      </TableRow>
-    ))
+          </TableCell>
+          <TableCell className='text-right'>
+            <div className='flex items-center justify-end gap-1'>
+              {completion.blobPath && (
+                <>
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    onClick={() => handleView(completion)}
+                  >
+                    <Eye className='h-4 w-4' />
+                  </Button>
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    disabled={downloading === completion.id}
+                    onClick={() => handleDownload(completion)}
+                  >
+                    <Download className='h-4 w-4' />
+                  </Button>
+                </>
+              )}
+              {protectedByRetention ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button variant='ghost' size='sm' disabled>
+                        <Lock className='h-4 w-4' />
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Protected until{' '}
+                    {getRetentionEndDate(
+                      completion.signedAt,
+                      retentionYears
+                    ).toLocaleDateString('en-GB')}{' '}
+                    under the {retentionYears}-year data retention policy
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  disabled={deleting === completion.id}
+                  onClick={() => handleDelete(completion)}
+                >
+                  <Trash2 className='h-4 w-4' />
+                </Button>
+              )}
+            </div>
+          </TableCell>
+        </TableRow>
+      )
+    })
   }
 
   return (

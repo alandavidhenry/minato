@@ -7,7 +7,15 @@ import {
   deleteCompletionRecord,
   getCompletionById
 } from '@/lib/completion-records'
+import {
+  getRetentionEndDate,
+  isWithinRetentionPeriod
+} from '@/lib/data-retention'
 import { deleteBlob } from '@/lib/storage'
+import {
+  getAdminTenantId,
+  getCompletionRetentionYears
+} from '@/lib/user-database'
 import { ADMIN_ROLES } from '@/types/rbac'
 
 export async function DELETE(
@@ -32,6 +40,31 @@ export async function DELETE(
       return NextResponse.json(
         { error: 'Completion not found.' },
         { status: 404 }
+      )
+    }
+
+    const tenantId = session?.user?.id
+      ? await getAdminTenantId(session.user.id)
+      : null
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Unable to verify the data retention policy.' },
+        { status: 500 }
+      )
+    }
+
+    const retentionYears = await getCompletionRetentionYears(tenantId)
+    if (isWithinRetentionPeriod(existing.signedAt, retentionYears)) {
+      const retentionEnd = getRetentionEndDate(
+        existing.signedAt,
+        retentionYears
+      )
+      return NextResponse.json(
+        {
+          error: `This completion is protected by the ${retentionYears}-year data retention policy until ${retentionEnd.toLocaleDateString('en-GB')}.`,
+          retentionEnd: retentionEnd.toISOString()
+        },
+        { status: 403 }
       )
     }
 
