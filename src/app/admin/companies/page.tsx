@@ -7,19 +7,13 @@ import { useEffect, useState } from 'react'
 
 import { CreateCompanyDialog } from '@/components/admin/create-company-dialog'
 import { EditCompanyDialog } from '@/components/admin/edit-company-dialog'
-import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
-import { TableSkeleton } from '@/components/table-skeleton'
 import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
+import { DataTable } from '@/components/ui/data-table/data-table'
+import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import { toast } from '@/components/ui/use-toast'
+
+import type { ColumnDef } from '@tanstack/react-table'
 
 interface Company {
   id: string
@@ -98,56 +92,53 @@ export default function CompaniesPage() {
     toast({ title: 'Success', description: 'Company updated successfully.' })
   }
 
-  function renderRows() {
-    if (isLoading) {
-      return <TableSkeleton columns={3} />
-    }
-
-    if (companies.length === 0) {
-      return (
-        <TableRow>
-          <TableCell colSpan={3} className='p-0'>
-            <EmptyState
-              title='No companies yet'
-              description='Add your first client company.'
-            />
-          </TableCell>
-        </TableRow>
+  const columns: ColumnDef<typeof dataTableFeatures, Company>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Company Name',
+      cell: ({ row }) => (
+        <Link
+          href={`/admin/companies/${row.original.id}`}
+          className='font-medium hover:underline'
+        >
+          {row.original.name}
+        </Link>
       )
-    }
-
-    return companies.map((company) => (
-      <TableRow key={company.id}>
-        <TableCell className='font-medium'>
-          <Link
-            href={`/admin/companies/${company.id}`}
-            className='hover:underline'
-          >
-            {company.name}
-          </Link>
-        </TableCell>
-        <TableCell className='text-muted-foreground'>
-          {new Date(company.createdAt).toLocaleDateString()}
-        </TableCell>
-        <TableCell className='text-right'>
+    },
+    {
+      accessorKey: 'createdAt',
+      header: 'Created',
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>
+          {new Date(row.original.createdAt).toLocaleDateString()}
+        </span>
+      )
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      meta: { align: 'right' },
+      cell: ({ row }) => (
+        <>
           <Button
             variant='ghost'
             size='sm'
-            onClick={() => setEditingCompany(company)}
+            onClick={() => setEditingCompany(row.original)}
           >
             <Pencil className='h-4 w-4' />
           </Button>
           <Button
             variant='ghost'
             size='sm'
-            onClick={() => handleDelete(company.id, company.name)}
+            onClick={() => handleDelete(row.original.id, row.original.name)}
           >
             <Trash2 className='h-4 w-4' />
           </Button>
-        </TableCell>
-      </TableRow>
-    ))
-  }
+        </>
+      )
+    }
+  ]
 
   return (
     <div className='space-y-6'>
@@ -162,18 +153,13 @@ export default function CompaniesPage() {
         }
       />
 
-      <div className='rounded-md border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Company Name</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className='text-right'>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>{renderRows()}</TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={companies}
+        isLoading={isLoading}
+        emptyTitle='No companies yet'
+        emptyDescription='Add your first client company.'
+      />
 
       <CreateCompanyDialog
         open={showCreateDialog}

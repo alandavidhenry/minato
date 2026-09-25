@@ -5,9 +5,10 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { CustomerAdminPageGuard } from '@/components/auth/permission-guard'
 import { WelcomeHeader } from '@/components/customer/welcome-header'
-import { EmptyState } from '@/components/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DataTable } from '@/components/ui/data-table/data-table'
+import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import {
   Dialog,
   DialogContent,
@@ -16,15 +17,9 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
+
+import type { ColumnDef } from '@tanstack/react-table'
 
 interface CompletionGroup {
   assignmentId: string
@@ -189,6 +184,114 @@ function TeamCompletionsContent() {
     }
   }
 
+  const columns: ColumnDef<typeof dataTableFeatures, CompletionGroup>[] = [
+    {
+      id: 'template',
+      accessorFn: (row) => row.template.title,
+      header: 'Template',
+      cell: ({ row }) => (
+        <div className='flex items-center gap-2 font-medium'>
+          <FileCheck className='h-4 w-4 text-muted-foreground shrink-0' />
+          <span>{row.original.template.title}</span>
+          <span className='text-xs text-muted-foreground'>
+            v{row.original.templateVersion}
+          </span>
+        </div>
+      )
+    },
+    {
+      accessorKey: 'dueDate',
+      header: 'Due Date',
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>
+          {formatDate(row.original.dueDate)}
+        </span>
+      )
+    },
+    {
+      accessorKey: 'completionCount',
+      header: 'Completed',
+      meta: { align: 'center' },
+      cell: ({ row }) => row.original.completionCount
+    },
+    {
+      accessorKey: 'outstandingCount',
+      header: 'Outstanding',
+      meta: { align: 'center' },
+      cell: ({ row }) => (
+        <div className='flex items-center justify-center gap-2'>
+          <span>{row.original.outstandingCount}</span>
+          {row.original.isOverdue && (
+            <Badge variant='destructive'>Overdue</Badge>
+          )}
+        </div>
+      )
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      meta: { align: 'right' },
+      cell: ({ row }) => (
+        <Button
+          size='sm'
+          variant='outline'
+          onClick={() =>
+            openDetails(row.original.assignmentId, row.original.template.title)
+          }
+        >
+          <Users className='mr-1 h-3 w-3' />
+          Details
+        </Button>
+      )
+    }
+  ]
+
+  const completedRecordColumns: ColumnDef<
+    typeof dataTableFeatures,
+    CompletedRecord
+  >[] = [
+    {
+      id: 'name',
+      accessorFn: (row) => row.signer.displayName,
+      header: 'Name'
+    },
+    {
+      accessorKey: 'signedAt',
+      header: 'Completed',
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>
+          {formatDate(row.original.signedAt)}
+        </span>
+      )
+    },
+    {
+      id: 'pdf',
+      header: 'PDF',
+      enableSorting: false,
+      meta: { align: 'right' },
+      cell: ({ row }) => {
+        const record = row.original
+        if (!record.hasPdf) {
+          return (
+            <span className='text-xs text-muted-foreground'>Not available</span>
+          )
+        }
+        return (
+          <Button
+            size='sm'
+            variant='outline'
+            disabled={downloading === record.id}
+            onClick={() => handleDownload(dialogAssignmentId!, record.id)}
+          >
+            <Download className='mr-1 h-3 w-3' />
+            {downloading === record.id ? 'Preparing...' : 'Download'}
+          </Button>
+        )
+      }
+    }
+  ]
+
   const outstandingCount = groups.reduce(
     (sum, g) => sum + g.outstandingCount,
     0
@@ -257,75 +360,17 @@ function TeamCompletionsContent() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className='flex items-center justify-center h-64'>
-          <p className='text-muted-foreground'>Loading...</p>
-        </div>
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          className='h-64'
-          title={
-            groups.length === 0
-              ? 'No assignments yet'
-              : 'No results match your filters'
-          }
-        />
-      ) : (
-        <div className='rounded-md border'>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Template</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead className='text-center'>Completed</TableHead>
-                <TableHead className='text-center'>Outstanding</TableHead>
-                <TableHead className='text-right'>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((group) => (
-                <TableRow key={group.assignmentId}>
-                  <TableCell className='font-medium'>
-                    <div className='flex items-center gap-2'>
-                      <FileCheck className='h-4 w-4 text-muted-foreground shrink-0' />
-                      <span>{group.template.title}</span>
-                      <span className='text-xs text-muted-foreground'>
-                        v{group.templateVersion}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className='text-muted-foreground'>
-                    {formatDate(group.dueDate)}
-                  </TableCell>
-                  <TableCell className='text-center'>
-                    {group.completionCount}
-                  </TableCell>
-                  <TableCell className='text-center'>
-                    <div className='flex items-center justify-center gap-2'>
-                      <span>{group.outstandingCount}</span>
-                      {group.isOverdue && (
-                        <Badge variant='destructive'>Overdue</Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className='text-right'>
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      onClick={() =>
-                        openDetails(group.assignmentId, group.template.title)
-                      }
-                    >
-                      <Users className='mr-1 h-3 w-3' />
-                      Details
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <DataTable
+        columns={columns}
+        data={filtered}
+        getRowId={(row) => row.assignmentId}
+        isLoading={isLoading}
+        emptyTitle={
+          groups.length === 0
+            ? 'No assignments yet'
+            : 'No results match your filters'
+        }
+      />
 
       <Dialog
         open={dialogAssignmentId !== null}
@@ -362,54 +407,11 @@ function TeamCompletionsContent() {
                 <h3 className='font-semibold mb-3'>
                   Completed ({summary.completedRecords.length})
                 </h3>
-                {summary.completedRecords.length === 0 ? (
-                  <p className='text-sm text-muted-foreground'>
-                    No completions yet.
-                  </p>
-                ) : (
-                  <div className='rounded-md border'>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Completed</TableHead>
-                          <TableHead className='text-right'>PDF</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {summary.completedRecords.map((r) => (
-                          <TableRow key={r.id}>
-                            <TableCell>{r.signer.displayName}</TableCell>
-                            <TableCell className='text-muted-foreground'>
-                              {formatDate(r.signedAt)}
-                            </TableCell>
-                            <TableCell className='text-right'>
-                              {r.hasPdf ? (
-                                <Button
-                                  size='sm'
-                                  variant='outline'
-                                  disabled={downloading === r.id}
-                                  onClick={() =>
-                                    handleDownload(dialogAssignmentId!, r.id)
-                                  }
-                                >
-                                  <Download className='mr-1 h-3 w-3' />
-                                  {downloading === r.id
-                                    ? 'Preparing...'
-                                    : 'Download'}
-                                </Button>
-                              ) : (
-                                <span className='text-xs text-muted-foreground'>
-                                  Not available
-                                </span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                <DataTable
+                  columns={completedRecordColumns}
+                  data={summary.completedRecords}
+                  emptyTitle='No completions yet.'
+                />
               </div>
 
               <div>

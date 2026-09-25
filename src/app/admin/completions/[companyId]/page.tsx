@@ -6,20 +6,15 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
-import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
 import { useBreadcrumbLabel } from '@/components/providers/breadcrumb-provider'
-import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
+import { DataTable } from '@/components/ui/data-table/data-table'
+import { nullableDateSortValue } from '@/components/ui/data-table/sort-utils'
+import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import { toast } from '@/components/ui/use-toast'
+
+import type { ColumnDef } from '@tanstack/react-table'
 
 interface CompletionGroup {
   templateId: string
@@ -30,6 +25,16 @@ interface CompletionGroup {
   dueDate: string | null
   isOverdue: boolean
   outstandingCount: number
+}
+
+function formatShortDate(iso: string | null): string {
+  return iso
+    ? new Date(iso).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      })
+    : '—'
 }
 
 export default function CompanyCompletionsPage() {
@@ -73,41 +78,34 @@ export default function CompanyCompletionsPage() {
     fetchData()
   }, [fetchData])
 
-  function renderRows() {
-    if (isLoading) {
-      return <TableSkeleton columns={5} />
-    }
-
-    if (groups.length === 0) {
-      return (
-        <TableRow>
-          <TableCell colSpan={5} className='p-0'>
-            <EmptyState title='No templates assigned to this company' />
-          </TableCell>
-        </TableRow>
+  const columns: ColumnDef<typeof dataTableFeatures, CompletionGroup>[] = [
+    {
+      id: 'template',
+      accessorFn: (row) => row.template.title,
+      header: 'Template',
+      cell: ({ row }) => (
+        <Link
+          href={`/admin/completions/${companyId}/${row.original.templateId}`}
+          className='flex items-center gap-2 font-medium'
+        >
+          <FileText className='h-4 w-4 text-muted-foreground' />
+          {row.original.template.title}
+          {row.original.templateVersion > 1 && (
+            <Badge variant='secondary' className='text-xs'>
+              v{row.original.templateVersion}
+            </Badge>
+          )}
+        </Link>
       )
-    }
-
-    return groups.map((group) => (
-      <TableRow
-        key={group.templateId}
-        className='cursor-pointer hover:bg-muted/50'
-      >
-        <TableCell>
-          <Link
-            href={`/admin/completions/${companyId}/${group.templateId}`}
-            className='flex items-center gap-2 font-medium'
-          >
-            <FileText className='h-4 w-4 text-muted-foreground' />
-            {group.template.title}
-            {group.templateVersion > 1 && (
-              <Badge variant='secondary' className='text-xs'>
-                v{group.templateVersion}
-              </Badge>
-            )}
-          </Link>
-        </TableCell>
-        <TableCell>
+    },
+    {
+      id: 'status',
+      accessorFn: (row) => row.outstandingCount,
+      header: 'Status',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const group = row.original
+        return (
           <div className='flex items-center gap-2'>
             {group.isOverdue && (
               <Badge variant='destructive' className='gap-1'>
@@ -124,31 +122,39 @@ export default function CompanyCompletionsPage() {
               <Badge variant='default'>Complete</Badge>
             )}
           </div>
-        </TableCell>
-        <TableCell>
-          <Badge variant='secondary'>{group.completionCount}</Badge>
-        </TableCell>
-        <TableCell className='text-muted-foreground'>
-          {group.dueDate
-            ? new Date(group.dueDate).toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric'
-              })
-            : '—'}
-        </TableCell>
-        <TableCell className='text-muted-foreground'>
-          {group.lastCompletedAt
-            ? new Date(group.lastCompletedAt).toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric'
-              })
-            : '—'}
-        </TableCell>
-      </TableRow>
-    ))
-  }
+        )
+      }
+    },
+    {
+      accessorKey: 'completionCount',
+      header: 'Completions',
+      cell: ({ row }) => (
+        <Badge variant='secondary'>{row.original.completionCount}</Badge>
+      )
+    },
+    {
+      id: 'dueDate',
+      accessorFn: (row) => nullableDateSortValue(row.dueDate),
+      sortFn: 'basic',
+      header: 'Due date',
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>
+          {formatShortDate(row.original.dueDate)}
+        </span>
+      )
+    },
+    {
+      id: 'lastCompletedAt',
+      accessorFn: (row) => nullableDateSortValue(row.lastCompletedAt),
+      sortFn: 'basic',
+      header: 'Last completed',
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>
+          {formatShortDate(row.original.lastCompletedAt)}
+        </span>
+      )
+    }
+  ]
 
   return (
     <div className='space-y-6'>
@@ -158,20 +164,14 @@ export default function CompanyCompletionsPage() {
         backLabel='Completions'
       />
 
-      <div className='rounded-md border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Template</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Completions</TableHead>
-              <TableHead>Due date</TableHead>
-              <TableHead>Last completed</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>{renderRows()}</TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={groups}
+        getRowId={(row) => row.templateId}
+        isLoading={isLoading}
+        emptyTitle='No templates assigned to this company'
+        rowClassName={() => 'cursor-pointer'}
+      />
     </div>
   )
 }

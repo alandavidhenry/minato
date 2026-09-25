@@ -11,16 +11,13 @@ import { PageHeader } from '@/components/page-header'
 import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DataTable } from '@/components/ui/data-table/data-table'
+import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import { Input } from '@/components/ui/input'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
+import { Table, TableBody } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
+
+import type { ColumnDef } from '@tanstack/react-table'
 
 interface User {
   id: string
@@ -148,38 +145,69 @@ export default function UsersPage() {
 
   const groups = groupUsers(filteredUsers)
 
-  function renderUserRow(user: User) {
-    return (
-      <TableRow key={user.id}>
-        <TableCell className='font-medium'>{user.displayName}</TableCell>
-        <TableCell>
-          {user.mail ?? (
-            <span className='text-muted-foreground italic text-xs'>
-              No email — kiosk
-            </span>
-          )}
-        </TableCell>
-        <TableCell>
-          <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
-        </TableCell>
-        <TableCell className='text-muted-foreground'>
-          {user.jobRole ?? '—'}
-        </TableCell>
-        <TableCell>
-          <Badge variant={user.accountEnabled ? 'success' : 'secondary'}>
-            {user.accountEnabled ? 'Active' : 'Inactive'}
-          </Badge>
-        </TableCell>
-        <TableCell className='text-right'>
-          <UserActionsDropdown
-            user={user}
-            onUserUpdated={handleUserUpdated}
-            userRole={user.role}
-          />
-        </TableCell>
-      </TableRow>
-    )
-  }
+  const userColumns: ColumnDef<typeof dataTableFeatures, User>[] = [
+    {
+      accessorKey: 'displayName',
+      header: 'Name',
+      cell: ({ row }) => (
+        <span className='font-medium'>{row.original.displayName}</span>
+      )
+    },
+    {
+      accessorKey: 'mail',
+      header: 'Email',
+      enableSorting: false,
+      cell: ({ row }) =>
+        row.original.mail ?? (
+          <span className='text-muted-foreground italic text-xs'>
+            No email — kiosk
+          </span>
+        )
+    },
+    {
+      accessorKey: 'role',
+      header: 'Role',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <Badge variant={getRoleBadgeVariant(row.original.role)}>
+          {row.original.role}
+        </Badge>
+      )
+    },
+    {
+      accessorKey: 'jobRole',
+      header: 'Job Role',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>
+          {row.original.jobRole ?? '—'}
+        </span>
+      )
+    },
+    {
+      accessorKey: 'accountEnabled',
+      header: 'Status',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <Badge variant={row.original.accountEnabled ? 'success' : 'secondary'}>
+          {row.original.accountEnabled ? 'Active' : 'Inactive'}
+        </Badge>
+      )
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      meta: { align: 'right' },
+      cell: ({ row }) => (
+        <UserActionsDropdown
+          user={row.original}
+          onUserUpdated={handleUserUpdated}
+          userRole={row.original.role}
+        />
+      )
+    }
+  ]
 
   function renderGroup(group: UserGroup) {
     const isExpanded = expandedGroups.has(group.id)
@@ -199,19 +227,12 @@ export default function UsersPage() {
         </button>
         {isExpanded && (
           <div className='border-t'>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Job Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className='text-right'>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>{group.users.map(renderUserRow)}</TableBody>
-            </Table>
+            <DataTable
+              columns={userColumns}
+              data={group.users}
+              getRowId={(user) => user.id}
+              wrapperClassName=''
+            />
           </div>
         )}
       </div>

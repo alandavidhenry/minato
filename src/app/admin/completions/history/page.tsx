@@ -6,20 +6,14 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 
-import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
-import { TableSkeleton } from '@/components/table-skeleton'
 import { Button } from '@/components/ui/button'
+import { DataTable } from '@/components/ui/data-table/data-table'
+import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import { Input } from '@/components/ui/input'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
+
+import type { ColumnDef } from '@tanstack/react-table'
 
 interface CompletionRow {
   id: string
@@ -80,6 +74,64 @@ function CompletionsHistoryContent() {
       return true
     })
   }, [completions, fromDate, toDate])
+
+  const columns: ColumnDef<typeof dataTableFeatures, CompletionRow>[] = [
+    {
+      id: 'company',
+      accessorFn: (row) => row.assignment.customerCompany.name,
+      header: 'Company',
+      cell: ({ row }) => (
+        <Link
+          href={`/admin/companies/${row.original.assignment.customerCompany.id}`}
+          className='font-medium hover:underline'
+        >
+          {row.original.assignment.customerCompany.name}
+        </Link>
+      )
+    },
+    {
+      id: 'template',
+      accessorFn: (row) => row.assignment.template.title,
+      header: 'Template',
+      cell: ({ row }) => (
+        <Link href='/admin/templates' className='hover:underline'>
+          {row.original.assignment.template.title}
+        </Link>
+      )
+    },
+    {
+      id: 'signedBy',
+      accessorFn: (row) => row.signer.displayName,
+      header: 'Signed By'
+    },
+    {
+      id: 'signedAt',
+      accessorFn: (row) => new Date(row.signedAt).getTime(),
+      sortFn: 'basic',
+      header: 'Signed At',
+      cell: ({ row }) => (
+        <span className='whitespace-nowrap'>
+          {formatDateTime(row.original.signedAt)}
+        </span>
+      )
+    },
+    {
+      id: 'download',
+      header: 'Download',
+      enableSorting: false,
+      meta: { align: 'right' },
+      cell: ({ row }) => (
+        <Button
+          variant='ghost'
+          size='icon'
+          disabled={!row.original.blobPath || downloadingId === row.original.id}
+          onClick={() => handleDownload(row.original)}
+        >
+          <Download className='h-4 w-4' />
+        </Button>
+      )
+    }
+  ]
 
   async function handleDownload(completion: CompletionRow) {
     if (!completion.blobPath) return
@@ -144,68 +196,16 @@ function CompletionsHistoryContent() {
         {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
       </p>
 
-      <div className='rounded-md border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Company</TableHead>
-              <TableHead>Template</TableHead>
-              <TableHead>Signed By</TableHead>
-              <TableHead>Signed At</TableHead>
-              <TableHead className='text-right'>Download</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableSkeleton columns={5} />
-            ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className='p-0'>
-                  <EmptyState
-                    title={
-                      completions.length === 0
-                        ? 'No completions yet'
-                        : 'No completions match this date range'
-                    }
-                  />
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell className='font-medium'>
-                    <Link
-                      href={`/admin/companies/${c.assignment.customerCompany.id}`}
-                      className='hover:underline'
-                    >
-                      {c.assignment.customerCompany.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Link href='/admin/templates' className='hover:underline'>
-                      {c.assignment.template.title}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{c.signer.displayName}</TableCell>
-                  <TableCell className='whitespace-nowrap'>
-                    {formatDateTime(c.signedAt)}
-                  </TableCell>
-                  <TableCell className='text-right'>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      disabled={!c.blobPath || downloadingId === c.id}
-                      onClick={() => handleDownload(c)}
-                    >
-                      <Download className='h-4 w-4' />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={filtered}
+        isLoading={isLoading}
+        emptyTitle={
+          completions.length === 0
+            ? 'No completions yet'
+            : 'No completions match this date range'
+        }
+      />
     </div>
   )
 }

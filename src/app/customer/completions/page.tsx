@@ -5,21 +5,15 @@ import { Download, Eye, FileCheck, QrCode, Share2 } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
-import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
 import { QrCodeModal } from '@/components/qr-code-modal'
 import { ShareModal } from '@/components/share-modal'
-import { TableSkeleton } from '@/components/table-skeleton'
 import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
+import { DataTable } from '@/components/ui/data-table/data-table'
+import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import { toast } from '@/components/ui/use-toast'
+
+import type { ColumnDef } from '@tanstack/react-table'
 
 interface Completion {
   id: string
@@ -134,6 +128,88 @@ export default function CompletedFormsPage() {
 
   const grouped = groupCompletions(completions)
 
+  const columns: ColumnDef<typeof dataTableFeatures, GroupedCompletion>[] = [
+    {
+      accessorKey: 'title',
+      header: 'Form',
+      cell: ({ row }) => (
+        <span className='flex items-center gap-2 font-medium'>
+          <FileCheck className='h-4 w-4 text-muted-foreground' />
+          {row.original.title}
+          {row.original.totalVersions > 1 && (
+            <span className='text-xs text-muted-foreground'>
+              {row.original.totalVersions} versions
+            </span>
+          )}
+        </span>
+      )
+    },
+    {
+      accessorKey: 'latestSignedAt',
+      header: 'Last Completed',
+      cell: ({ row }) => (
+        <span className='text-muted-foreground'>
+          {new Date(row.original.latestSignedAt).toLocaleDateString()}
+        </span>
+      )
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      meta: { align: 'right' },
+      cell: ({ row }) => {
+        const group = row.original
+        if (!group.latestBlobPath) {
+          return (
+            <span className='text-xs text-muted-foreground'>
+              PDF not available
+            </span>
+          )
+        }
+        return (
+          <div className='flex items-center justify-end gap-2'>
+            <Button size='sm' variant='outline' asChild>
+              <Link href={`/customer/completions/${group.latestId}/view`}>
+                <Eye className='mr-1 h-3 w-3' />
+                View
+              </Link>
+            </Button>
+            <Button
+              size='sm'
+              variant='outline'
+              disabled={downloading === group.latestId}
+              onClick={() => handleDownload(group.latestId)}
+            >
+              <Download className='mr-1 h-3 w-3' />
+              {downloading === group.latestId ? 'Preparing...' : 'Download'}
+            </Button>
+            <Button
+              size='sm'
+              variant='outline'
+              disabled={sharing === group.latestId}
+              onClick={() => setShareModalId(group.latestId)}
+              title='Share'
+            >
+              <Share2 className='h-3 w-3' />
+            </Button>
+            <Button
+              size='sm'
+              variant='outline'
+              disabled={sharing === group.latestId}
+              onClick={() => handleQrCode(group.latestId, group.title)}
+              title='QR Code'
+            >
+              <QrCode
+                className={`h-3 w-3${sharing === group.latestId ? ' animate-pulse' : ''}`}
+              />
+            </Button>
+          </div>
+        )
+      }
+    }
+  ]
+
   async function handleDownload(id: string) {
     setDownloading(id)
     try {
@@ -163,102 +239,13 @@ export default function CompletedFormsPage() {
         description='Documents you have already signed off.'
       />
 
-      {isLoading ? (
-        <div className='rounded-md border'>
-          <Table>
-            <TableBody>
-              <TableSkeleton columns={3} />
-            </TableBody>
-          </Table>
-        </div>
-      ) : grouped.length === 0 ? (
-        <div className='rounded-md border'>
-          <EmptyState title='No completed forms yet' />
-        </div>
-      ) : (
-        <div className='rounded-md border'>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Form</TableHead>
-                <TableHead>Last Completed</TableHead>
-                <TableHead className='text-right'>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {grouped.map((group) => (
-                <TableRow key={group.assignmentId}>
-                  <TableCell className='font-medium'>
-                    <span className='flex items-center gap-2'>
-                      <FileCheck className='h-4 w-4 text-muted-foreground' />
-                      {group.title}
-                      {group.totalVersions > 1 && (
-                        <span className='text-xs text-muted-foreground'>
-                          {group.totalVersions} versions
-                        </span>
-                      )}
-                    </span>
-                  </TableCell>
-                  <TableCell className='text-muted-foreground'>
-                    {new Date(group.latestSignedAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className='text-right'>
-                    {group.latestBlobPath ? (
-                      <div className='flex items-center justify-end gap-2'>
-                        <Button size='sm' variant='outline' asChild>
-                          <Link
-                            href={`/customer/completions/${group.latestId}/view`}
-                          >
-                            <Eye className='mr-1 h-3 w-3' />
-                            View
-                          </Link>
-                        </Button>
-                        <Button
-                          size='sm'
-                          variant='outline'
-                          disabled={downloading === group.latestId}
-                          onClick={() => handleDownload(group.latestId)}
-                        >
-                          <Download className='mr-1 h-3 w-3' />
-                          {downloading === group.latestId
-                            ? 'Preparing...'
-                            : 'Download'}
-                        </Button>
-                        <Button
-                          size='sm'
-                          variant='outline'
-                          disabled={sharing === group.latestId}
-                          onClick={() => setShareModalId(group.latestId)}
-                          title='Share'
-                        >
-                          <Share2 className='h-3 w-3' />
-                        </Button>
-                        <Button
-                          size='sm'
-                          variant='outline'
-                          disabled={sharing === group.latestId}
-                          onClick={() =>
-                            handleQrCode(group.latestId, group.title)
-                          }
-                          title='QR Code'
-                        >
-                          <QrCode
-                            className={`h-3 w-3${sharing === group.latestId ? ' animate-pulse' : ''}`}
-                          />
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className='text-xs text-muted-foreground'>
-                        PDF not available
-                      </span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <DataTable
+        columns={columns}
+        data={grouped}
+        getRowId={(row) => row.assignmentId}
+        isLoading={isLoading}
+        emptyTitle='No completed forms yet'
+      />
 
       {shareModalId && (
         <ShareModal

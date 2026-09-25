@@ -2,22 +2,16 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
-import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
-import { TableSkeleton } from '@/components/table-skeleton'
 import { Badge } from '@/components/ui/badge'
-import { SortArrows } from '@/components/ui/data-table/sort-arrows'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
+import { DataTable } from '@/components/ui/data-table/data-table'
+import { nullableDateSortValue } from '@/components/ui/data-table/sort-utils'
+import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import { toast } from '@/components/ui/use-toast'
+
+import type { ColumnDef, SortingState } from '@tanstack/react-table'
 
 interface AssignmentRow {
   assignmentId: string
@@ -30,18 +24,77 @@ interface AssignmentRow {
   completionCount: number
 }
 
-type SortKey = 'company' | 'template' | 'dueDate' | 'createdAt'
-
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString()
 }
 
+const columns: ColumnDef<typeof dataTableFeatures, AssignmentRow>[] = [
+  {
+    id: 'company',
+    accessorFn: (row) => row.company.name,
+    header: 'Company',
+    cell: ({ row }) => (
+      <Link
+        href={`/admin/companies/${row.original.company.id}`}
+        className='font-medium hover:underline'
+      >
+        {row.original.company.name}
+      </Link>
+    )
+  },
+  {
+    id: 'template',
+    accessorFn: (row) => row.template.title,
+    header: 'Template',
+    cell: ({ row }) => (
+      <>
+        <Link href='/admin/templates' className='hover:underline'>
+          {row.original.template.title}
+        </Link>{' '}
+        <Badge variant='secondary'>v{row.original.templateVersion}</Badge>
+      </>
+    )
+  },
+  {
+    accessorKey: 'assignedTo',
+    header: 'Assigned To',
+    enableSorting: false
+  },
+  {
+    id: 'dueDate',
+    accessorFn: (row) => nullableDateSortValue(row.dueDate),
+    sortFn: 'basic',
+    header: 'Due Date',
+    cell: ({ row }) => (
+      <span className='whitespace-nowrap'>
+        {formatDate(row.original.dueDate)}
+      </span>
+    )
+  },
+  {
+    id: 'createdAt',
+    accessorFn: (row) => row.createdAt,
+    header: 'Created',
+    cell: ({ row }) => (
+      <span className='whitespace-nowrap'>
+        {formatDate(row.original.createdAt)}
+      </span>
+    )
+  },
+  {
+    accessorKey: 'completionCount',
+    header: 'Completions',
+    enableSorting: false
+  }
+]
+
 export default function AllAssignmentsPage() {
   const [rows, setRows] = useState<AssignmentRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [sortKey, setSortKey] = useState<SortKey>('createdAt')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: 'createdAt', desc: true }
+  ])
 
   useEffect(() => {
     fetch('/api/admin/assignments')
@@ -60,56 +113,6 @@ export default function AllAssignmentsPage() {
       .finally(() => setIsLoading(false))
   }, [])
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortKey(key)
-      setSortDir('asc')
-    }
-  }
-
-  const sorted = useMemo(() => {
-    return [...rows].sort((a, b) => {
-      let cmp: number
-      switch (sortKey) {
-        case 'company':
-          cmp = a.company.name.localeCompare(b.company.name)
-          break
-        case 'template':
-          cmp = a.template.title.localeCompare(b.template.title)
-          break
-        case 'dueDate':
-          if (a.dueDate === null && b.dueDate === null) cmp = 0
-          else if (a.dueDate === null) cmp = 1
-          else if (b.dueDate === null) cmp = -1
-          else cmp = a.dueDate.localeCompare(b.dueDate)
-          break
-        case 'createdAt':
-        default:
-          cmp = a.createdAt.localeCompare(b.createdAt)
-      }
-      return sortDir === 'asc' ? cmp : -cmp
-    })
-  }, [rows, sortKey, sortDir])
-
-  function renderSortableHead(label: string, key: SortKey) {
-    return (
-      <TableHead
-        className='cursor-pointer select-none'
-        onClick={() => toggleSort(key)}
-      >
-        <span className='inline-flex items-center'>
-          {label}
-          <SortArrows
-            sorted={sortKey === key}
-            direction={sortKey === key ? sortDir : false}
-          />
-        </span>
-      </TableHead>
-    )
-  }
-
   return (
     <div className='space-y-6'>
       <PageHeader
@@ -118,61 +121,18 @@ export default function AllAssignmentsPage() {
       />
 
       <p className='text-sm text-muted-foreground'>
-        {sorted.length} {sorted.length === 1 ? 'assignment' : 'assignments'}
+        {rows.length} {rows.length === 1 ? 'assignment' : 'assignments'}
       </p>
 
-      <div className='rounded-md border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {renderSortableHead('Company', 'company')}
-              {renderSortableHead('Template', 'template')}
-              <TableHead>Assigned To</TableHead>
-              {renderSortableHead('Due Date', 'dueDate')}
-              {renderSortableHead('Created', 'createdAt')}
-              <TableHead>Completions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableSkeleton columns={6} />
-            ) : sorted.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className='p-0'>
-                  <EmptyState title='No assignments yet' />
-                </TableCell>
-              </TableRow>
-            ) : (
-              sorted.map((r) => (
-                <TableRow key={r.assignmentId}>
-                  <TableCell className='font-medium'>
-                    <Link
-                      href={`/admin/companies/${r.company.id}`}
-                      className='hover:underline'
-                    >
-                      {r.company.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Link href='/admin/templates' className='hover:underline'>
-                      {r.template.title}
-                    </Link>{' '}
-                    <Badge variant='secondary'>v{r.templateVersion}</Badge>
-                  </TableCell>
-                  <TableCell>{r.assignedTo}</TableCell>
-                  <TableCell className='whitespace-nowrap'>
-                    {formatDate(r.dueDate)}
-                  </TableCell>
-                  <TableCell className='whitespace-nowrap'>
-                    {formatDate(r.createdAt)}
-                  </TableCell>
-                  <TableCell>{r.completionCount}</TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={rows}
+        getRowId={(row) => row.assignmentId}
+        isLoading={isLoading}
+        emptyTitle='No assignments yet'
+        sorting={sorting}
+        onSortingChange={setSorting}
+      />
     </div>
   )
 }
