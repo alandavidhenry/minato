@@ -735,7 +735,7 @@ This works well and catches design problems early. Always request tests before i
 **Test discipline (non-negotiable):** update existing tests whenever code changes; write new tests whenever new code is added.
 
 ### What remains
-- **More E2E coverage** — the initial `e2e/` suite covers sign-in, admin navigation, and the customer/kiosk landing pages. Document upload/versioning, assignment creation, and the full sign-off flow (comprehension questions + signature) are still only covered at the integration (Vitest) level — add E2E coverage for these once the UI settles further, since UI tests are brittle against layout changes.
+- **More E2E coverage** — the `e2e/` suite now covers sign-in, admin navigation, template creation/version publishing (`templates.spec.ts`), assignment creation (`assignments.spec.ts`), the full customer sign-off flow — form fields, comprehension question, declaration, signature (`completion.spec.ts`) — and the customer/kiosk landing pages. Still only integration-tested: upload-based (Word/PDF) document flows (P19) and fill-and-return submissions — worth adding once that UI is judged stable enough to be worth the Gotenberg-dependent E2E setup cost.
 
 ### Coverage target
 High coverage on `src/lib/` (>90%) and critical API routes. E2E coverage of the five to ten most important user journeys. Do not chase 100% coverage at the expense of test quality.
