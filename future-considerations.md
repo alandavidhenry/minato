@@ -111,6 +111,8 @@ When Simon uploads a new version of a document, the new version triggers a fresh
 
 Ordered by priority — quick wins and high-value UX first, then larger architectural features. Items later in the list may depend on earlier ones being in place.
 
+**Forward-looking product plan:** see [`product-roadmap.md`](./product-roadmap.md) for feature gaps, competitor-inspired features, automations, SaaS prerequisites and proposed subscription tiers. Items built from it get a P-number here.
+
 ### P8 — Name Validation at Completion Signing ✅ Done
 
 **Goal:** Prevent fraudulent sign-offs where an authenticated user enters someone else's name on a completion record.
