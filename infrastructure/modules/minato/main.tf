@@ -70,21 +70,19 @@ module "storage" {
 resource "azurerm_role_assignment" "kv_deployer" {
   scope                = module.key_vault.key_vault_id
   role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = data.azurerm_client_config.current.object_id
+  principal_id         = var.kv_deployer_object_id
 }
 
 resource "time_sleep" "kv_deployer_propagation" {
   depends_on      = [azurerm_role_assignment.kv_deployer]
-  create_duration = "60s"
+  create_duration = "120s"
 
-  # kv_deployer's principal flips between whoever last ran `terraform apply`
-  # (a local user vs. the CI/CD service principal) - principal_id forces
-  # replacement, so the role assignment is destroyed and recreated under a
-  # new identity. Without this trigger, this resource already exists in
-  # state and Terraform sees no reason to touch it, so the 60s wait is
-  # skipped on that replace and downstream Key Vault reads/writes race
-  # ahead of RBAC propagation. Keying off principal_id forces a fresh sleep
-  # every time the deploying identity actually changes.
+  # principal_id forces replacement of kv_deployer, which would otherwise
+  # skip this wait on any future change (the resource already exists in
+  # state, so Terraform sees no reason to touch it, and downstream Key
+  # Vault reads/writes would race ahead of RBAC propagation). Kept as a
+  # safety net even though kv_deployer_object_id is meant to be set once
+  # and never changed.
   triggers = {
     principal_id = azurerm_role_assignment.kv_deployer.principal_id
   }
@@ -227,6 +225,3 @@ resource "azurerm_role_assignment" "kv_app_service" {
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.app_service.app_service_identity_principal_id
 }
-
-# Data source for current client config
-data "azurerm_client_config" "current" {}
