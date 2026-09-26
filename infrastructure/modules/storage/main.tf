@@ -43,6 +43,6 @@ resource "azurerm_storage_container" "main" {
 }
 
 resource "azurerm_storage_table" "activity_logs" {
-  name                 = "activityLogs"
-  storage_account_name = azurerm_storage_account.main.name
+  name               = "activityLogs"
+  storage_account_id = azurerm_storage_account.main.id
 }
