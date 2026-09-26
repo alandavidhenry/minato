@@ -76,6 +76,18 @@ resource "azurerm_role_assignment" "kv_deployer" {
 resource "time_sleep" "kv_deployer_propagation" {
   depends_on      = [azurerm_role_assignment.kv_deployer]
   create_duration = "60s"
+
+  # kv_deployer's principal flips between whoever last ran `terraform apply`
+  # (a local user vs. the CI/CD service principal) - principal_id forces
+  # replacement, so the role assignment is destroyed and recreated under a
+  # new identity. Without this trigger, this resource already exists in
+  # state and Terraform sees no reason to touch it, so the 60s wait is
+  # skipped on that replace and downstream Key Vault reads/writes race
+  # ahead of RBAC propagation. Keying off principal_id forces a fresh sleep
+  # every time the deploying identity actually changes.
+  triggers = {
+    principal_id = azurerm_role_assignment.kv_deployer.principal_id
+  }
 }
 
 resource "azurerm_key_vault_secret" "database_url" {
