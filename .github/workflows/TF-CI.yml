@@ -40,12 +40,12 @@ jobs:
       TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "~1.15"
+          terraform_version: "~1.16"
 
       - name: Terraform fmt
         run: terraform fmt -check
