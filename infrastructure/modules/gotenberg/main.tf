@@ -67,6 +67,17 @@ resource "azurerm_container_app_environment" "main" {
   resource_group_name        = var.resource_group_name
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
   tags                       = var.tags
+
+  # Azure creates this "Consumption" workload profile implicitly on every
+  # Container App Environment. Declaring it explicitly here stops Terraform
+  # from planning to remove it on every apply (it isn't a real change - just
+  # state drift between what Azure auto-provisions and what's in config).
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+    minimum_count         = 0
+    maximum_count         = 0
+  }
 }
 
 resource "azurerm_container_app" "main" {
@@ -74,6 +85,7 @@ resource "azurerm_container_app" "main" {
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = var.resource_group_name
   revision_mode                = "Single"
+  workload_profile_name        = "Consumption"
 
   secret {
     name  = "basic-auth-username"

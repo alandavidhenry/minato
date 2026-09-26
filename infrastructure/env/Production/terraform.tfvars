@@ -33,6 +33,9 @@ ai_foundry = {
 
 default_admin_email = "alandavidhenry@outlook.com"
 
+# sp-terraform-minato - deploying principal (local applies + CI/CD)
+kv_deployer_object_id = "7b1732f1-3e33-40b4-b134-0321b61a8444"
+
 extra_app_settings = {
   "WEBSITES_PORT"                       = "8080"
   "SCM_DO_BUILD_DURING_DEPLOYMENT"      = "true"

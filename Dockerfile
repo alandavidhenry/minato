@@ -1,5 +1,5 @@
 # Build stage
-FROM node:24.21.0-alpine3.24@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS builder
+FROM node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS builder
 WORKDIR /app
 
 # Install dependencies
@@ -16,7 +16,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # Runner stage
-FROM dhi.io/node:24.21.0-debian13@sha256:386d930ada89a074fa5846839c65067796d777977a74cb92b070000811da9094 AS runner
+FROM dhi.io/node:26.10.0-debian13@sha256:29d425d096403cca2750ee83fa31e4a6f25a73ea78089382578053d1682afaff AS runner
 WORKDIR /app
 
 # Set environment variables

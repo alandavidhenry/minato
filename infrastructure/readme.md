@@ -192,22 +192,30 @@ The Key Vault uses Azure RBAC (`rbac_authorization_enabled = true`) rather than 
 
 | Principal | Role | Purpose |
 |-----------|------|---------|
-| Deploying principal (local user or GitHub Actions SP) | Key Vault Secrets Officer | Read/write secrets during `terraform apply` |
+| Deploying principal (`var.kv_deployer_object_id`, the `sp-terraform-minato` service principal) | Key Vault Secrets Officer | Read/write secrets during `terraform apply` |
 | App Service managed identity | Key Vault Secrets User | Read secrets at runtime |
 
-The deploying principal is identified dynamically via `data.azurerm_client_config.current.object_id`, so the same code works for both local applies (your user account) and CI/CD applies (the service principal).
+The deploying principal is a **static** object ID (`kv_deployer_object_id` in each environment's `terraform.tfvars`), not derived from whoever happens to be running Terraform. It was previously `data.azurerm_client_config.current.object_id` (whoever is currently authenticated) so the same code worked for both local and CI/CD applies — but `principal_id` forces replacement on `azurerm_role_assignment`, so every time the deploying identity flipped (a local user vs. the GitHub Actions SP), Terraform destroyed and recreated this role assignment and had to wait out RBAC propagation again. Pinning it to the SP once removes that churn entirely.
+
+**Apply locally using the SP's credentials**, not your own admin account, so this stays pinned:
+
+```powershell
+az login --service-principal --username <ARM_CLIENT_ID> --tenant <ARM_TENANT_ID> --password <SP_CLIENT_SECRET_OR_CERT>
+```
+
+(or use `ARM_CLIENT_ID`/`ARM_CLIENT_SECRET`/`ARM_TENANT_ID` env vars with the azurerm provider directly, bypassing `az login`.) If `kv_deployer_object_id` ever needs to change (e.g. rotating to a new SP), expect one role assignment replace and the propagation wait below.
 
 ### First-time apply caveat
 
-Azure RBAC assignments take up to 60 seconds to propagate. On a fresh apply where the Key Vault is being created for the first time, use a targeted apply to create the role assignment first:
+Azure RBAC assignments take up to 60 seconds to propagate (occasionally longer). On a fresh apply where the Key Vault is being created for the first time — or whenever `kv_deployer_object_id` changes — use a targeted apply to create the role assignment first:
 
 ```powershell
 terraform apply -target='module.minato.azurerm_role_assignment.kv_deployer'
-# wait ~60 seconds
+# wait ~2 minutes
 terraform apply
 ```
 
-Subsequent applies handle this automatically via a `time_sleep` resource in the Terraform code.
+Subsequent applies handle this automatically via a `time_sleep` resource (`create_duration = "120s"`) in the Terraform code, re-triggered via `triggers` if `kv_deployer_object_id` changes.
 
 ---
 

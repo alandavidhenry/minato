@@ -70,12 +70,22 @@ module "storage" {
 resource "azurerm_role_assignment" "kv_deployer" {
   scope                = module.key_vault.key_vault_id
   role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = data.azurerm_client_config.current.object_id
+  principal_id         = var.kv_deployer_object_id
 }
 
 resource "time_sleep" "kv_deployer_propagation" {
   depends_on      = [azurerm_role_assignment.kv_deployer]
-  create_duration = "60s"
+  create_duration = "120s"
+
+  # principal_id forces replacement of kv_deployer, which would otherwise
+  # skip this wait on any future change (the resource already exists in
+  # state, so Terraform sees no reason to touch it, and downstream Key
+  # Vault reads/writes would race ahead of RBAC propagation). Kept as a
+  # safety net even though kv_deployer_object_id is meant to be set once
+  # and never changed.
+  triggers = {
+    principal_id = azurerm_role_assignment.kv_deployer.principal_id
+  }
 }
 
 resource "azurerm_key_vault_secret" "database_url" {
@@ -215,6 +225,3 @@ resource "azurerm_role_assignment" "kv_app_service" {
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.app_service.app_service_identity_principal_id
 }
-
-# Data source for current client config
-data "azurerm_client_config" "current" {}

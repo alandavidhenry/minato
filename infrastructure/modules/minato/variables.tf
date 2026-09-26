@@ -107,6 +107,11 @@ variable "database_url" {
   sensitive   = true
 }
 
+variable "kv_deployer_object_id" {
+  description = "Object ID of the principal granted Key Vault Secrets Officer for deploys (the CI/CD service principal). Set once - not derived from whoever is currently running Terraform, so it doesn't flip (and force a role assignment replace + RBAC propagation wait) depending on whether an apply happens to run locally or in CI."
+  type        = string
+}
+
 variable "communication_service" {
   description = "Azure Communication Service configuration"
   type = object({

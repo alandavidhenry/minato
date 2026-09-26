@@ -108,3 +108,8 @@ variable "database_url" {
   type        = string
   sensitive   = true
 }
+
+variable "kv_deployer_object_id" {
+  description = "Object ID of the principal granted Key Vault Secrets Officer for deploys (the CI/CD service principal)"
+  type        = string
+}
