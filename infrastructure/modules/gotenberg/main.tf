@@ -65,6 +65,10 @@ resource "azurerm_container_app_environment" "main" {
   name                       = "cae-${local.name_suffix}"
   location                   = var.location
   resource_group_name        = var.resource_group_name
+  # AzureRM v5 made this property no longer Computed - it must be set
+  # explicitly to use log_analytics_workspace_id (previously the provider
+  # inferred it automatically). See the v5.0 upgrade guide.
+  logs_destination           = "log-analytics"
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
   tags                       = var.tags
 

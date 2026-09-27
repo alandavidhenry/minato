@@ -16,6 +16,12 @@ resource "azurerm_storage_account" "main" {
   account_replication_type = var.account_replication_type
   min_tls_version          = var.min_tls_version
 
+  # All containers are created private (see azurerm_storage_container below) -
+  # SAS tokens are the only intended access path. Pinned explicitly since
+  # AzureRM v5 changed the provider default from true to false; without this,
+  # the next provider bump could silently flip it back.
+  allow_nested_items_to_be_public = false
+
   table_encryption_key_type = "Service"
 
   blob_properties {
@@ -43,6 +49,6 @@ resource "azurerm_storage_container" "main" {
 }
 
 resource "azurerm_storage_table" "activity_logs" {
-  name                 = "activityLogs"
-  storage_account_name = azurerm_storage_account.main.name
+  name               = "activityLogs"
+  storage_account_id = azurerm_storage_account.main.id
 }
