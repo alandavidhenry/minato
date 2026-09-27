@@ -44,6 +44,8 @@ export async function GET(_request: NextRequest) {
       role: user.role,
       jobRole: user.jobRole,
       lineManagerId: user.lineManagerId,
+      employeeNumber: user.employeeNumber,
+      dateOfBirth: user.dateOfBirth,
       customerCompanyId: user.customerCompanyId,
       customerCompanyName: user.customerCompanyId
         ? (companyNameMap.get(user.customerCompanyId) ?? null)

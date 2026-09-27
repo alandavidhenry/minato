@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-import { CUSTOMER_USER_STATE } from './credentials'
+import { CUSTOMER_USER_STATE, customerUserCredentials } from './credentials'
 
 test.use({ storageState: CUSTOMER_USER_STATE })
 
@@ -59,6 +59,11 @@ test.describe('Customer sign-off flow', () => {
     await page.mouse.move(box.x + 60, box.y + 60, { steps: 5 })
     await page.mouse.move(box.x + 100, box.y + 25, { steps: 5 })
     await page.mouse.up()
+
+    // P8 hardening: re-enter the account password immediately before signing.
+    await page
+      .getByLabel('Confirm your password')
+      .fill(customerUserCredentials.password)
 
     await page.getByRole('button', { name: 'Submit & Complete' }).click()
 

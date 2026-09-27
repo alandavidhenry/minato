@@ -47,6 +47,8 @@ export async function GET(
       role: user.role,
       jobRole: user.jobRole,
       lineManagerId: user.lineManagerId,
+      employeeNumber: user.employeeNumber,
+      dateOfBirth: user.dateOfBirth,
       customerCompanyId: user.customerCompanyId
     }
 
@@ -81,6 +83,8 @@ export async function PATCH(
       jobRole: string | null
       customerCompanyId: string | null
       lineManagerId: string | null
+      employeeNumber: string | null
+      dateOfBirth: string | null
     }> = {}
     if (updates.displayName) userUpdates.displayName = updates.displayName
     if (updates.role) userUpdates.role = updates.role
@@ -89,6 +93,10 @@ export async function PATCH(
       userUpdates.customerCompanyId = updates.customerCompanyId
     if ('lineManagerId' in updates)
       userUpdates.lineManagerId = updates.lineManagerId ?? null
+    if ('employeeNumber' in updates)
+      userUpdates.employeeNumber = updates.employeeNumber ?? null
+    if ('dateOfBirth' in updates)
+      userUpdates.dateOfBirth = updates.dateOfBirth ?? null
 
     const success = await updateUser(userId, userUpdates)
 

@@ -10,6 +10,8 @@ export interface CompletionRecordData {
   submittedBlobPath: string | null
   submittedOriginalBlobPath: string | null
   submittedFileName: string | null
+  signerIp: string | null
+  signerUserAgent: string | null
 }
 
 export interface CompletionRecordWithTemplate extends CompletionRecordData {
@@ -46,6 +48,8 @@ type PrismaCompletionRecord = {
   submittedBlobPath: string | null
   submittedOriginalBlobPath: string | null
   submittedFileName: string | null
+  signerIp: string | null
+  signerUserAgent: string | null
 }
 
 type PrismaCompletionRecordWithTemplate = PrismaCompletionRecord & {
@@ -84,7 +88,9 @@ function toCompletionRecordData(
     formData: record.formData,
     submittedBlobPath: record.submittedBlobPath,
     submittedOriginalBlobPath: record.submittedOriginalBlobPath,
-    submittedFileName: record.submittedFileName
+    submittedFileName: record.submittedFileName,
+    signerIp: record.signerIp,
+    signerUserAgent: record.signerUserAgent
   }
 }
 
@@ -115,7 +121,9 @@ export async function createCompletionRecord({
   formData,
   submittedBlobPath,
   submittedOriginalBlobPath,
-  submittedFileName
+  submittedFileName,
+  signerIp,
+  signerUserAgent
 }: {
   assignmentId: string
   signedById: string
@@ -123,6 +131,8 @@ export async function createCompletionRecord({
   submittedBlobPath?: string
   submittedOriginalBlobPath?: string
   submittedFileName?: string
+  signerIp?: string
+  signerUserAgent?: string
 }): Promise<CompletionRecordData | null> {
   try {
     const record = await prisma.completionRecord.create({
@@ -132,7 +142,9 @@ export async function createCompletionRecord({
         formData: formData ?? undefined,
         submittedBlobPath,
         submittedOriginalBlobPath,
-        submittedFileName
+        submittedFileName,
+        signerIp,
+        signerUserAgent
       }
     })
     return toCompletionRecordData(record)
@@ -223,6 +235,8 @@ export interface CompletionRecordForAssignment {
   signedAt: string
   blobPath: string | null
   signer: { id: string; displayName: string; email: string }
+  signerIp: string | null
+  signerUserAgent: string | null
 }
 
 type PrismaAssignmentWithCompletionGroup = {
@@ -240,6 +254,8 @@ type PrismaCompletionRecordForAssignment = {
   signedAt: Date
   blobPath: string | null
   signedBy: { id: string; displayName: string; email: string }
+  signerIp: string | null
+  signerUserAgent: string | null
 }
 
 export async function getCompaniesWithCompletions(): Promise<
@@ -441,7 +457,9 @@ export async function getTemplateCompletionSummaryForCompany(
         id: r.id,
         signedAt: r.signedAt.toISOString(),
         blobPath: r.blobPath,
-        signer: r.signedBy
+        signer: r.signedBy,
+        signerIp: r.signerIp,
+        signerUserAgent: r.signerUserAgent
       })),
       outstandingUsers
     }
@@ -466,7 +484,9 @@ export async function getCompletionsForAssignmentForAdmin(
       id: r.id,
       signedAt: r.signedAt.toISOString(),
       blobPath: r.blobPath,
-      signer: r.signedBy
+      signer: r.signedBy,
+      signerIp: r.signerIp,
+      signerUserAgent: r.signerUserAgent
     }))
   } catch (error) {
     console.error('Error getting completions for assignment (admin):', error)
@@ -547,7 +567,9 @@ export async function getAssignmentStatusSummary(
         id: r.id,
         signedAt: r.signedAt.toISOString(),
         blobPath: r.blobPath,
-        signer: r.signedBy
+        signer: r.signedBy,
+        signerIp: r.signerIp,
+        signerUserAgent: r.signerUserAgent
       })),
       outstandingUsers
     }

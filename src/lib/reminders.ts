@@ -117,6 +117,8 @@ export async function getAssignmentsNeedingReminders(
         role: '',
         jobRole: u.jobRole,
         lineManagerId: u.lineManagerId,
+        employeeNumber: null,
+        dateOfBirth: null,
         createdAt: '',
         customerCompanyId: null
       }))

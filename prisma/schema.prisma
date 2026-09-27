@@ -45,6 +45,8 @@ model User {
   role              String   @default("Customer User")
   jobRole           String? // freeform job role string used for assignment filtering
   lineManagerId     String? // no-email workers point to their manager for email routing
+  employeeNumber    String? // optional kiosk sign-off identity confirmation (P8)
+  dateOfBirth       DateTime? @db.Date // optional kiosk sign-off identity confirmation (P8); either this or employeeNumber, not both required
   createdAt         DateTime @default(now())
   tenantId          String? // null = default single-tenant; required when multi-tenancy is enforced
   customerCompanyId String? // null for consultancy staff; required for customer-role users
@@ -190,6 +192,8 @@ model CompletionRecord {
   submittedBlobPath         String? // employee's filled copy, converted to PDF; fill-and-return only
   submittedOriginalBlobPath String? // raw upload as received; fill-and-return only
   submittedFileName         String? // original filename, for display; fill-and-return only
+  signerIp                  String? // request IP at signing time (P8 audit trail hardening)
+  signerUserAgent           String? // request user-agent at signing time (P8 audit trail hardening)
 
   assignment Assignment @relation(fields: [assignmentId], references: [id])
   signedBy   User       @relation(fields: [signedById], references: [id])

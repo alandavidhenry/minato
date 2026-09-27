@@ -14,6 +14,7 @@ import { SignaturePad } from '@/components/signature-pad'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/ui/password-input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/ui/use-toast'
@@ -77,6 +78,8 @@ export default function CompleteDocumentPage() {
   const [declarationError, setDeclarationError] = useState<string | null>(null)
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
   const [signatureError, setSignatureError] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [passwordError, setPasswordError] = useState<string | null>(null)
 
   const [pdfData, setPdfData] = useState<Uint8Array | null>(null)
   const [isPdfLoading, setIsPdfLoading] = useState(false)
@@ -237,6 +240,11 @@ export default function CompleteDocumentPage() {
       return
     }
 
+    if (!currentPassword) {
+      setPasswordError('Please confirm your password to sign this document.')
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -263,6 +271,7 @@ export default function CompleteDocumentPage() {
             answers,
             declarationName: declarationName.trim(),
             signatureDataUrl,
+            currentPassword,
             ...(submission && { submission })
           })
         }
@@ -284,6 +293,11 @@ export default function CompleteDocumentPage() {
           setDeclarationError(
             'The name you entered does not match your account name. Please enter your name exactly as it appears in your account.'
           )
+          return
+        }
+        if (errorBody.passwordError) {
+          setPasswordError(errorBody.error || 'Incorrect password.')
+          setCurrentPassword('')
           return
         }
         throw new Error(errorBody.error || 'Failed to submit')
@@ -520,6 +534,33 @@ export default function CompleteDocumentPage() {
               <p className='text-xs text-destructive'>
                 Please sign in the box before submitting.
               </p>
+            )}
+          </div>
+          <div className='grid gap-2'>
+            <Label
+              htmlFor='current-password'
+              className={passwordError ? 'text-destructive' : undefined}
+            >
+              Confirm your password
+              <span className='ml-1 text-destructive'>*</span>
+            </Label>
+            <PasswordInput
+              id='current-password'
+              value={currentPassword}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setCurrentPassword(e.target.value)
+                setPasswordError(null)
+              }}
+              disabled={isSubmitting}
+              placeholder='••••••••'
+              autoComplete='current-password'
+            />
+            <p className='text-xs text-muted-foreground'>
+              Re-enter your account password to confirm it&apos;s you signing —
+              useful if someone else has access to this device.
+            </p>
+            {passwordError && (
+              <p className='text-xs text-destructive'>{passwordError}</p>
             )}
           </div>
         </div>

@@ -30,6 +30,8 @@ interface User {
   role: string
   jobRole?: string | null
   lineManagerId?: string | null
+  employeeNumber?: string | null
+  dateOfBirth?: string | null
   customerCompanyId?: string | null
   createdDateTime?: string
 }
@@ -60,7 +62,9 @@ export function UserDetailsDialog({
   const [formData, setFormData] = useState({
     displayName: user.displayName,
     jobRole: user.jobRole ?? '',
-    lineManagerId: user.lineManagerId ?? ''
+    lineManagerId: user.lineManagerId ?? '',
+    employeeNumber: user.employeeNumber ?? '',
+    dateOfBirth: user.dateOfBirth ?? ''
   })
 
   const isCustomerRole = CUSTOMER_ROLES.includes(user.role)
@@ -106,7 +110,11 @@ export function UserDetailsDialog({
         body: JSON.stringify({
           displayName: formData.displayName,
           jobRole: formData.jobRole || null,
-          lineManagerId: isNoEmailUser ? formData.lineManagerId || null : null
+          lineManagerId: isNoEmailUser ? formData.lineManagerId || null : null,
+          employeeNumber: isNoEmailUser
+            ? formData.employeeNumber || null
+            : null,
+          dateOfBirth: isNoEmailUser ? formData.dateOfBirth || null : null
         })
       })
 
@@ -201,6 +209,46 @@ export function UserDetailsDialog({
                 </Select>
                 <p className='text-xs text-muted-foreground'>
                   Notifications and reminders are sent to their line manager.
+                </p>
+              </div>
+            )}
+
+            {isNoEmailUser && (
+              <div className='grid gap-2'>
+                <Label htmlFor='employeeNumber'>
+                  Employee Number{' '}
+                  <span className='text-muted-foreground font-normal'>
+                    (optional)
+                  </span>
+                </Label>
+                <Input
+                  id='employeeNumber'
+                  value={formData.employeeNumber}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    handleChange('employeeNumber', e.target.value)
+                  }
+                  placeholder='e.g. EMP-0042'
+                  disabled={isLoading}
+                />
+                <Label htmlFor='dateOfBirth'>
+                  Date of Birth{' '}
+                  <span className='text-muted-foreground font-normal'>
+                    (optional)
+                  </span>
+                </Label>
+                <Input
+                  id='dateOfBirth'
+                  type='date'
+                  value={formData.dateOfBirth}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    handleChange('dateOfBirth', e.target.value)
+                  }
+                  disabled={isLoading}
+                />
+                <p className='text-xs text-muted-foreground'>
+                  When either is set, this worker must confirm it before signing
+                  off at the kiosk. Employee number is checked first if both are
+                  set.
                 </p>
               </div>
             )}

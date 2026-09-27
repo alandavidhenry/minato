@@ -19,7 +19,7 @@ All items from the original workflow plan (comprehension questions, individual/j
 | P5 | Automated reminder notifications (daily cron) |
 | P6 | No-email worker support, line manager notification routing, public kiosk sign-off |
 | P7 | Document version cycle — publish new version, auto-replicate assignments |
-| P8 | Declaration name-match at completion signing (see "Known gaps" below for hardening ideas) |
+| P8 | Declaration name-match at completion signing; hardened with password re-entry (authenticated flow), employee number/DOB kiosk identity confirmation, and signer IP/user-agent capture (see "Known gaps" below for what's still deferred) |
 | P9 | Dashboard: completions-centric redesign |
 | P10 | Users list grouped by company |
 | P11 | Activity logs: filter controls + CSV export |
@@ -39,7 +39,7 @@ All items from the original workflow plan (comprehension questions, individual/j
 
 ### Known gaps / deferred items carried forward from completed work
 
-- **P8 sign-off hardening (not built):** employee number or date-of-birth confirmation for higher-assurance sign-offs; optional password re-entry before signing (useful if someone else has access to an unlocked device); one-time PIN sent to the line manager before kiosk sign-off proceeds; capturing IP address/user-agent alongside the existing `signerName` audit trail.
+- **P8 sign-off hardening — one-time PIN (not built):** a one-time PIN sent to the line manager before kiosk sign-off proceeds is the one hardening measure from the original list not yet built — heaviest to build (needs the manager reachable in the moment) and most disruptive to the kiosk UX. Revisit if a customer asks for it specifically.
 - **P16b file-field review gap:** an uploaded `file` form-field value has no admin download/review UI — the completion PDF shows only the filename, not a link to the original. Add if reviewing the actual uploaded file becomes necessary.
 - **P19 deferred, no target date:** structured data extraction from filled-in documents into a searchable store (Azure Document Intelligence is already provisioned for this — `infrastructure/modules/document_intelligence/` — but unused in application code; same underlying OCR gap noted under "Document Intelligence" below).
 

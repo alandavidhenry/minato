@@ -38,6 +38,8 @@ interface User {
   role: string
   jobRole?: string | null
   lineManagerId?: string | null
+  employeeNumber?: string | null
+  dateOfBirth?: string | null
   customerCompanyId: string | null
 }
 
@@ -160,6 +162,8 @@ export function UserActionsDropdown({
             role: user.role,
             jobRole: user.jobRole,
             lineManagerId: user.lineManagerId,
+            employeeNumber: user.employeeNumber,
+            dateOfBirth: user.dateOfBirth,
             customerCompanyId: user.customerCompanyId,
             createdDateTime: user.createdDateTime
           }}

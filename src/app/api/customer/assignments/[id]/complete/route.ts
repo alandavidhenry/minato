@@ -18,12 +18,19 @@ import {
 } from '@/lib/form-validation'
 import { generateCompletionPDF } from '@/lib/pdf/completion-pdf'
 import { isValidSignatureDataUrl } from '@/lib/signature'
+import { verifyPasswordById } from '@/lib/user-database'
 import { generateVersionId } from '@/lib/version-manager'
 import type { ComprehensionQuestion } from '@/types/comprehension-question'
 import { CUSTOMER_ROLES } from '@/types/rbac'
 
 function sanitizeFilename(title: string): string {
   return title.replace(/[/\\:*?"<>|]/g, '-').trim()
+}
+
+function getRequestIp(request: NextRequest): string | null {
+  const forwardedFor = request.headers.get('x-forwarded-for')
+  if (forwardedFor) return forwardedFor.split(',')[0].trim()
+  return request.headers.get('x-real-ip')
 }
 
 async function uploadPdfToBlob(
@@ -94,6 +101,7 @@ export async function POST(
       body.answers ?? []
     const declarationName: string = (body.declarationName ?? '').trim()
     const signatureDataUrl: unknown = body.signatureDataUrl
+    const currentPassword: string = body.currentPassword ?? ''
     const submission: {
       blobPath?: string
       originalBlobPath?: string | null
@@ -110,6 +118,24 @@ export async function POST(
     if (!isValidSignatureDataUrl(signatureDataUrl)) {
       return NextResponse.json(
         { error: 'A signature is required to sign this document.' },
+        { status: 400 }
+      )
+    }
+
+    if (!currentPassword) {
+      return NextResponse.json(
+        {
+          error: 'Please confirm your password to sign this document.',
+          passwordError: true
+        },
+        { status: 400 }
+      )
+    }
+
+    const passwordValid = await verifyPasswordById(userId, currentPassword)
+    if (!passwordValid) {
+      return NextResponse.json(
+        { error: 'Incorrect password.', passwordError: true },
         { status: 400 }
       )
     }
@@ -192,6 +218,8 @@ export async function POST(
       signedById: userId,
       formData:
         Object.keys(visibleFormData).length > 0 ? visibleFormData : undefined,
+      signerIp: getRequestIp(request) ?? undefined,
+      signerUserAgent: request.headers.get('user-agent') ?? undefined,
       ...(isFillAndReturn && {
         submittedBlobPath: submission.blobPath,
         submittedOriginalBlobPath: submission.originalBlobPath ?? undefined,

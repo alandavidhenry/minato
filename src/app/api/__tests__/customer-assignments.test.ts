@@ -95,6 +95,13 @@ vi.mock('@/lib/storage', () => ({
   generateSasToken: mockGenerateSasToken
 }))
 
+const { mockVerifyPasswordById } = vi.hoisted(() => ({
+  mockVerifyPasswordById: vi.fn()
+}))
+vi.mock('@/lib/user-database', () => ({
+  verifyPasswordById: mockVerifyPasswordById
+}))
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -295,10 +302,14 @@ function params(id: string) {
   return { params: Promise.resolve({ id }) }
 }
 
-function jsonRequest(url: string, body?: unknown): NextRequest {
+function jsonRequest(
+  url: string,
+  body?: unknown,
+  headers: Record<string, string> = {}
+): NextRequest {
   return new NextRequest(new URL(url, 'http://localhost'), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
     body: body !== undefined ? JSON.stringify(body) : undefined
   })
 }
@@ -316,6 +327,7 @@ beforeEach(() => {
   mockGetCompletionById.mockResolvedValue(null)
   mockGetCompanyById.mockResolvedValue({ id: 'company_123', name: 'Acme Farm' })
   mockGenerateSasToken.mockResolvedValue('https://blob.example.com/sas-url')
+  mockVerifyPasswordById.mockResolvedValue(true)
 })
 
 // ---------------------------------------------------------------------------
@@ -476,7 +488,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
       {
         formData: {},
         declarationName: 'Jane Smith',
-        signatureDataUrl: VALID_SIGNATURE
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -495,7 +508,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
       {
         formData: { q1: false, q2: 'Jane' },
         declarationName: 'Jane Smith',
-        signatureDataUrl: VALID_SIGNATURE
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -556,6 +570,88 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     expect((await res.json()).error).toMatch(/signature is required/i)
   })
 
+  it('returns 400 when currentPassword is missing', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      {
+        formData: {},
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE
+      }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/confirm your password/i)
+    expect(body.passwordError).toBe(true)
+    expect(mockCreateCompletion).not.toHaveBeenCalled()
+  })
+
+  it('returns 400 when currentPassword is incorrect', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
+    mockVerifyPasswordById.mockResolvedValue(false)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      {
+        formData: {},
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'wrong'
+      }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/incorrect password/i)
+    expect(body.passwordError).toBe(true)
+    expect(mockCreateCompletion).not.toHaveBeenCalled()
+  })
+
+  it('verifies the password against the session user id', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      {
+        formData: {},
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
+      }
+    )
+    const res = await completeAssignment(req, params('assignment_123'))
+    expect(res.status).toBe(200)
+    expect(mockVerifyPasswordById).toHaveBeenCalledWith('user_123', 'secret123')
+  })
+
+  it('captures the signer IP and user-agent from request headers', async () => {
+    mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
+    mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
+    const req = jsonRequest(
+      'http://localhost/api/customer/assignments/assignment_123/complete',
+      {
+        formData: {},
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
+      },
+      {
+        'x-forwarded-for': '203.0.113.5, 10.0.0.1',
+        'user-agent': 'TestAgent/1.0'
+      }
+    )
+    await completeAssignment(req, params('assignment_123'))
+    expect(mockCreateCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signerIp: '203.0.113.5',
+        signerUserAgent: 'TestAgent/1.0'
+      })
+    )
+  })
+
   it('returns 200 with completion record when all required fields provided', async () => {
     mockGetServerSession.mockResolvedValue(CUSTOMER_SESSION)
     mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT_WITH_SCHEMA)
@@ -564,7 +660,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
       {
         formData: { q1: true, q2: 'Jane Smith' },
         declarationName: 'Jane Smith',
-        signatureDataUrl: VALID_SIGNATURE
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -582,7 +679,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
       {
         formData: {},
         declarationName: 'Jane Smith',
-        signatureDataUrl: VALID_SIGNATURE
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -602,7 +700,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
       {
         formData: { q1: true },
         declarationName: 'Jane Smith',
-        signatureDataUrl: VALID_SIGNATURE
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -618,7 +717,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
       {
         formData: { q1: false },
         declarationName: 'Jane Smith',
-        signatureDataUrl: VALID_SIGNATURE
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -634,7 +734,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
       {
         formData: {},
         declarationName: 'Jane Smith',
-        signatureDataUrl: VALID_SIGNATURE
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -661,7 +762,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
           }
         },
         declarationName: 'Jane Smith',
-        signatureDataUrl: VALID_SIGNATURE
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -678,7 +780,11 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(BASE_ASSIGNMENT)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { declarationName: 'Jane Smith', signatureDataUrl: VALID_SIGNATURE }
+      {
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
+      }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(200)
@@ -696,7 +802,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
       {
         formData: {},
         declarationName: 'Jane Smith',
-        signatureDataUrl: VALID_SIGNATURE
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -719,7 +826,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
           { id: 'cq2', answer: 'Near the main entrance' }
         ],
         declarationName: 'Jane Smith',
-        signatureDataUrl: VALID_SIGNATURE
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -742,7 +850,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
           { id: 'cq2', answer: 'near the main entrance' }
         ],
         declarationName: 'Jane Smith',
-        signatureDataUrl: VALID_SIGNATURE
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -757,7 +866,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
       {
         formData: {},
         declarationName: 'Wrong Name',
-        signatureDataUrl: VALID_SIGNATURE
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -775,7 +885,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
       {
         formData: {},
         declarationName: '  jane smith  ',
-        signatureDataUrl: VALID_SIGNATURE
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -790,7 +901,8 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
       {
         formData: {},
         declarationName: 'Any Name At All',
-        signatureDataUrl: VALID_SIGNATURE
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
       }
     )
     const res = await completeAssignment(req, params('assignment_123'))
@@ -802,7 +914,11 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     mockGetWithTemplate.mockResolvedValue(FILL_AND_RETURN_ASSIGNMENT)
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { declarationName: 'Jane Smith', signatureDataUrl: VALID_SIGNATURE }
+      {
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
+      }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(400)
@@ -818,6 +934,7 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
       {
         declarationName: 'Jane Smith',
         signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123',
         submission: {
           blobPath:
             'assignment-submissions/assignment_123/user_123-x/source.pdf',
@@ -852,7 +969,11 @@ describe('POST /api/customer/assignments/[id]/complete', () => {
     })
     const req = jsonRequest(
       'http://localhost/api/customer/assignments/assignment_123/complete',
-      { declarationName: 'Jane Smith', signatureDataUrl: VALID_SIGNATURE }
+      {
+        declarationName: 'Jane Smith',
+        signatureDataUrl: VALID_SIGNATURE,
+        currentPassword: 'secret123'
+      }
     )
     const res = await completeAssignment(req, params('assignment_123'))
     expect(res.status).toBe(200)

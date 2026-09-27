@@ -81,12 +81,11 @@ It's delivered as a ZIP, or as one merged PDF with a contents page. Generate it 
 **Proposal:** a supervisor starts a "briefing session" on one device (kiosk-style), and each attendee picks their name and signs in turn. That produces one session record with N individual completions, and optionally a group photo. It reuses the existing kiosk and signature components.
 
 ### 2.8 Stronger evidence and tamper-evidence
-**Gaps:** IP address and user-agent aren't captured (already noted as P8+). The signed PDF can't be independently verified either.
+**Gap:** IP address/user-agent are now captured on `CompletionRecord` (P8), but the signed PDF still can't be independently verified.
 
 **Proposal:**
 - Store a SHA-256 hash of each signed PDF on `CompletionRecord`.
 - Print a **verification QR** on the PDF linking to `/verify/[id]`, a public page confirming "this record exists, signed by X on Y, hash matches".
-- Capture IP address and user-agent.
 - Later, Azure Blob immutability (already designed in `data-management.md` §2).
 
 Auditors value this far more than its build cost. It's cheap to build and makes a good marketing line ("tamper-evident sign-off").
