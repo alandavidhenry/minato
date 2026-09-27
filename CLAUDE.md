@@ -172,10 +172,11 @@ Husky runs pre-commit checks. Run `npm run checks` before committing to catch al
 
 ## Documentation Maintenance
 
-After every meaningful change, update these three files to reflect the new state:
+After every meaningful change, update these files to reflect the new state:
 - **`README.md`** — user-facing: update the Testing table, commands, or any section affected by the change
 - **`CLAUDE.md`** — Claude-facing: update architecture notes, testing coverage, or any guidance that has changed
-- **`future-considerations.md`** — update the status of anything completed, and add any new decisions or considerations that emerged
+- **`future-considerations.md`** — update the status of anything completed, and add any new gaps/deferred items that emerged
+- **`adr.md`** — only when a new architectural/technical decision (not just a feature) was made — a real "why X over Y" tradeoff worth remembering later, not every code change
 
 ## Business Context
 
@@ -228,7 +229,7 @@ Add E2E tests (Playwright) once the document model is more stable. Add E2E step 
 
 ## Future Considerations
 
-See `future-considerations.md` for full architectural analysis, and `product-roadmap.md` for the product plan (feature gaps, automations, SaaS prerequisites, subscription tiers). Key items still pending:
+See `future-considerations.md` for what's still open (gaps, deferred work), and `product-roadmap.md` for the product plan (feature gaps, automations, SaaS prerequisites, subscription tiers). Past architectural/technical decisions and their reasoning are archived in `adr.md` — reference only, no need to consult it unless asked. Key items still pending:
 
 - **Electronic signing** — server-side PDF (React-PDF) + audit trail + canvas signature pad all done; third-party e-signing only if legally required
 - **Multi-tenancy** — schema has `Tenant` model and nullable `tenantId` on `User`; build it when needed
