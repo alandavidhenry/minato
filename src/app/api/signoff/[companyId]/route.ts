@@ -36,10 +36,17 @@ export async function GET(
         const pendingAssignments = assignments.filter(
           (a) => !completedAssignmentIds.has(a.id)
         )
+        const verificationType = worker.employeeNumber
+          ? 'employeeNumber'
+          : worker.dateOfBirth
+            ? 'dateOfBirth'
+            : null
+
         return {
           id: worker.id,
           displayName: worker.displayName,
           jobRole: worker.jobRole,
+          verificationType,
           assignments: pendingAssignments.map((a) => ({
             id: a.id,
             templateId: a.templateId,

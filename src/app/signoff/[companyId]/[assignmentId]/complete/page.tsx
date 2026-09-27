@@ -33,9 +33,12 @@ interface KioskAssignment {
   template: AssignmentTemplate
 }
 
+type VerificationType = 'employeeNumber' | 'dateOfBirth' | null
+
 interface KioskWorker {
   id: string
   displayName: string
+  verificationType: VerificationType
   assignments: KioskAssignment[]
 }
 
@@ -50,6 +53,12 @@ export default function KioskCompletePage() {
 
   const [assignment, setAssignment] = useState<KioskAssignment | null>(null)
   const [workerName, setWorkerName] = useState('')
+  const [verificationType, setVerificationType] =
+    useState<VerificationType>(null)
+  const [verificationValue, setVerificationValue] = useState('')
+  const [verificationError, setVerificationError] = useState<string | null>(
+    null
+  )
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDone, setIsDone] = useState(false)
@@ -78,6 +87,7 @@ export default function KioskCompletePage() {
           return
         }
         setWorkerName(worker.displayName)
+        setVerificationType(worker.verificationType)
         const found = worker.assignments.find(
           (a: KioskAssignment) => a.id === assignmentId
         )
@@ -130,6 +140,15 @@ export default function KioskCompletePage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
+    if (verificationType && !verificationValue.trim()) {
+      setVerificationError(
+        verificationType === 'employeeNumber'
+          ? 'Please enter your employee number to confirm your identity.'
+          : 'Please enter your date of birth to confirm your identity.'
+      )
+      return
+    }
+
     if (!declarationName.trim()) {
       setDeclarationError(true)
       return
@@ -169,7 +188,10 @@ export default function KioskCompletePage() {
           formData: visibleFormData,
           answers,
           declarationName: declarationName.trim(),
-          signatureDataUrl
+          signatureDataUrl,
+          ...(verificationType && {
+            verificationValue: verificationValue.trim()
+          })
         })
       })
 
@@ -183,6 +205,11 @@ export default function KioskCompletePage() {
               'Please review your answers to the comprehension questions and try again.',
             variant: 'destructive'
           })
+          return
+        }
+        if (errorBody.verificationError) {
+          setVerificationError(errorBody.error || 'Verification failed.')
+          setVerificationValue('')
           return
         }
         throw new Error(errorBody.error || 'Failed to submit')
@@ -265,6 +292,52 @@ export default function KioskCompletePage() {
       </div>
 
       <form onSubmit={handleSubmit} className='space-y-6'>
+        {verificationType && (
+          <>
+            <div className='space-y-3 rounded-md border p-4'>
+              <div>
+                <h2 className='text-lg font-semibold'>Confirm your identity</h2>
+                <p className='text-sm text-muted-foreground'>
+                  {verificationType === 'employeeNumber'
+                    ? 'Enter your employee number to confirm this is you.'
+                    : 'Enter your date of birth to confirm this is you.'}
+                </p>
+              </div>
+              <div className='grid gap-2'>
+                <Label
+                  htmlFor='verification-value'
+                  className={verificationError ? 'text-destructive' : undefined}
+                >
+                  {verificationType === 'employeeNumber'
+                    ? 'Employee number'
+                    : 'Date of birth'}
+                  <span className='ml-1 text-destructive'>*</span>
+                </Label>
+                <Input
+                  id='verification-value'
+                  type={verificationType === 'dateOfBirth' ? 'date' : 'text'}
+                  value={verificationValue}
+                  onChange={(e) => {
+                    setVerificationValue(e.target.value)
+                    setVerificationError(null)
+                  }}
+                  disabled={isSubmitting}
+                  placeholder={
+                    verificationType === 'employeeNumber'
+                      ? 'e.g. EMP-0042'
+                      : undefined
+                  }
+                />
+                {verificationError && (
+                  <p className='text-xs text-destructive'>
+                    {verificationError}
+                  </p>
+                )}
+              </div>
+            </div>
+            <Separator />
+          </>
+        )}
         {fields.length === 0 ? (
           <p className='text-muted-foreground'>
             This document has no form fields. Click below to confirm you have

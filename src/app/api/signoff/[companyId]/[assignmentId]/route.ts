@@ -29,6 +29,28 @@ function sanitizeFilename(title: string): string {
   return title.replace(/[/\\:*?"<>|]/g, '-').trim()
 }
 
+// Second-factor identity confirmation for kiosk sign-off (P8 hardening).
+// Employee number takes priority when a worker has both set.
+function verifyWorkerIdentity(
+  worker: { employeeNumber: string | null; dateOfBirth: string | null },
+  submittedValue: string
+): boolean {
+  const value = submittedValue.trim()
+  if (worker.employeeNumber) {
+    return value.toLowerCase() === worker.employeeNumber.trim().toLowerCase()
+  }
+  if (worker.dateOfBirth) {
+    return value === worker.dateOfBirth
+  }
+  return true
+}
+
+function getRequestIp(request: NextRequest): string | null {
+  const forwardedFor = request.headers.get('x-forwarded-for')
+  if (forwardedFor) return forwardedFor.split(',')[0].trim()
+  return request.headers.get('x-real-ip')
+}
+
 async function uploadPdfToBlob(
   recordId: string,
   buffer: Buffer,
@@ -79,15 +101,18 @@ export async function POST(
       formData = {},
       answers = [],
       declarationName: rawDeclarationName = '',
-      signatureDataUrl
+      signatureDataUrl,
+      verificationValue: rawVerificationValue = ''
     } = body as {
       workerId?: string
       formData?: Record<string, unknown>
       answers?: { id: string; answer: string }[]
       declarationName?: string
       signatureDataUrl?: unknown
+      verificationValue?: string
     }
     const declarationName = rawDeclarationName.trim()
+    const verificationValue = rawVerificationValue.trim()
 
     if (!workerId) {
       return NextResponse.json(
@@ -121,6 +146,31 @@ export async function POST(
         { error: 'Worker not found or not eligible for kiosk sign-off' },
         { status: 403 }
       )
+    }
+
+    if (worker.employeeNumber || worker.dateOfBirth) {
+      if (!verificationValue) {
+        return NextResponse.json(
+          {
+            error: worker.employeeNumber
+              ? 'Please enter your employee number to confirm your identity.'
+              : 'Please enter your date of birth to confirm your identity.',
+            verificationError: true
+          },
+          { status: 400 }
+        )
+      }
+      if (!verifyWorkerIdentity(worker, verificationValue)) {
+        return NextResponse.json(
+          {
+            error: worker.employeeNumber
+              ? 'Employee number does not match our records.'
+              : 'Date of birth does not match our records.',
+            verificationError: true
+          },
+          { status: 403 }
+        )
+      }
     }
 
     const assignment = await getAssignmentWithTemplate(assignmentId)
@@ -184,7 +234,9 @@ export async function POST(
       assignmentId,
       signedById: workerId,
       formData:
-        Object.keys(visibleFormData).length > 0 ? visibleFormData : undefined
+        Object.keys(visibleFormData).length > 0 ? visibleFormData : undefined,
+      signerIp: getRequestIp(request) ?? undefined,
+      signerUserAgent: request.headers.get('user-agent') ?? undefined
     })
 
     if (!record) {

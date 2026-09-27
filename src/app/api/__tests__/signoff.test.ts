@@ -137,13 +137,14 @@ function makeGetRequest(companyId: string): NextRequest {
 function makePostRequest(
   companyId: string,
   assignmentId: string,
-  body: object
+  body: object,
+  headers: Record<string, string> = {}
 ): NextRequest {
   return new NextRequest(
     `http://localhost/api/signoff/${companyId}/${assignmentId}`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(body)
     }
   )
@@ -214,6 +215,39 @@ describe('GET /api/signoff/[companyId]', () => {
     expect(res.status).toBe(200)
     expect(body.workers[0].assignments).toHaveLength(0)
   })
+
+  it('returns verificationType null when no identity confirmation is set', async () => {
+    const req = makeGetRequest('co_1')
+    const res = await getKioskData(req, {
+      params: Promise.resolve({ companyId: 'co_1' })
+    })
+    const body = await res.json()
+    expect(body.workers[0].verificationType).toBeNull()
+  })
+
+  it('returns verificationType employeeNumber when set, preferred over dateOfBirth', async () => {
+    mockGetNoEmailUsersByCompany.mockResolvedValue([
+      { ...NO_EMAIL_WORKER, employeeNumber: 'EMP-1', dateOfBirth: '1990-01-01' }
+    ])
+    const req = makeGetRequest('co_1')
+    const res = await getKioskData(req, {
+      params: Promise.resolve({ companyId: 'co_1' })
+    })
+    const body = await res.json()
+    expect(body.workers[0].verificationType).toBe('employeeNumber')
+  })
+
+  it('returns verificationType dateOfBirth when only that is set', async () => {
+    mockGetNoEmailUsersByCompany.mockResolvedValue([
+      { ...NO_EMAIL_WORKER, employeeNumber: null, dateOfBirth: '1990-01-01' }
+    ])
+    const req = makeGetRequest('co_1')
+    const res = await getKioskData(req, {
+      params: Promise.resolve({ companyId: 'co_1' })
+    })
+    const body = await res.json()
+    expect(body.workers[0].verificationType).toBe('dateOfBirth')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -237,6 +271,123 @@ describe('POST /api/signoff/[companyId]/[assignmentId]', () => {
     expect(mockCreateCompletionRecord).toHaveBeenCalledWith(
       expect.objectContaining({ signedById: 'worker_1' })
     )
+  })
+
+  it('captures the signer IP and user-agent from request headers', async () => {
+    const req = makePostRequest(
+      'co_1',
+      'asgn_1',
+      {
+        workerId: 'worker_1',
+        declarationName: 'Bob Smith',
+        signatureDataUrl: VALID_SIGNATURE
+      },
+      {
+        'x-forwarded-for': '203.0.113.5, 10.0.0.1',
+        'user-agent': 'KioskBrowser/1.0'
+      }
+    )
+    await completeKiosk(req, {
+      params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
+    })
+    expect(mockCreateCompletionRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signerIp: '203.0.113.5',
+        signerUserAgent: 'KioskBrowser/1.0'
+      })
+    )
+  })
+
+  it('returns 400 when identity verification value is missing for a worker with an employee number set', async () => {
+    mockGetUserById.mockResolvedValue({
+      ...NO_EMAIL_WORKER,
+      employeeNumber: 'EMP-1'
+    })
+    const req = makePostRequest('co_1', 'asgn_1', {
+      workerId: 'worker_1',
+      declarationName: 'Bob Smith',
+      signatureDataUrl: VALID_SIGNATURE
+    })
+    const res = await completeKiosk(req, {
+      params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.verificationError).toBe(true)
+    expect(mockCreateCompletionRecord).not.toHaveBeenCalled()
+  })
+
+  it('returns 403 when the employee number does not match', async () => {
+    mockGetUserById.mockResolvedValue({
+      ...NO_EMAIL_WORKER,
+      employeeNumber: 'EMP-1'
+    })
+    const req = makePostRequest('co_1', 'asgn_1', {
+      workerId: 'worker_1',
+      declarationName: 'Bob Smith',
+      signatureDataUrl: VALID_SIGNATURE,
+      verificationValue: 'EMP-2'
+    })
+    const res = await completeKiosk(req, {
+      params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
+    })
+    expect(res.status).toBe(403)
+    expect((await res.json()).verificationError).toBe(true)
+    expect(mockCreateCompletionRecord).not.toHaveBeenCalled()
+  })
+
+  it('accepts a matching employee number case-insensitively', async () => {
+    mockGetUserById.mockResolvedValue({
+      ...NO_EMAIL_WORKER,
+      employeeNumber: 'EMP-1'
+    })
+    const req = makePostRequest('co_1', 'asgn_1', {
+      workerId: 'worker_1',
+      declarationName: 'Bob Smith',
+      signatureDataUrl: VALID_SIGNATURE,
+      verificationValue: '  emp-1  '
+    })
+    const res = await completeKiosk(req, {
+      params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
+    })
+    expect(res.status).toBe(200)
+  })
+
+  it('accepts a matching date of birth when no employee number is set', async () => {
+    mockGetUserById.mockResolvedValue({
+      ...NO_EMAIL_WORKER,
+      employeeNumber: null,
+      dateOfBirth: '1990-01-01'
+    })
+    const req = makePostRequest('co_1', 'asgn_1', {
+      workerId: 'worker_1',
+      declarationName: 'Bob Smith',
+      signatureDataUrl: VALID_SIGNATURE,
+      verificationValue: '1990-01-01'
+    })
+    const res = await completeKiosk(req, {
+      params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
+    })
+    expect(res.status).toBe(200)
+  })
+
+  it('returns 403 when the date of birth does not match', async () => {
+    mockGetUserById.mockResolvedValue({
+      ...NO_EMAIL_WORKER,
+      employeeNumber: null,
+      dateOfBirth: '1990-01-01'
+    })
+    const req = makePostRequest('co_1', 'asgn_1', {
+      workerId: 'worker_1',
+      declarationName: 'Bob Smith',
+      signatureDataUrl: VALID_SIGNATURE,
+      verificationValue: '1991-01-01'
+    })
+    const res = await completeKiosk(req, {
+      params: Promise.resolve({ companyId: 'co_1', assignmentId: 'asgn_1' })
+    })
+    expect(res.status).toBe(403)
+    expect(mockCreateCompletionRecord).not.toHaveBeenCalled()
   })
 
   it('returns 400 when signatureDataUrl is missing', async () => {

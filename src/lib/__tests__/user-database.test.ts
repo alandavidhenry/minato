@@ -16,6 +16,7 @@ import {
   updateProfilePermissions,
   updateUser,
   updateUserProfile,
+  verifyPasswordById,
   verifyUserCredentials,
   type UserData
 } from '../user-database'
@@ -176,6 +177,44 @@ describe('verifyUserCredentials', () => {
   })
 })
 
+describe('verifyPasswordById', () => {
+  it('returns true when the password matches', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(BASE_USER)
+    mockBcrypt.compare.mockResolvedValue(true)
+
+    const result = await verifyPasswordById('cuid_abc123', 'secret')
+    expect(result).toBe(true)
+    expect(mockBcrypt.compare).toHaveBeenCalledWith('secret', '$hashed')
+  })
+
+  it('returns false when the password does not match', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(BASE_USER)
+    mockBcrypt.compare.mockResolvedValue(false)
+
+    const result = await verifyPasswordById('cuid_abc123', 'wrong')
+    expect(result).toBe(false)
+  })
+
+  it('returns false for a user with no passwordHash', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(NO_EMAIL_USER)
+    const result = await verifyPasswordById('cuid_noemail', 'any')
+    expect(result).toBe(false)
+    expect(mockBcrypt.compare).not.toHaveBeenCalled()
+  })
+
+  it('returns false when the user does not exist', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null)
+    const result = await verifyPasswordById('ghost', 'any')
+    expect(result).toBe(false)
+  })
+
+  it('returns false on unexpected errors', async () => {
+    mockPrisma.user.findUnique.mockRejectedValue(new Error('db error'))
+    const result = await verifyPasswordById('cuid_abc123', 'secret')
+    expect(result).toBe(false)
+  })
+})
+
 describe('getUserByEmail', () => {
   it('returns the user when found', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(BASE_USER)
@@ -208,6 +247,19 @@ describe('getUserById', () => {
   it('returns null when the user does not exist', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null)
     expect(await getUserById('nonexistent')).toBeNull()
+  })
+
+  it('formats dateOfBirth as a YYYY-MM-DD string', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...BASE_USER,
+      employeeNumber: 'EMP-42',
+      dateOfBirth: new Date('1990-06-15T00:00:00.000Z')
+    })
+
+    const user = await getUserById('cuid_abc123')
+
+    expect(user?.employeeNumber).toBe('EMP-42')
+    expect(user?.dateOfBirth).toBe('1990-06-15')
   })
 })
 
@@ -275,6 +327,49 @@ describe('updateUser', () => {
     })
   })
 
+  it('updates employeeNumber when provided', async () => {
+    mockPrisma.user.update.mockResolvedValue({
+      ...BASE_USER,
+      employeeNumber: 'EMP-42'
+    })
+
+    const result = await updateUser('cuid_abc123', {
+      employeeNumber: 'EMP-42'
+    })
+
+    expect(result).toBe(true)
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'cuid_abc123' },
+      data: { employeeNumber: 'EMP-42' }
+    })
+  })
+
+  it('updates dateOfBirth as a Date when provided', async () => {
+    mockPrisma.user.update.mockResolvedValue(BASE_USER)
+
+    const result = await updateUser('cuid_abc123', {
+      dateOfBirth: '1990-01-01'
+    })
+
+    expect(result).toBe(true)
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'cuid_abc123' },
+      data: { dateOfBirth: new Date('1990-01-01') }
+    })
+  })
+
+  it('clears dateOfBirth when set to null', async () => {
+    mockPrisma.user.update.mockResolvedValue(BASE_USER)
+
+    const result = await updateUser('cuid_abc123', { dateOfBirth: null })
+
+    expect(result).toBe(true)
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'cuid_abc123' },
+      data: { dateOfBirth: null }
+    })
+  })
+
   it('returns false when an error occurs', async () => {
     mockPrisma.user.update.mockRejectedValue(new Error('not found'))
     expect(await updateUser('nonexistent', { role: 'Admin' })).toBe(false)
@@ -330,6 +425,8 @@ const EMAIL_USER_DATA: UserData = {
   role: 'Customer',
   jobRole: null,
   lineManagerId: null,
+  employeeNumber: null,
+  dateOfBirth: null,
   createdAt: '2024-01-01T00:00:00.000Z',
   customerCompanyId: null
 }

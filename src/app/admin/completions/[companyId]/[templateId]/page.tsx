@@ -54,6 +54,8 @@ interface Completion {
   signedAt: string
   blobPath: string | null
   signer: { id: string; displayName: string; email: string }
+  signerIp: string | null
+  signerUserAgent: string | null
 }
 
 interface OutstandingUser {
@@ -83,6 +85,8 @@ export default function TemplateCompletionsPage() {
   const [viewingCompletion, setViewingCompletion] = useState<{
     id: string
     title: string
+    signerIp: string | null
+    signerUserAgent: string | null
   } | null>(null)
   const [viewPdfData, setViewPdfData] = useState<Uint8Array | null>(null)
   const [viewLoading, setViewLoading] = useState(false)
@@ -225,7 +229,12 @@ export default function TemplateCompletionsPage() {
 
   async function handleView(completion: Completion) {
     if (!completion.blobPath) return
-    setViewingCompletion({ id: completion.id, title: templateTitle })
+    setViewingCompletion({
+      id: completion.id,
+      title: templateTitle,
+      signerIp: completion.signerIp,
+      signerUserAgent: completion.signerUserAgent
+    })
     setViewPdfData(null)
     setViewLoading(true)
     try {
@@ -515,6 +524,14 @@ export default function TemplateCompletionsPage() {
             <DialogTitle>
               {viewingCompletion?.title ?? 'Completion'}
             </DialogTitle>
+            {(viewingCompletion?.signerIp ||
+              viewingCompletion?.signerUserAgent) && (
+              <p className='text-xs text-muted-foreground'>
+                Signed from {viewingCompletion.signerIp ?? 'unknown IP'}
+                {viewingCompletion.signerUserAgent &&
+                  ` · ${viewingCompletion.signerUserAgent}`}
+              </p>
+            )}
           </DialogHeader>
           <div className='flex-1 overflow-auto'>
             <PDFRenderer

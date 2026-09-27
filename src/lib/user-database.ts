@@ -25,6 +25,8 @@ export interface UserData {
   role: string
   jobRole: string | null
   lineManagerId: string | null
+  employeeNumber: string | null
+  dateOfBirth: string | null
   createdAt: string
   customerCompanyId: string | null
 }
@@ -37,6 +39,8 @@ type PrismaUser = {
   role: string
   jobRole: string | null
   lineManagerId: string | null
+  employeeNumber: string | null
+  dateOfBirth: Date | null
   createdAt: Date
   customerCompanyId: string | null
 }
@@ -50,6 +54,10 @@ function toUserData(user: PrismaUser): UserData {
     role: user.role,
     jobRole: user.jobRole,
     lineManagerId: user.lineManagerId,
+    employeeNumber: user.employeeNumber,
+    dateOfBirth: user.dateOfBirth
+      ? user.dateOfBirth.toISOString().slice(0, 10)
+      : null,
     createdAt: user.createdAt.toISOString(),
     customerCompanyId: user.customerCompanyId
   }
@@ -116,6 +124,23 @@ export async function verifyUserCredentials(
   } catch (error) {
     console.error('Error verifying user:', error)
     return null
+  }
+}
+
+// Confirms a logged-in user's own password, e.g. before a sign-off (P8
+// hardening) as a guard against an unlocked/shared device. False for
+// no-email workers, who have no passwordHash.
+export async function verifyPasswordById(
+  userId: string,
+  password: string
+): Promise<boolean> {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user?.passwordHash) return false
+    return bcrypt.compare(password, user.passwordHash)
+  } catch (error) {
+    console.error('Error verifying password:', error)
+    return false
   }
 }
 
@@ -201,6 +226,14 @@ export async function updateUser(
         }),
         ...(updates.lineManagerId !== undefined && {
           lineManagerId: updates.lineManagerId
+        }),
+        ...(updates.employeeNumber !== undefined && {
+          employeeNumber: updates.employeeNumber
+        }),
+        ...(updates.dateOfBirth !== undefined && {
+          dateOfBirth: updates.dateOfBirth
+            ? new Date(updates.dateOfBirth)
+            : null
         })
       }
     })

@@ -29,6 +29,8 @@ interface User {
   role: string
   jobRole: string | null
   lineManagerId: string | null
+  employeeNumber: string | null
+  dateOfBirth: string | null
   customerCompanyId: string | null
   customerCompanyName: string | null
 }

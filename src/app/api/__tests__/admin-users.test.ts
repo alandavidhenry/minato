@@ -433,6 +433,58 @@ describe('PATCH /api/admin/users/[id]', () => {
     const updateCall = mockPrisma.user.update.mock.calls[0][0]
     expect(updateCall.data.lineManagerId).toBeNull()
   })
+
+  it('passes employeeNumber to updateUser when provided', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest(
+      'http://localhost/api/admin/users/cuid_abc123',
+      'PATCH',
+      { employeeNumber: 'EMP-42' }
+    )
+    const res = await updateUser(req, params('cuid_abc123'))
+    expect(res.status).toBe(200)
+    const updateCall = mockPrisma.user.update.mock.calls[0][0]
+    expect(updateCall.data.employeeNumber).toBe('EMP-42')
+  })
+
+  it('clears employeeNumber when null is passed', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest(
+      'http://localhost/api/admin/users/cuid_abc123',
+      'PATCH',
+      { employeeNumber: null }
+    )
+    const res = await updateUser(req, params('cuid_abc123'))
+    expect(res.status).toBe(200)
+    const updateCall = mockPrisma.user.update.mock.calls[0][0]
+    expect(updateCall.data.employeeNumber).toBeNull()
+  })
+
+  it('passes dateOfBirth to updateUser as a Date when provided', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest(
+      'http://localhost/api/admin/users/cuid_abc123',
+      'PATCH',
+      { dateOfBirth: '1990-01-01' }
+    )
+    const res = await updateUser(req, params('cuid_abc123'))
+    expect(res.status).toBe(200)
+    const updateCall = mockPrisma.user.update.mock.calls[0][0]
+    expect(updateCall.data.dateOfBirth).toEqual(new Date('1990-01-01'))
+  })
+
+  it('clears dateOfBirth when null is passed', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest(
+      'http://localhost/api/admin/users/cuid_abc123',
+      'PATCH',
+      { dateOfBirth: null }
+    )
+    const res = await updateUser(req, params('cuid_abc123'))
+    expect(res.status).toBe(200)
+    const updateCall = mockPrisma.user.update.mock.calls[0][0]
+    expect(updateCall.data.dateOfBirth).toBeNull()
+  })
 })
 
 // ---------------------------------------------------------------------------
