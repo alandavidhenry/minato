@@ -1,4 +1,35 @@
+import type { UploadedFileValue } from '@/types/form-schema'
+
 import prisma from './prisma'
+
+export interface CompletionUploadedFile {
+  fieldId: string
+  fileName: string
+}
+
+// formData stores a `{ blobPath, fileName }` object at a file field's id —
+// pick those out so admins can review/download what was actually uploaded,
+// regardless of what the template's current formSchema looks like now.
+function extractUploadedFiles(formData: unknown): CompletionUploadedFile[] {
+  if (!formData || typeof formData !== 'object' || Array.isArray(formData)) {
+    return []
+  }
+  const files: CompletionUploadedFile[] = []
+  for (const [fieldId, value] of Object.entries(
+    formData as Record<string, unknown>
+  )) {
+    const candidate = value as Partial<UploadedFileValue> | undefined
+    if (
+      candidate &&
+      typeof candidate === 'object' &&
+      typeof candidate.blobPath === 'string' &&
+      typeof candidate.fileName === 'string'
+    ) {
+      files.push({ fieldId, fileName: candidate.fileName })
+    }
+  }
+  return files
+}
 
 export interface CompletionRecordData {
   id: string
@@ -237,6 +268,7 @@ export interface CompletionRecordForAssignment {
   signer: { id: string; displayName: string; email: string }
   signerIp: string | null
   signerUserAgent: string | null
+  files: CompletionUploadedFile[]
 }
 
 type PrismaAssignmentWithCompletionGroup = {
@@ -253,6 +285,7 @@ type PrismaCompletionRecordForAssignment = {
   id: string
   signedAt: Date
   blobPath: string | null
+  formData: unknown
   signedBy: { id: string; displayName: string; email: string }
   signerIp: string | null
   signerUserAgent: string | null
@@ -459,7 +492,8 @@ export async function getTemplateCompletionSummaryForCompany(
         blobPath: r.blobPath,
         signer: r.signedBy,
         signerIp: r.signerIp,
-        signerUserAgent: r.signerUserAgent
+        signerUserAgent: r.signerUserAgent,
+        files: extractUploadedFiles(r.formData)
       })),
       outstandingUsers
     }
@@ -486,7 +520,8 @@ export async function getCompletionsForAssignmentForAdmin(
       blobPath: r.blobPath,
       signer: r.signedBy,
       signerIp: r.signerIp,
-      signerUserAgent: r.signerUserAgent
+      signerUserAgent: r.signerUserAgent,
+      files: extractUploadedFiles(r.formData)
     }))
   } catch (error) {
     console.error('Error getting completions for assignment (admin):', error)
@@ -569,7 +604,8 @@ export async function getAssignmentStatusSummary(
         blobPath: r.blobPath,
         signer: r.signedBy,
         signerIp: r.signerIp,
-        signerUserAgent: r.signerUserAgent
+        signerUserAgent: r.signerUserAgent,
+        files: extractUploadedFiles(r.formData)
       })),
       outstandingUsers
     }

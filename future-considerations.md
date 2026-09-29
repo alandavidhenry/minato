@@ -28,7 +28,7 @@ All items from the original workflow plan (comprehension questions, individual/j
 | P14 | Activity logs: compliance KPI graphs (replaced vanity metrics) |
 | P15 | Customer Admin: scoped completions dashboard (read-only) |
 | P16 | Auto-enrol users to job-role-matching assignments (explicit per-user audit records) |
-| P16b | Drag-and-drop form builder + starter templates (see "Known gaps" below for the file-review gap) |
+| P16b | Drag-and-drop form builder + starter templates, incl. admin download/review access to uploaded `file`-field values |
 | P17 | Self-serve portal — Customer Admins create/assign their own templates |
 | P18 | Unified role-aware navigation shell (replaced three parallel nav systems) |
 | P18b | Breadcrumbs, account menu, overdue-completions bell, welcome header |
@@ -40,7 +40,6 @@ All items from the original workflow plan (comprehension questions, individual/j
 ### Known gaps / deferred items carried forward from completed work
 
 - **P8 sign-off hardening — one-time PIN (not built):** a one-time PIN sent to the line manager before kiosk sign-off proceeds is the one hardening measure from the original list not yet built — heaviest to build (needs the manager reachable in the moment) and most disruptive to the kiosk UX. Revisit if a customer asks for it specifically.
-- **P16b file-field review gap:** an uploaded `file` form-field value has no admin download/review UI — the completion PDF shows only the filename, not a link to the original. Add if reviewing the actual uploaded file becomes necessary.
 - **P19 deferred, no target date:** structured data extraction from filled-in documents into a searchable store (Azure Document Intelligence is already provisioned for this — `infrastructure/modules/document_intelligence/` — but unused in application code; same underlying OCR gap noted under "Document Intelligence" below).
 
 ---

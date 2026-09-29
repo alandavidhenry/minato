@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GET as listTemplateCompletions } from '../admin/companies/[id]/completions/[templateId]/route'
 import { GET as listCompanyCompletions } from '../admin/companies/[id]/completions/route'
 import { GET as downloadCompletion } from '../admin/completions/[id]/download/route'
+import { GET as downloadCompletionFile } from '../admin/completions/[id]/files/[fieldId]/route'
 import { DELETE as deleteCompletion } from '../admin/completions/[id]/route'
 import { GET as listCompanies } from '../admin/completions/route'
 
@@ -114,6 +115,10 @@ const BASE_COMPLETION = {
 
 function idParams(id: string) {
   return { params: Promise.resolve({ id }) }
+}
+
+function fileFieldParams(id: string, fieldId: string) {
+  return { params: Promise.resolve({ id, fieldId }) }
 }
 
 function companyParams(id: string) {
@@ -337,6 +342,83 @@ describe('GET /api/admin/completions/[id]/download', () => {
     const res = await downloadCompletion(req, idParams('record_123'))
     expect(res.status).toBe(200)
     expect((await res.json()).url).toBe('https://blob.example.com/sas-url')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// GET /api/admin/completions/[id]/files/[fieldId]
+// ---------------------------------------------------------------------------
+
+describe('GET /api/admin/completions/[id]/files/[fieldId]', () => {
+  const COMPLETION_WITH_FILE = {
+    ...BASE_COMPLETION,
+    formData: {
+      field_photo: {
+        blobPath:
+          'form-uploads/assignment_123/user_123/field_photo-1-photo.jpg',
+        fileName: 'photo.jpg'
+      }
+    }
+  }
+
+  it('returns 403 when not admin', async () => {
+    mockGetServerSession.mockResolvedValue(null)
+    const req = new NextRequest(
+      'http://localhost/api/admin/completions/record_123/files/field_photo'
+    )
+    const res = await downloadCompletionFile(
+      req,
+      fileFieldParams('record_123', 'field_photo')
+    )
+    expect(res.status).toBe(403)
+  })
+
+  it('returns 404 when completion not found', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = new NextRequest(
+      'http://localhost/api/admin/completions/missing/files/field_photo'
+    )
+    const res = await downloadCompletionFile(
+      req,
+      fileFieldParams('missing', 'field_photo')
+    )
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 404 when the field has no uploaded file', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetById.mockResolvedValue({ ...BASE_COMPLETION, formData: {} })
+    const req = new NextRequest(
+      'http://localhost/api/admin/completions/record_123/files/field_photo'
+    )
+    const res = await downloadCompletionFile(
+      req,
+      fileFieldParams('record_123', 'field_photo')
+    )
+    expect(res.status).toBe(404)
+    expect((await res.json()).error).toMatch(/file not found/i)
+  })
+
+  it('returns 200 with a download URL for the uploaded file', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetById.mockResolvedValue(COMPLETION_WITH_FILE)
+    const req = new NextRequest(
+      'http://localhost/api/admin/completions/record_123/files/field_photo'
+    )
+    const res = await downloadCompletionFile(
+      req,
+      fileFieldParams('record_123', 'field_photo')
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.url).toBe('https://blob.example.com/sas-url')
+    expect(body.fileName).toBe('photo.jpg')
+    expect(mockGenerateSasToken.mock.calls[0][1]).toBe(
+      'form-uploads/assignment_123/user_123/field_photo-1-photo.jpg'
+    )
+    expect(mockGenerateSasToken.mock.calls[0][2]).toMatchObject({
+      permissions: 'r'
+    })
   })
 })
 
