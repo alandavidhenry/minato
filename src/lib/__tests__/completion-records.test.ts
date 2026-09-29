@@ -491,6 +491,30 @@ describe('getCompletionsForAssignmentForAdmin', () => {
     expect(result[0].signer.displayName).toBe('Jane Smith')
     expect(result[0].signer.email).toBe('jane@example.com')
     expect(result[0].signedAt).toBe('2024-01-01T00:00:00.000Z')
+    expect(result[0].files).toEqual([])
+  })
+
+  it('extracts uploaded file fields from formData', async () => {
+    mockPrisma.completionRecord.findMany.mockResolvedValue([
+      {
+        ...BASE_RECORD_WITH_SIGNER,
+        formData: {
+          field_photo: {
+            blobPath:
+              'form-uploads/assignment_123/user_123/field_photo-1-photo.jpg',
+            fileName: 'photo.jpg'
+          },
+          field_notes: 'all clear',
+          field_signed_off: true
+        }
+      }
+    ])
+
+    const result = await getCompletionsForAssignmentForAdmin('assignment_123')
+
+    expect(result[0].files).toEqual([
+      { fieldId: 'field_photo', fileName: 'photo.jpg' }
+    ])
   })
 
   it('returns empty array on error', async () => {

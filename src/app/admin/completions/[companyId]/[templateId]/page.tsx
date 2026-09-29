@@ -8,6 +8,7 @@ import {
   Download,
   Eye,
   Lock,
+  Paperclip,
   Trash2
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
@@ -27,6 +28,12 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import {
   Tooltip,
   TooltipContent,
@@ -56,6 +63,7 @@ interface Completion {
   signer: { id: string; displayName: string; email: string }
   signerIp: string | null
   signerUserAgent: string | null
+  files: { fieldId: string; fileName: string }[]
 }
 
 interface OutstandingUser {
@@ -79,6 +87,7 @@ export default function TemplateCompletionsPage() {
   const [isOverdue, setIsOverdue] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [downloading, setDownloading] = useState<string | null>(null)
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [deletingSelected, setDeletingSelected] = useState(false)
@@ -224,6 +233,34 @@ export default function TemplateCompletionsPage() {
       })
     } finally {
       setDownloading(null)
+    }
+  }
+
+  async function handleDownloadFile(
+    completion: Completion,
+    file: { fieldId: string; fileName: string }
+  ) {
+    const key = `${completion.id}:${file.fieldId}`
+    setDownloadingFile(key)
+    try {
+      const response = await fetch(
+        `/api/admin/completions/${completion.id}/files/${file.fieldId}`
+      )
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to get download link')
+      }
+      const { url } = await response.json()
+      window.open(url, '_blank')
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error ? error.message : 'Failed to download',
+        variant: 'destructive'
+      })
+    } finally {
+      setDownloadingFile(null)
     }
   }
 
@@ -396,6 +433,29 @@ export default function TemplateCompletionsPage() {
                   <Download className='h-4 w-4' />
                 </Button>
               </>
+            )}
+            {completion.files.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant='ghost' size='sm'>
+                    <Paperclip className='h-4 w-4' />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align='end'>
+                  {completion.files.map((file) => (
+                    <DropdownMenuItem
+                      key={file.fieldId}
+                      disabled={
+                        downloadingFile === `${completion.id}:${file.fieldId}`
+                      }
+                      onClick={() => handleDownloadFile(completion, file)}
+                    >
+                      <Download className='mr-2 h-4 w-4' />
+                      {file.fileName}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             {protectedByRetention ? (
               <Tooltip>
