@@ -104,7 +104,7 @@ This is a genuine differentiator, and it helps with "reasonable steps to ensure 
 - Admins can't download files uploaded via `file` form fields (P16b note).
 - The Customer Admin completions view may show duplicate template rows (P2 note).
 - `/customer/admin/templates` lacks the category grouping and search that `/admin/templates` has (P20 note).
-- There is no privacy policy page and no GDPR erasure/anonymisation flow (Compliance section).
+- A privacy policy page exists (`/privacy`, linked from the footer) but there is no GDPR erasure/anonymisation flow (Compliance section).
 - Reminder schedule is hard-coded (-3, -1, 0, then weekly) and should be tenant-configurable.
 - Upload/fill-and-return flows have no E2E coverage.
 

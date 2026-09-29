@@ -89,6 +89,6 @@ Current pipeline (lint → security scan → Playwright E2E → Docker build/pus
 See [`data-management.md`](./data-management.md) for the full design discussion (Azure Blob immutability, the GDPR erasure-vs-retention conflict, per-company/jurisdiction retention, container isolation) and P22 above for what's built.
 
 **Actions still needed:**
-- Add a privacy policy page
+- Keep the privacy policy page (`src/app/privacy/page.tsx`) in sync when new personal data or sub-processors are added; have it reviewed by someone qualified before onboarding external customers
 - Confirm with Simon whether any industry-specific H&S standards require certified e-signatures vs. the current simple audit trail (see ADR-004)
 - Design the GDPR right-to-erasure/anonymisation flow — `data-management.md` §4 covers the specific conflict with statutory retention (e.g. a client company closing down) and what an override would need. P22 only protects existing signed records from premature admin deletion; it doesn't yet handle a user asking to be forgotten while their documents must be retained.
