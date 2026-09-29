@@ -1,6 +1,13 @@
 import type { UploadedFileValue } from '@/types/form-schema'
 
+import {
+  computeValidUntil,
+  DEFAULT_RENEWAL_LEAD_DAYS,
+  getValidityStatus,
+  type ValidityStatus
+} from './completion-validity'
 import prisma from './prisma'
+import { getRenewalLeadDaysForCompany } from './user-database'
 
 export interface CompletionUploadedFile {
   fieldId: string
@@ -43,9 +50,11 @@ export interface CompletionRecordData {
   submittedFileName: string | null
   signerIp: string | null
   signerUserAgent: string | null
+  validUntil: string | null
 }
 
 export interface CompletionRecordWithTemplate extends CompletionRecordData {
+  validityStatus: ValidityStatus | null
   assignment: {
     id: string
     templateId: string
@@ -81,6 +90,7 @@ type PrismaCompletionRecord = {
   submittedFileName: string | null
   signerIp: string | null
   signerUserAgent: string | null
+  validUntil: Date | null
 }
 
 type PrismaCompletionRecordWithTemplate = PrismaCompletionRecord & {
@@ -121,15 +131,18 @@ function toCompletionRecordData(
     submittedOriginalBlobPath: record.submittedOriginalBlobPath,
     submittedFileName: record.submittedFileName,
     signerIp: record.signerIp,
-    signerUserAgent: record.signerUserAgent
+    signerUserAgent: record.signerUserAgent,
+    validUntil: record.validUntil ? record.validUntil.toISOString() : null
   }
 }
 
 function toCompletionRecordWithTemplate(
-  record: PrismaCompletionRecordWithTemplate
+  record: PrismaCompletionRecordWithTemplate,
+  leadDays: number = DEFAULT_RENEWAL_LEAD_DAYS
 ): CompletionRecordWithTemplate {
   return {
     ...toCompletionRecordData(record),
+    validityStatus: getValidityStatus(record.validUntil, new Date(), leadDays),
     assignment: record.assignment
   }
 }
@@ -166,10 +179,22 @@ export async function createCompletionRecord({
   signerUserAgent?: string
 }): Promise<CompletionRecordData | null> {
   try {
+    // Recurring assignments: the completion expires recurrenceMonths after signing
+    const assignment = await prisma.assignment.findUnique({
+      where: { id: assignmentId },
+      select: { recurrenceMonths: true }
+    })
+    const signedAt = new Date()
+    const validUntil = assignment?.recurrenceMonths
+      ? computeValidUntil(signedAt, assignment.recurrenceMonths)
+      : null
+
     const record = await prisma.completionRecord.create({
       data: {
         assignmentId,
         signedById,
+        signedAt,
+        validUntil,
         formData: formData ?? undefined,
         submittedBlobPath,
         submittedOriginalBlobPath,
@@ -251,6 +276,53 @@ export interface CompletionGroupForAdmin {
   dueDate: string | null
   isOverdue: boolean
   outstandingCount: number
+  // Recurring sign-offs: users whose latest completion lapses within
+  // the tenant's renewal lead time / has already lapsed (expired users are also outstanding)
+  expiringSoonCount: number
+  expiredCount: number
+}
+
+export interface UserValiditySummary {
+  validUserIds: Set<string>
+  expiredUserIds: Set<string>
+  expiringSoonUserIds: Set<string>
+  // validUntil of each expired user's most recent completion
+  expiredAt: Date[]
+}
+
+// A user is "valid" while any of their completions is unexpired (null validUntil
+// never expires). Once every completion has lapsed they are "expired" and count
+// as outstanding again.
+export function summariseUserValidity(
+  records: { signedById: string; validUntil: Date | null }[],
+  now: Date,
+  leadDays: number = DEFAULT_RENEWAL_LEAD_DAYS
+): UserValiditySummary {
+  const bestByUser = new Map<string, number>()
+  for (const r of records) {
+    const value = r.validUntil ? r.validUntil.getTime() : Infinity
+    const existing = bestByUser.get(r.signedById)
+    if (existing === undefined || value > existing) {
+      bestByUser.set(r.signedById, value)
+    }
+  }
+  const summary: UserValiditySummary = {
+    validUserIds: new Set(),
+    expiredUserIds: new Set(),
+    expiringSoonUserIds: new Set(),
+    expiredAt: []
+  }
+  const soonMs = now.getTime() + leadDays * 86_400_000
+  for (const [userId, best] of bestByUser) {
+    if (best <= now.getTime()) {
+      summary.expiredUserIds.add(userId)
+      summary.expiredAt.push(new Date(best))
+    } else {
+      summary.validUserIds.add(userId)
+      if (best <= soonMs) summary.expiringSoonUserIds.add(userId)
+    }
+  }
+  return summary
 }
 
 export interface AssignmentStatusSummary {
@@ -268,6 +340,8 @@ export interface CompletionRecordForAssignment {
   signer: { id: string; displayName: string; email: string }
   signerIp: string | null
   signerUserAgent: string | null
+  validUntil: string | null
+  validityStatus: ValidityStatus | null
   files: CompletionUploadedFile[]
 }
 
@@ -278,17 +352,19 @@ type PrismaAssignmentWithCompletionGroup = {
   templateVersion: number
   template: { id: string; title: string }
   _count: { completions: number }
-  completions: { signedAt: Date }[]
+  completions: { signedAt: Date; signedById: string; validUntil: Date | null }[]
 }
 
 type PrismaCompletionRecordForAssignment = {
   id: string
+  assignmentId: string
   signedAt: Date
   blobPath: string | null
   formData: unknown
   signedBy: { id: string; displayName: string; email: string }
   signerIp: string | null
   signerUserAgent: string | null
+  validUntil: Date | null
 }
 
 export async function getCompaniesWithCompletions(): Promise<
@@ -331,9 +407,8 @@ export async function getCompletionGroupsByCompany(
         include: {
           template: { select: { id: true, title: true } },
           completions: {
-            select: { signedAt: true },
-            orderBy: { signedAt: 'desc' },
-            take: 1
+            select: { signedAt: true, signedById: true, validUntil: true },
+            orderBy: { signedAt: 'desc' }
           },
           _count: { select: { completions: true } }
         },
@@ -341,6 +416,7 @@ export async function getCompletionGroupsByCompany(
       }),
       prisma.user.count({ where: { customerCompanyId: companyId } })
     ])
+    const leadDays = await getRenewalLeadDaysForCompany(companyId)
 
     const now = new Date()
 
@@ -368,12 +444,33 @@ export async function getCompletionGroupsByCompany(
         0
       )
       const hasCompanyWide = current.some((a) => a.userId === null)
-      const expectedCount = hasCompanyWide ? companyUserCount : current.length
-      const outstandingCount = Math.max(0, expectedCount - completionCount)
+      // Individual renewal cycles share a user with their earlier cycle, so
+      // expected users are counted per distinct user, not per assignment
+      const expectedCount = hasCompanyWide
+        ? companyUserCount
+        : new Set(current.map((a) => a.userId)).size
+      const validity = summariseUserValidity(
+        current.flatMap((a) => a.completions),
+        now,
+        leadDays
+      )
+      const outstandingCount = Math.max(
+        0,
+        expectedCount - validity.validUserIds.size
+      )
 
-      const dueDates = current
-        .map((a) => a.dueDate)
-        .filter((d): d is Date => d !== null)
+      // Assignments that are fully done no longer set the due date; a lapsed
+      // completion counts as due on the day it expired
+      const completedAssignmentIds = new Set(
+        current.filter((a) => a.completions.length > 0).map((a) => a.id)
+      )
+      const dueDates = [
+        ...current
+          .filter((a) => a.userId === null || !completedAssignmentIds.has(a.id))
+          .map((a) => a.dueDate)
+          .filter((d): d is Date => d !== null),
+        ...validity.expiredAt
+      ]
       const dueDate =
         dueDates.length > 0
           ? new Date(Math.min(...dueDates.map((d) => d.getTime())))
@@ -398,7 +495,9 @@ export async function getCompletionGroupsByCompany(
         lastCompletedAt,
         dueDate: dueDate ? dueDate.toISOString() : null,
         isOverdue,
-        outstandingCount
+        outstandingCount,
+        expiringSoonCount: validity.expiringSoonUserIds.size,
+        expiredCount: validity.expiredUserIds.size
       })
     }
 
@@ -426,6 +525,9 @@ export async function getTemplateCompletionSummaryForCompany(
     })
     if (assignments.length === 0) return null
 
+    const now = new Date()
+    const leadDays = await getRenewalLeadDaysForCompany(companyId)
+
     const maxVersion = Math.max(...assignments.map((a) => a.templateVersion))
     const current = assignments.filter((a) => a.templateVersion === maxVersion)
     const assignmentIds = current.map((a) => a.id)
@@ -438,9 +540,16 @@ export async function getTemplateCompletionSummaryForCompany(
       orderBy: { signedAt: 'desc' }
     })) as PrismaCompletionRecordForAssignment[]
 
-    const completedUserIds = new Set(
-      completionRecords.map((r) => r.signedBy.id)
+    // Lapsed completions no longer count — the user is outstanding again
+    const validity = summariseUserValidity(
+      completionRecords.map((r) => ({
+        signedById: r.signedBy.id,
+        validUntil: r.validUntil
+      })),
+      now,
+      leadDays
     )
+    const completedUserIds = validity.validUserIds
 
     let expectedUsers: {
       id: string
@@ -469,16 +578,25 @@ export async function getTemplateCompletionSummaryForCompany(
       (u) => !completedUserIds.has(u.id)
     )
 
-    const dueDates = current
-      .map((a) => a.dueDate)
-      .filter((d): d is Date => d !== null)
+    // Fully-completed individual assignments no longer set the due date; a
+    // lapsed completion counts as due on the day it expired
+    const completedAssignmentIds = new Set(
+      completionRecords.map((r) => r.assignmentId)
+    )
+    const dueDates = [
+      ...current
+        .filter((a) => a.userId === null || !completedAssignmentIds.has(a.id))
+        .map((a) => a.dueDate)
+        .filter((d): d is Date => d !== null),
+      ...validity.expiredAt
+    ]
     const dueDate =
       dueDates.length > 0
         ? new Date(Math.min(...dueDates.map((d) => d.getTime())))
         : null
     const isOverdue = !!(
       dueDate &&
-      dueDate < new Date() &&
+      dueDate < now &&
       outstandingUsers.length > 0
     )
 
@@ -493,6 +611,8 @@ export async function getTemplateCompletionSummaryForCompany(
         signer: r.signedBy,
         signerIp: r.signerIp,
         signerUserAgent: r.signerUserAgent,
+        validUntil: r.validUntil ? r.validUntil.toISOString() : null,
+        validityStatus: getValidityStatus(r.validUntil, now, leadDays),
         files: extractUploadedFiles(r.formData)
       })),
       outstandingUsers
@@ -507,6 +627,13 @@ export async function getCompletionsForAssignmentForAdmin(
   assignmentId: string
 ): Promise<CompletionRecordForAssignment[]> {
   try {
+    const assignment = await prisma.assignment.findUnique({
+      where: { id: assignmentId },
+      select: { customerCompanyId: true }
+    })
+    const leadDays = await getRenewalLeadDaysForCompany(
+      assignment?.customerCompanyId ?? null
+    )
     const records = (await prisma.completionRecord.findMany({
       where: { assignmentId },
       include: {
@@ -521,6 +648,8 @@ export async function getCompletionsForAssignmentForAdmin(
       signer: r.signedBy,
       signerIp: r.signerIp,
       signerUserAgent: r.signerUserAgent,
+      validUntil: r.validUntil ? r.validUntil.toISOString() : null,
+      validityStatus: getValidityStatus(r.validUntil, new Date(), leadDays),
       files: extractUploadedFiles(r.formData)
     }))
   } catch (error) {
@@ -553,6 +682,11 @@ export async function getAssignmentStatusSummary(
       }
     })
     if (!assignment) return null
+
+    const now = new Date()
+    const leadDays = await getRenewalLeadDaysForCompany(
+      assignment.customerCompanyId
+    )
 
     const completionRecords = (await prisma.completionRecord.findMany({
       where: { assignmentId },
@@ -605,6 +739,8 @@ export async function getAssignmentStatusSummary(
         signer: r.signedBy,
         signerIp: r.signerIp,
         signerUserAgent: r.signerUserAgent,
+        validUntil: r.validUntil ? r.validUntil.toISOString() : null,
+        validityStatus: getValidityStatus(r.validUntil, now, leadDays),
         files: extractUploadedFiles(r.formData)
       })),
       outstandingUsers
@@ -619,6 +755,13 @@ export async function getCompletionsForUser(
   signedById: string
 ): Promise<CompletionRecordWithTemplate[]> {
   try {
+    const user = await prisma.user.findUnique({
+      where: { id: signedById },
+      select: { customerCompanyId: true }
+    })
+    const leadDays = await getRenewalLeadDaysForCompany(
+      user?.customerCompanyId ?? null
+    )
     const records = await prisma.completionRecord.findMany({
       where: { signedById },
       include: {
@@ -632,7 +775,7 @@ export async function getCompletionsForUser(
       },
       orderBy: { signedAt: 'desc' }
     })
-    return records.map(toCompletionRecordWithTemplate)
+    return records.map((r) => toCompletionRecordWithTemplate(r, leadDays))
   } catch (error) {
     console.error('Error getting completions for user:', error)
     return []

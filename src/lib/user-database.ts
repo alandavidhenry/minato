@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs'
 
 import { Prisma } from '@/generated/prisma/client'
 
+import { DEFAULT_RENEWAL_LEAD_DAYS } from './completion-validity'
 import { DEFAULT_COMPLETION_RETENTION_YEARS } from './data-retention'
 import prisma from './prisma'
 
@@ -363,6 +364,52 @@ export async function updateCompletionRetentionYears(
     return true
   } catch {
     return false
+  }
+}
+
+export async function getRenewalLeadDays(tenantId: string): Promise<number> {
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } })
+    return tenant?.renewalLeadDays ?? DEFAULT_RENEWAL_LEAD_DAYS
+  } catch {
+    return DEFAULT_RENEWAL_LEAD_DAYS
+  }
+}
+
+export async function updateRenewalLeadDays(
+  tenantId: string,
+  days: number
+): Promise<boolean> {
+  try {
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { renewalLeadDays: days }
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Lead time for a customer company's tenant; falls back to the single tenant
+// row (this app is single-tenant today) and then the default.
+export async function getRenewalLeadDaysForCompany(
+  customerCompanyId: string | null
+): Promise<number> {
+  try {
+    const company = customerCompanyId
+      ? await prisma.customerCompany.findUnique({
+          where: { id: customerCompanyId },
+          select: { tenant: { select: { renewalLeadDays: true } } }
+        })
+      : null
+    if (company?.tenant) return company.tenant.renewalLeadDays
+    const tenant = await prisma.tenant.findFirst({
+      select: { renewalLeadDays: true }
+    })
+    return tenant?.renewalLeadDays ?? DEFAULT_RENEWAL_LEAD_DAYS
+  } catch {
+    return DEFAULT_RENEWAL_LEAD_DAYS
   }
 }
 

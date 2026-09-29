@@ -50,6 +50,8 @@ export async function GET(
       id: r.id,
       signedAt: r.signedAt,
       hasPdf: r.blobPath !== null,
+      validUntil: r.validUntil,
+      validityStatus: r.validityStatus,
       signer: r.signer
     }))
 

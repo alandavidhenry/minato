@@ -25,6 +25,8 @@ interface CompletionGroup {
   dueDate: string | null
   isOverdue: boolean
   outstandingCount: number
+  expiringSoonCount: number
+  expiredCount: number
 }
 
 function formatShortDate(iso: string | null): string {
@@ -120,6 +122,14 @@ export default function CompanyCompletionsPage() {
             )}
             {group.outstandingCount === 0 && group.completionCount > 0 && (
               <Badge variant='default'>Complete</Badge>
+            )}
+            {group.expiredCount > 0 && (
+              <Badge variant='destructive'>{group.expiredCount} expired</Badge>
+            )}
+            {group.expiringSoonCount > 0 && (
+              <Badge variant='secondary'>
+                {group.expiringSoonCount} expiring soon
+              </Badge>
             )}
           </div>
         )

@@ -10,6 +10,7 @@ import {
   getAssignmentsForCompany
 } from '@/lib/assignments'
 import { authOptions } from '@/lib/auth'
+import { isValidRecurrenceMonths } from '@/lib/completion-validity'
 import { getDocumentTemplateById } from '@/lib/document-templates'
 import { sendAssignmentNotification } from '@/lib/email'
 import {
@@ -63,18 +64,36 @@ export async function POST(
   try {
     const { id: customerCompanyId } = await params
     const body = await request.json()
-    const { templateId, userId, dueDate, targetJobRoles, autoEnroll } =
-      body as {
-        templateId?: string
-        userId?: string
-        dueDate?: string
-        targetJobRoles?: string[]
-        autoEnroll?: boolean
-      }
+    const {
+      templateId,
+      userId,
+      dueDate,
+      targetJobRoles,
+      autoEnroll,
+      recurrenceMonths
+    } = body as {
+      templateId?: string
+      userId?: string
+      dueDate?: string
+      targetJobRoles?: string[]
+      autoEnroll?: boolean
+      recurrenceMonths?: number | null
+    }
 
     if (!templateId) {
       return NextResponse.json(
         { error: 'Missing required field: templateId' },
+        { status: 400 }
+      )
+    }
+
+    if (
+      recurrenceMonths !== undefined &&
+      recurrenceMonths !== null &&
+      !isValidRecurrenceMonths(recurrenceMonths)
+    ) {
+      return NextResponse.json(
+        { error: 'recurrenceMonths must be a whole number of months (1-120)' },
         { status: 400 }
       )
     }
@@ -121,7 +140,8 @@ export async function POST(
       dueDate,
       targetJobRoles,
       templateVersion: currentVersion,
-      autoEnroll
+      autoEnroll,
+      recurrenceMonths
     })
 
     if (!assignment) {

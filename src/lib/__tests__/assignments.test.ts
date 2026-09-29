@@ -42,7 +42,9 @@ const BASE_ASSIGNMENT = {
   targetJobRoles: null,
   templateVersion: 1,
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
-  autoEnroll: false
+  autoEnroll: false,
+  recurrenceMonths: null,
+  cycle: 1
 }
 
 // AssignmentData shape (string dates) as returned by createAssignment/toAssignmentData —
@@ -56,7 +58,9 @@ const ASSIGNMENT_DATA = {
   targetJobRoles: null,
   templateVersion: 1,
   createdAt: '2024-01-01T00:00:00.000Z',
-  autoEnroll: false
+  autoEnroll: false,
+  recurrenceMonths: null,
+  cycle: 1
 }
 
 const USER_ASSIGNMENT = {
@@ -68,7 +72,9 @@ const USER_ASSIGNMENT = {
   targetJobRoles: null,
   templateVersion: 1,
   createdAt: new Date('2024-01-02T00:00:00.000Z'),
-  autoEnroll: false
+  autoEnroll: false,
+  recurrenceMonths: null,
+  cycle: 1
 }
 
 const BASE_ASSIGNMENT_WITH_TEMPLATE = {
@@ -590,7 +596,8 @@ describe('enrollUserInMatchingAssignments', () => {
         userId: 'user_123',
         dueDate: null,
         templateVersion: 1,
-        autoEnroll: false
+        autoEnroll: false,
+        recurrenceMonths: null
       }
     })
   })
@@ -841,5 +848,117 @@ describe('deleteAssignment', () => {
   it('returns false on error', async () => {
     mockPrisma.assignment.delete.mockRejectedValue(new Error('not found'))
     expect(await deleteAssignment('missing')).toBe(false)
+  })
+})
+
+describe('recurring sign-offs', () => {
+  it('createAssignment stores recurrenceMonths', async () => {
+    mockPrisma.assignment.create.mockResolvedValue({
+      ...BASE_ASSIGNMENT,
+      recurrenceMonths: 12
+    })
+    const result = await createAssignment({
+      templateId: 'template_123',
+      customerCompanyId: 'company_123',
+      recurrenceMonths: 12
+    })
+    expect(mockPrisma.assignment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ recurrenceMonths: 12 })
+    })
+    expect(result?.recurrenceMonths).toBe(12)
+    expect(result?.cycle).toBe(1)
+  })
+
+  it('createAssignment defaults recurrenceMonths to null', async () => {
+    mockPrisma.assignment.create.mockResolvedValue(BASE_ASSIGNMENT)
+    await createAssignment({
+      templateId: 'template_123',
+      customerCompanyId: 'company_123'
+    })
+    expect(mockPrisma.assignment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ recurrenceMonths: null })
+    })
+  })
+
+  it('getAssignmentsForUser shows the highest renewal cycle at the same version', async () => {
+    const cycle1 = {
+      ...USER_ASSIGNMENT_WITH_TEMPLATE,
+      id: 'cycle_1',
+      cycle: 1
+    }
+    const cycle2 = {
+      ...USER_ASSIGNMENT_WITH_TEMPLATE,
+      id: 'cycle_2',
+      cycle: 2
+    }
+    mockPrisma.assignment.findMany
+      .mockResolvedValueOnce([]) // company-wide
+      .mockResolvedValueOnce([cycle1, cycle2]) // individual
+
+    const result = await getAssignmentsForUser('user_123', 'company_123')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('cycle_2')
+  })
+
+  it('an individual renewal cycle beats the company-wide assignment it renews', async () => {
+    const renewal = {
+      ...USER_ASSIGNMENT_WITH_TEMPLATE,
+      id: 'renewal',
+      templateId: 'template_123',
+      cycle: 2,
+      template: {
+        ...USER_ASSIGNMENT_WITH_TEMPLATE.template,
+        id: 'template_123'
+      }
+    }
+    mockPrisma.assignment.findMany
+      .mockResolvedValueOnce([BASE_ASSIGNMENT_WITH_TEMPLATE])
+      .mockResolvedValueOnce([renewal])
+
+    const result = await getAssignmentsForUser('user_123', 'company_123')
+
+    expect(result.map((a) => a.id)).toEqual(['renewal'])
+  })
+
+  it('createAssignmentsForNewVersion carries recurrenceMonths and replicates each scope once, at cycle 1', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([
+      { ...USER_ASSIGNMENT, cycle: 1, recurrenceMonths: 12 },
+      { ...USER_ASSIGNMENT, id: 'renewal', cycle: 2, recurrenceMonths: 12 }
+    ])
+    mockPrisma.assignment.create.mockResolvedValue({
+      ...USER_ASSIGNMENT,
+      templateVersion: 2,
+      recurrenceMonths: 12
+    })
+
+    const result = await createAssignmentsForNewVersion('template_456', 2)
+
+    expect(result).toHaveLength(1)
+    expect(mockPrisma.assignment.create).toHaveBeenCalledTimes(1)
+    expect(mockPrisma.assignment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        templateVersion: 2,
+        recurrenceMonths: 12
+      })
+    })
+  })
+
+  it('enrollUserInMatchingAssignments carries recurrenceMonths onto the enrolment', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([
+      { ...BASE_ASSIGNMENT, autoEnroll: true, recurrenceMonths: 6 }
+    ])
+    mockPrisma.assignment.findFirst.mockResolvedValue(null)
+    mockPrisma.assignment.create.mockResolvedValue({
+      ...BASE_ASSIGNMENT,
+      userId: 'user_123',
+      recurrenceMonths: 6
+    })
+
+    await enrollUserInMatchingAssignments('user_123', 'company_123', null)
+
+    expect(mockPrisma.assignment.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ recurrenceMonths: 6 })
+    })
   })
 })

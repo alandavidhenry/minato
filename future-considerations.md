@@ -36,8 +36,11 @@ All items from the original workflow plan (comprehension questions, individual/j
 | P20 | Dashboard drill-downs, settings cleanup, template categorisation |
 | P21 | Supabase-style UI redesign — see ADR-012 |
 | P22 | Data retention guard on completion deletion — see `data-management.md` |
+| P23 | Recurring sign-offs and completion expiry (roadmap 2.1) — `Assignment.recurrenceMonths`/`cycle`, `CompletionRecord.validUntil`, cron-opened renewal cycles, Expiring soon/Expired states, "Valid until" on the PDF |
 
 ### Known gaps / deferred items carried forward from completed work
+
+- **P23 recurring sign-offs — deferred:** recurrence can only be set when an assignment is created (no edit-after-the-fact for existing assignments); the renewal lead time is per-tenant (Settings → Renewals), not per-assignment; the admin "Outstanding" page and dashboard KPIs still count per-assignment completions, so a user with a lapsed completion and no renewal assignment yet (cron missed) shows there only once the cron has created the next cycle; kiosk sign-off shows renewals like any other assignment (no expiry-specific wording); no "Expiring soon" filter/KPI on the dashboard yet.
 
 - **P8 sign-off hardening — one-time PIN (not built):** a one-time PIN sent to the line manager before kiosk sign-off proceeds is the one hardening measure from the original list not yet built — heaviest to build (needs the manager reachable in the moment) and most disruptive to the kiosk UX. Revisit if a customer asks for it specifically.
 - **P19 deferred, no target date:** structured data extraction from filled-in documents into a searchable store (Azure Document Intelligence is already provisioned for this — `infrastructure/modules/document_intelligence/` — but unused in application code; same underlying OCR gap noted under "Document Intelligence" below).

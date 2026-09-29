@@ -18,6 +18,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/use-toast'
+import type { ValidityStatus } from '@/lib/completion-validity'
 
 import type { ColumnDef } from '@tanstack/react-table'
 
@@ -30,11 +31,15 @@ interface CompletionGroup {
   dueDate: string | null
   isOverdue: boolean
   outstandingCount: number
+  expiringSoonCount?: number
+  expiredCount?: number
 }
 
 interface CompletedRecord {
   id: string
   signedAt: string
+  validUntil?: string | null
+  validityStatus?: ValidityStatus | null
   hasPdf: boolean
   signer: { id: string; displayName: string; email: string }
 }
@@ -224,6 +229,16 @@ function TeamCompletionsContent() {
           {row.original.isOverdue && (
             <Badge variant='destructive'>Overdue</Badge>
           )}
+          {!!row.original.expiredCount && (
+            <Badge variant='destructive'>
+              {row.original.expiredCount} expired
+            </Badge>
+          )}
+          {!!row.original.expiringSoonCount && (
+            <Badge variant='secondary'>
+              {row.original.expiringSoonCount} expiring soon
+            </Badge>
+          )}
         </div>
       )
     },
@@ -264,6 +279,28 @@ function TeamCompletionsContent() {
           {formatDate(row.original.signedAt)}
         </span>
       )
+    },
+    {
+      id: 'validUntil',
+      header: 'Valid until',
+      cell: ({ row }) => {
+        const { validUntil } = row.original
+        if (!validUntil) return <span className='text-muted-foreground'>—</span>
+        const status = row.original.validityStatus
+        return (
+          <div className='flex items-center gap-2'>
+            <span className='text-muted-foreground'>
+              {formatDate(validUntil)}
+            </span>
+            {status === 'expired' && (
+              <Badge variant='destructive'>Expired</Badge>
+            )}
+            {status === 'expiring-soon' && (
+              <Badge variant='secondary'>Expiring soon</Badge>
+            )}
+          </div>
+        )
+      }
     },
     {
       id: 'pdf',

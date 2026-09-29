@@ -3,6 +3,7 @@
 import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { RecurrenceSelect } from '@/components/recurrence-select'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -50,6 +51,7 @@ export function AssignCompanyTemplateDialog({
   const [dueDate, setDueDate] = useState('')
   const [selectedJobRoles, setSelectedJobRoles] = useState<string[]>([])
   const [autoEnroll, setAutoEnroll] = useState(false)
+  const [recurrenceMonths, setRecurrenceMonths] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isFetching, setIsFetching] = useState(false)
 
@@ -59,6 +61,7 @@ export function AssignCompanyTemplateDialog({
       setDueDate('')
       setSelectedJobRoles([])
       setAutoEnroll(false)
+      setRecurrenceMonths(null)
     }
     // fetchUsers is stable (declared in component body, no deps); open is the trigger
   }, [open])
@@ -101,7 +104,8 @@ export function AssignCompanyTemplateDialog({
           dueDate: dueDate || undefined,
           targetJobRoles:
             selectedJobRoles.length > 0 ? selectedJobRoles : undefined,
-          autoEnroll
+          autoEnroll,
+          recurrenceMonths
         })
       })
 
@@ -157,6 +161,12 @@ export function AssignCompanyTemplateDialog({
                     disabled={isLoading}
                   />
                 </div>
+                <RecurrenceSelect
+                  id='company-recurrence'
+                  value={recurrenceMonths}
+                  onChange={setRecurrenceMonths}
+                  disabled={isLoading}
+                />
                 <div className='grid gap-2'>
                   <Label htmlFor='company-target-job-roles'>
                     Restrict to job roles (optional)

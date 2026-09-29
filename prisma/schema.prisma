@@ -23,6 +23,7 @@ model Tenant {
   name                      String
   createdAt                 DateTime @default(now())
   profilePermissions        Json? // ProfilePermissions: which fields customer users may self-edit
+  renewalLeadDays           Int      @default(30) // recurring sign-offs: how many days before expiry the next cycle opens and "Expiring soon" is flagged
   completionRetentionYears  Int      @default(5) // years a signed CompletionRecord must be retained before an admin may delete it (UK H&S guidance: 3-5 years)
 
   users             User[]
@@ -166,6 +167,8 @@ model Assignment {
   templateVersion    Int       @default(1) // snapshot of template version at assignment creation
   createdAt          DateTime  @default(now())
   lastReminderSentAt DateTime? // set by the reminders cron job each time a reminder is sent for this assignment
+  recurrenceMonths   Int? // when set, each completion is valid for this many months (validUntil = signedAt + recurrenceMonths) and is renewed by the daily cron
+  cycle              Int       @default(1) // renewal cycle within a template version; the cron creates cycle N+1 (an individual assignment) ahead of expiry
   autoEnroll         Boolean   @default(false) // company-wide only: auto-creates an individual Assignment (enrolment record) for each matching user on creation, and for new/updated users going forward
 
   template        DocumentTemplate   @relation(fields: [templateId], references: [id])
@@ -194,6 +197,7 @@ model CompletionRecord {
   submittedFileName         String? // original filename, for display; fill-and-return only
   signerIp                  String? // request IP at signing time (P8 audit trail hardening)
   signerUserAgent           String? // request user-agent at signing time (P8 audit trail hardening)
+  validUntil                DateTime? // signedAt + assignment.recurrenceMonths; null = never expires
 
   assignment Assignment @relation(fields: [assignmentId], references: [id])
   signedBy   User       @relation(fields: [signedById], references: [id])

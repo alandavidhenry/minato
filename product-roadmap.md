@@ -29,7 +29,7 @@ The core loop is complete and solid:
 
 These are gaps inside the existing purpose. They're ranked by how likely a real customer is to hit them in the first month.
 
-### 2.1 Recurring sign-offs and completion expiry ⭐ highest value
+### 2.1 Recurring sign-offs and completion expiry ⭐ highest value — ✅ built (P23; see `future-considerations.md` for what's deferred)
 **Gap:** A completion is valid forever. A new cycle only starts when a new template *version* is published. Much of H&S doesn't work that way. The fire safety briefing, manual handling refresher and annual policy acknowledgement all need re-signing every 12 months even when the document hasn't changed.
 
 **Proposal:**

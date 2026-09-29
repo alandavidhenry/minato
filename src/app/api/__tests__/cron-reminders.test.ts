@@ -14,11 +14,23 @@ vi.mock('@/lib/reminders', () => ({
   getAssignmentsNeedingReminders: mockGetAssignmentsNeedingReminders
 }))
 
+const { mockRenewExpiringCompletions } = vi.hoisted(() => ({
+  mockRenewExpiringCompletions: vi.fn()
+}))
+vi.mock('@/lib/renewals', () => ({
+  renewExpiringCompletions: mockRenewExpiringCompletions
+}))
+
+const { mockSendAssignmentNotification } = vi.hoisted(() => ({
+  mockSendAssignmentNotification: vi.fn()
+}))
+
 const { mockSendReminderNotification } = vi.hoisted(() => ({
   mockSendReminderNotification: vi.fn()
 }))
 vi.mock('@/lib/email', () => ({
-  sendReminderNotification: mockSendReminderNotification
+  sendReminderNotification: mockSendReminderNotification,
+  sendAssignmentNotification: mockSendAssignmentNotification
 }))
 
 const { mockPrisma } = vi.hoisted(() => ({
@@ -53,6 +65,8 @@ beforeEach(() => {
   process.env.CRON_SECRET = 'test-secret'
   process.env.NEXTAUTH_URL = 'https://portal.example.com'
   mockGetAssignmentsNeedingReminders.mockResolvedValue([])
+  mockRenewExpiringCompletions.mockResolvedValue([])
+  mockSendAssignmentNotification.mockResolvedValue(undefined)
   mockSendReminderNotification.mockResolvedValue(undefined)
   mockPrisma.assignment.updateMany.mockResolvedValue({ count: 0 })
 })
@@ -122,6 +136,39 @@ describe('GET /api/cron/reminders', () => {
 
   it('returns 500 when reminder fetch throws', async () => {
     mockGetAssignmentsNeedingReminders.mockRejectedValue(new Error('DB error'))
+    const res = await cronReminders(getRequest('Bearer test-secret'))
+    expect(res.status).toBe(500)
+  })
+
+  it('opens renewals before reminders, notifying only renewals with recipients', async () => {
+    mockRenewExpiringCompletions.mockResolvedValue([
+      {
+        assignmentId: 'renewal_1',
+        templateTitle: 'Fire Safety Briefing',
+        dueDate: '2026-11-01T00:00:00.000Z',
+        recipients: [{ email: 'alice@co.com', name: 'Alice' }]
+      },
+      {
+        assignmentId: 'renewal_2',
+        templateTitle: 'Manual Handling',
+        dueDate: '2026-11-02T00:00:00.000Z',
+        recipients: []
+      }
+    ])
+    const res = await cronReminders(getRequest('Bearer test-secret'))
+    expect(res.status).toBe(200)
+    expect((await res.json()).renewed).toBe(2)
+    expect(mockSendAssignmentNotification).toHaveBeenCalledTimes(1)
+    expect(mockSendAssignmentNotification).toHaveBeenCalledWith(
+      [{ email: 'alice@co.com', name: 'Alice' }],
+      'Fire Safety Briefing',
+      '2026-11-01T00:00:00.000Z',
+      'https://portal.example.com'
+    )
+  })
+
+  it('returns 500 when renewal processing throws', async () => {
+    mockRenewExpiringCompletions.mockRejectedValue(new Error('DB error'))
     const res = await cronReminders(getRequest('Bearer test-secret'))
     expect(res.status).toBe(500)
   })

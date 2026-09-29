@@ -262,6 +262,35 @@ describe('POST /api/customer/admin/assignments', () => {
     expect(mockEnrollMatchingUsers).toHaveBeenCalledWith(autoEnrollAssignment)
   })
 
+  it('passes recurrenceMonths to createAssignment', async () => {
+    mockGetServerSession.mockResolvedValue(COMPANY_ADMIN_SESSION)
+    mockCreate.mockResolvedValue({ ...BASE_ASSIGNMENT, recurrenceMonths: 12 })
+    const req = jsonRequest(
+      'http://localhost/api/customer/admin/assignments',
+      'POST',
+      { templateId: 'template_123', recurrenceMonths: 12 }
+    )
+    const res = await await createAssignment(req)
+    expect(res.status).toBe(200)
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ recurrenceMonths: 12 })
+    )
+  })
+
+  it('rejects an invalid recurrenceMonths with 400', async () => {
+    mockGetServerSession.mockResolvedValue(COMPANY_ADMIN_SESSION)
+    for (const bad of [0, -1, 1.5, 999, '12']) {
+      const req = jsonRequest(
+        'http://localhost/api/customer/admin/assignments',
+        'POST',
+        { templateId: 'template_123', recurrenceMonths: bad }
+      )
+      const res = await await createAssignment(req)
+      expect(res.status).toBe(400)
+    }
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
   it('sends notifications to company users', async () => {
     mockGetServerSession.mockResolvedValue(COMPANY_ADMIN_SESSION)
     const req = jsonRequest(

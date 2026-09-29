@@ -256,6 +256,7 @@ export async function POST(
         signerName: worker.displayName,
         signerEmail: '',
         signedAt: new Date(record.signedAt),
+        validUntil: record.validUntil ? new Date(record.validUntil) : null,
         companyName: company.name,
         formSchema: visibleSchema,
         formData: visibleFormData,

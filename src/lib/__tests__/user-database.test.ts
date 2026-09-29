@@ -8,12 +8,15 @@ import {
   getAllUsers,
   getCompletionRetentionYears,
   getProfilePermissions,
+  getRenewalLeadDays,
+  getRenewalLeadDaysForCompany,
   getTenantProfilePermissions,
   getUserByEmail,
   getUserById,
   resolveEmailRecipients,
   updateCompletionRetentionYears,
   updateProfilePermissions,
+  updateRenewalLeadDays,
   updateUser,
   updateUserProfile,
   verifyPasswordById,
@@ -34,6 +37,9 @@ const { mockPrisma, mockBcrypt } = vi.hoisted(() => {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn()
+    },
+    customerCompany: {
+      findUnique: vi.fn()
     },
     passwordReset: {
       deleteMany: vi.fn()
@@ -793,5 +799,49 @@ describe('updateUserProfile', () => {
     })
     expect(result.success).toBe(false)
     expect(result.error).toBe('DB_ERROR')
+  })
+})
+
+describe('renewal lead time', () => {
+  it('getRenewalLeadDays returns the stored value, the default, and the default on error', async () => {
+    mockPrisma.tenant.findUnique.mockResolvedValue({ renewalLeadDays: 14 })
+    expect(await getRenewalLeadDays('tenant_1')).toBe(14)
+    mockPrisma.tenant.findUnique.mockResolvedValue(null)
+    expect(await getRenewalLeadDays('tenant_1')).toBe(30)
+    mockPrisma.tenant.findUnique.mockRejectedValue(new Error('db error'))
+    expect(await getRenewalLeadDays('tenant_1')).toBe(30)
+  })
+
+  it('updateRenewalLeadDays updates the tenant and reports failure', async () => {
+    mockPrisma.tenant.update.mockResolvedValue({})
+    expect(await updateRenewalLeadDays('tenant_1', 45)).toBe(true)
+    expect(mockPrisma.tenant.update).toHaveBeenCalledWith({
+      where: { id: 'tenant_1' },
+      data: { renewalLeadDays: 45 }
+    })
+    mockPrisma.tenant.update.mockRejectedValue(new Error('db error'))
+    expect(await updateRenewalLeadDays('tenant_1', 45)).toBe(false)
+  })
+
+  it("getRenewalLeadDaysForCompany uses the company's tenant", async () => {
+    mockPrisma.customerCompany.findUnique.mockResolvedValue({
+      tenant: { renewalLeadDays: 21 }
+    })
+    expect(await getRenewalLeadDaysForCompany('company_1')).toBe(21)
+  })
+
+  it('getRenewalLeadDaysForCompany falls back to the single tenant, then the default', async () => {
+    mockPrisma.customerCompany.findUnique.mockResolvedValue({ tenant: null })
+    mockPrisma.tenant.findFirst.mockResolvedValue({ renewalLeadDays: 60 })
+    expect(await getRenewalLeadDaysForCompany('company_1')).toBe(60)
+    expect(await getRenewalLeadDaysForCompany(null)).toBe(60)
+
+    mockPrisma.tenant.findFirst.mockResolvedValue(null)
+    expect(await getRenewalLeadDaysForCompany('company_1')).toBe(30)
+  })
+
+  it('getRenewalLeadDaysForCompany returns the default on error', async () => {
+    mockPrisma.customerCompany.findUnique.mockRejectedValue(new Error('x'))
+    expect(await getRenewalLeadDaysForCompany('company_1')).toBe(30)
   })
 })

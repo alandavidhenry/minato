@@ -40,6 +40,7 @@ import {
   TooltipTrigger
 } from '@/components/ui/tooltip'
 import { toast } from '@/components/ui/use-toast'
+import type { ValidityStatus } from '@/lib/completion-validity'
 import {
   DEFAULT_COMPLETION_RETENTION_YEARS,
   getRetentionEndDate,
@@ -59,6 +60,8 @@ const PDFRenderer = dynamic(
 interface Completion {
   id: string
   signedAt: string
+  validUntil: string | null
+  validityStatus: ValidityStatus | null
   blobPath: string | null
   signer: { id: string; displayName: string; email: string }
   signerIp: string | null
@@ -390,6 +393,35 @@ export default function TemplateCompletionsPage() {
           })}
         </span>
       )
+    },
+    {
+      id: 'validUntil',
+      accessorFn: (row) =>
+        row.validUntil ? new Date(row.validUntil).getTime() : 0,
+      sortFn: 'basic',
+      header: 'Valid until',
+      cell: ({ row }) => {
+        const { validUntil } = row.original
+        if (!validUntil) return <span className='text-muted-foreground'>—</span>
+        const status = row.original.validityStatus
+        return (
+          <div className='flex items-center gap-2'>
+            <span className='text-muted-foreground'>
+              {new Date(validUntil).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+              })}
+            </span>
+            {status === 'expired' && (
+              <Badge variant='destructive'>Expired</Badge>
+            )}
+            {status === 'expiring-soon' && (
+              <Badge variant='secondary'>Expiring soon</Badge>
+            )}
+          </div>
+        )
+      }
     },
     {
       id: 'pdf',

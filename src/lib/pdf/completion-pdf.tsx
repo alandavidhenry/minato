@@ -122,6 +122,7 @@ export interface CompletionPDFProps {
   signerName: string
   signerEmail: string
   signedAt: Date
+  validUntil?: Date | null
   companyName: string
   formSchema: FormSchema
   formData: Record<string, unknown>
@@ -154,11 +155,20 @@ function formatDate(date: Date): string {
   })
 }
 
+function formatValidUntil(date: Date): string {
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  })
+}
+
 export function CompletionDocument({
   templateTitle,
   signerName,
   signerEmail,
   signedAt,
+  validUntil,
   companyName,
   formSchema,
   formData,
@@ -191,6 +201,14 @@ export function CompletionDocument({
             <Text style={styles.metaLabel}>Completed at</Text>
             <Text style={styles.metaValue}>{formatDate(signedAt)}</Text>
           </View>
+          {validUntil && (
+            <View style={styles.metaItem}>
+              <Text style={styles.metaLabel}>Valid until</Text>
+              <Text style={styles.metaValue}>
+                {formatValidUntil(validUntil)}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Form fields */}

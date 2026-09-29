@@ -19,6 +19,8 @@ export interface AssignmentData {
   templateVersion: number
   createdAt: string
   autoEnroll: boolean
+  recurrenceMonths: number | null
+  cycle: number
 }
 
 export interface AssignmentWithTemplate extends AssignmentData {
@@ -46,6 +48,8 @@ type PrismaAssignment = {
   templateVersion: number
   createdAt: Date
   autoEnroll: boolean
+  recurrenceMonths: number | null
+  cycle: number
 }
 
 type PrismaAssignmentWithTemplate = PrismaAssignment & {
@@ -99,7 +103,9 @@ function toAssignmentData(a: PrismaAssignment): AssignmentData {
       : null,
     templateVersion: a.templateVersion,
     createdAt: a.createdAt.toISOString(),
-    autoEnroll: a.autoEnroll
+    autoEnroll: a.autoEnroll,
+    recurrenceMonths: a.recurrenceMonths,
+    cycle: a.cycle
   }
 }
 
@@ -137,7 +143,8 @@ export async function createAssignment({
   dueDate,
   targetJobRoles,
   templateVersion = 1,
-  autoEnroll = false
+  autoEnroll = false,
+  recurrenceMonths
 }: {
   templateId: string
   customerCompanyId: string
@@ -146,6 +153,7 @@ export async function createAssignment({
   targetJobRoles?: string[]
   templateVersion?: number
   autoEnroll?: boolean
+  recurrenceMonths?: number | null
 }): Promise<AssignmentData | null> {
   try {
     const assignment = await prisma.assignment.create({
@@ -159,7 +167,8 @@ export async function createAssignment({
         ),
         templateVersion,
         // autoEnroll only makes sense for company-wide assignments
-        autoEnroll: userId ? false : autoEnroll
+        autoEnroll: userId ? false : autoEnroll,
+        recurrenceMonths: recurrenceMonths ?? null
       }
     })
     return toAssignmentData(assignment)
@@ -302,8 +311,9 @@ export async function getAssignmentsForUser(
       })
     ])
 
-    // Per templateId, keep the assignment with the highest templateVersion.
-    // If two assignments share the same templateId and version, individual wins.
+    // Per templateId, keep the assignment with the highest templateVersion, then
+    // the highest renewal cycle. If two assignments share the same templateId,
+    // version and cycle, individual wins.
     const bestByTemplate = new Map<string, PrismaAssignmentWithTemplate>()
 
     function maybeSet(
@@ -319,6 +329,9 @@ export async function getAssignmentsForUser(
       if (
         candidate.templateVersion > existing.templateVersion ||
         (candidate.templateVersion === existing.templateVersion &&
+          candidate.cycle > existing.cycle) ||
+        (candidate.templateVersion === existing.templateVersion &&
+          candidate.cycle === existing.cycle &&
           isIndividual &&
           !existingIsIndividual)
       ) {
@@ -363,8 +376,14 @@ export async function createAssignmentsForNewVersion(
 
     if (previous.length === 0) return []
 
+    // Renewal cycles at the previous version share a scope (company/user) —
+    // replicate each scope once, at cycle 1 of the new version.
+    const seenScopes = new Set<string>()
     const created: AssignmentData[] = []
     for (const prev of previous) {
+      const scope = `${prev.customerCompanyId}:${prev.userId ?? ''}`
+      if (seenScopes.has(scope)) continue
+      seenScopes.add(scope)
       const assignment = await prisma.assignment.create({
         data: {
           templateId,
@@ -374,7 +393,8 @@ export async function createAssignmentsForNewVersion(
           targetJobRoles: prev.targetJobRoles as
             Prisma.InputJsonValue | undefined,
           templateVersion: newVersion,
-          autoEnroll: prev.autoEnroll
+          autoEnroll: prev.autoEnroll,
+          recurrenceMonths: prev.recurrenceMonths
         }
       })
       created.push(toAssignmentData(assignment))
@@ -436,7 +456,8 @@ export async function enrollUserInMatchingAssignments(
           userId,
           dueDate: candidate.dueDate,
           templateVersion: candidate.templateVersion,
-          autoEnroll: false
+          autoEnroll: false,
+          recurrenceMonths: candidate.recurrenceMonths
         }
       })
       created.push(toAssignmentData(assignment))
@@ -483,7 +504,8 @@ export async function enrollMatchingUsersForAssignment(
           userId: user.id,
           dueDate: assignment.dueDate ? new Date(assignment.dueDate) : null,
           templateVersion: assignment.templateVersion,
-          autoEnroll: false
+          autoEnroll: false,
+          recurrenceMonths: assignment.recurrenceMonths
         }
       })
       created.push(toAssignmentData(newAssignment))
