@@ -1,4 +1,5 @@
 import prisma from './prisma'
+import { REVIEW_DUE_SOON_DAYS } from './review-dates'
 
 export interface DashboardKPIs {
   activeAssignments: number
@@ -6,6 +7,7 @@ export interface DashboardKPIs {
   completedThisWeek: number
   outstanding: number
   overdue: number
+  templatesDueForReview: number
 }
 
 export async function getDashboardKPIs(): Promise<DashboardKPIs> {
@@ -24,7 +26,8 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
     completedThisMonth,
     completedThisWeek,
     assignmentsWithCounts,
-    companyUserCounts
+    companyUserCounts,
+    templatesDueForReview
   ] = await Promise.all([
     prisma.assignment.count(),
     prisma.completionRecord.count({
@@ -46,6 +49,15 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
       by: ['customerCompanyId'],
       where: { customerCompanyId: { not: null } },
       _count: { id: true }
+    }),
+    // Tenant-library templates overdue for review or due within the soon window
+    prisma.documentTemplate.count({
+      where: {
+        ownerCompanyId: null,
+        reviewDueAt: {
+          lte: new Date(now.getTime() + REVIEW_DUE_SOON_DAYS * 86_400_000)
+        }
+      }
     })
   ])
 
@@ -75,6 +87,7 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
     completedThisMonth,
     completedThisWeek,
     outstanding,
-    overdue
+    overdue,
+    templatesDueForReview
   }
 }

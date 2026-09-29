@@ -28,6 +28,13 @@ vi.mock('@/lib/template-version-history', () => ({
   getTemplateVersionHistory: mockGetTemplateVersionHistory
 }))
 
+const { mockGetTemplateReviews } = vi.hoisted(() => ({
+  mockGetTemplateReviews: vi.fn()
+}))
+vi.mock('@/lib/template-reviews', () => ({
+  getTemplateReviews: mockGetTemplateReviews
+}))
+
 const { mockGetUserById } = vi.hoisted(() => ({
   mockGetUserById: vi.fn()
 }))
@@ -78,6 +85,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockGetById.mockResolvedValue(BASE_TEMPLATE)
   mockGetTemplateVersionHistory.mockResolvedValue([])
+  mockGetTemplateReviews.mockResolvedValue([])
   mockGetUserById.mockResolvedValue(null)
 })
 
@@ -145,6 +153,37 @@ describe('GET /api/admin/templates/[id]/version-history', () => {
       publishedBy: 'admin_1',
       publishedByName: 'Simon Admin'
     })
+  })
+
+  it('includes "Reviewed - no changes" entries with resolved reviewer names', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockGetTemplateReviews.mockResolvedValue([
+      {
+        id: 'review_1',
+        templateId: 'template_123',
+        version: 2,
+        reviewedAt: '2026-03-01T00:00:00.000Z',
+        reviewedBy: 'admin_1',
+        note: 'Still current'
+      }
+    ])
+    mockGetUserById.mockResolvedValue({
+      id: 'admin_1',
+      displayName: 'Simon Admin'
+    })
+
+    const req = new NextRequest(
+      'http://localhost/api/admin/templates/template_123/version-history'
+    )
+    const res = await getVersionHistory(req, params('template_123'))
+    const body = await res.json()
+    expect(body.reviews).toEqual([
+      expect.objectContaining({
+        id: 'review_1',
+        note: 'Still current',
+        reviewedByName: 'Simon Admin'
+      })
+    ])
   })
 
   it('returns 500 on unexpected error', async () => {

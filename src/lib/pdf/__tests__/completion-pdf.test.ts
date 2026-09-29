@@ -92,4 +92,45 @@ describe('generateCompletionPDF', () => {
 
     expect(buffer).toBeInstanceOf(Buffer)
   })
+
+  it('renders a PDF when a validUntil date is provided', async () => {
+    const base = {
+      templateTitle: 'Fire Safety Briefing',
+      signerName: 'Jane Smith',
+      signerEmail: 'jane@example.com',
+      signedAt: new Date('2026-01-01T10:00:00Z'),
+      companyName: 'Acme Ltd',
+      formSchema: [],
+      formData: {}
+    }
+    const without = await generateCompletionPDF(base)
+    const withValidity = await generateCompletionPDF({
+      ...base,
+      validUntil: new Date('2027-01-01T10:00:00Z')
+    })
+
+    expect(withValidity).toBeInstanceOf(Buffer)
+    expect(withValidity.length).toBeGreaterThan(0)
+    expect(withValidity.length).not.toBe(without.length)
+  }, 15000)
+
+  it('renders a PDF when a template review date is provided', async () => {
+    const base = {
+      templateTitle: 'Fire Safety Briefing',
+      signerName: 'Jane Smith',
+      signerEmail: 'jane@example.com',
+      signedAt: new Date('2026-01-01T10:00:00Z'),
+      companyName: 'Acme Ltd',
+      formSchema: [],
+      formData: {}
+    }
+    const without = await generateCompletionPDF(base)
+    const withReview = await generateCompletionPDF({
+      ...base,
+      templateReviewDueAt: new Date('2027-01-01T10:00:00Z')
+    })
+
+    expect(withReview).toBeInstanceOf(Buffer)
+    expect(withReview.length).not.toBe(without.length)
+  }, 15000)
 })

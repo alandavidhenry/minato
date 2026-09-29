@@ -9,6 +9,8 @@ import type { FormSchema } from '@/types/form-schema'
 
 import prisma from './prisma'
 import { toJsonValue } from './prisma-json'
+import { computeReviewDueAt } from './review-dates'
+import { getReviewPeriodMonthsForCompany } from './user-database'
 
 export interface DocumentTemplateData {
   id: string
@@ -26,6 +28,10 @@ export interface DocumentTemplateData {
   sourceDocBlobPath: string | null
   sourceDocOriginalBlobPath: string | null
   sourceDocFileName: string | null
+  reviewDueAt: string | null
+  reviewPeriodMonths: number
+  reviewOwnerId: string | null
+  lastReviewedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -46,6 +52,10 @@ type PrismaDocumentTemplate = {
   sourceDocBlobPath: string | null
   sourceDocOriginalBlobPath: string | null
   sourceDocFileName: string | null
+  reviewDueAt: Date | null
+  reviewPeriodMonths: number
+  reviewOwnerId: string | null
+  lastReviewedAt: Date | null
   createdAt: Date
   updatedAt: Date
 }
@@ -69,6 +79,10 @@ function toDocumentTemplateData(
     sourceDocBlobPath: template.sourceDocBlobPath,
     sourceDocOriginalBlobPath: template.sourceDocOriginalBlobPath,
     sourceDocFileName: template.sourceDocFileName,
+    reviewDueAt: template.reviewDueAt?.toISOString() ?? null,
+    reviewPeriodMonths: template.reviewPeriodMonths,
+    reviewOwnerId: template.reviewOwnerId ?? null,
+    lastReviewedAt: template.lastReviewedAt?.toISOString() ?? null,
     createdAt: template.createdAt.toISOString(),
     updatedAt: template.updatedAt.toISOString()
   }
@@ -87,7 +101,9 @@ export async function createDocumentTemplate({
   uploadMode,
   sourceDocBlobPath,
   sourceDocOriginalBlobPath,
-  sourceDocFileName
+  sourceDocFileName,
+  reviewOwnerId,
+  reviewPeriodMonths
 }: {
   title: string
   description?: string
@@ -102,8 +118,14 @@ export async function createDocumentTemplate({
   sourceDocBlobPath?: string
   sourceDocOriginalBlobPath?: string
   sourceDocFileName?: string
+  reviewOwnerId?: string
+  // Defaults to the tenant's default review period when omitted
+  reviewPeriodMonths?: number
 }): Promise<DocumentTemplateData | null> {
   try {
+    const period =
+      reviewPeriodMonths ??
+      (await getReviewPeriodMonthsForCompany(ownerCompanyId ?? null))
     const template = await prisma.documentTemplate.create({
       data: {
         title,
@@ -118,7 +140,10 @@ export async function createDocumentTemplate({
         uploadMode,
         sourceDocBlobPath,
         sourceDocOriginalBlobPath,
-        sourceDocFileName
+        sourceDocFileName,
+        reviewOwnerId,
+        reviewPeriodMonths: period,
+        reviewDueAt: computeReviewDueAt(new Date(), period)
       }
     })
     return toDocumentTemplateData(template)
@@ -188,6 +213,9 @@ export async function updateDocumentTemplate(
     sourceDocBlobPath?: string
     sourceDocOriginalBlobPath?: string
     sourceDocFileName?: string
+    reviewDueAt?: string | Date
+    reviewOwnerId?: string | null
+    reviewPeriodMonths?: number
   }
 ): Promise<boolean> {
   try {
@@ -222,6 +250,17 @@ export async function updateDocumentTemplate(
         }),
         ...(updates.sourceDocFileName !== undefined && {
           sourceDocFileName: updates.sourceDocFileName
+        }),
+        // A new review date restarts the reminder cycle
+        ...(updates.reviewDueAt !== undefined && {
+          reviewDueAt: new Date(updates.reviewDueAt),
+          lastReviewReminderAt: null
+        }),
+        ...(updates.reviewPeriodMonths !== undefined && {
+          reviewPeriodMonths: updates.reviewPeriodMonths
+        }),
+        ...(updates.reviewOwnerId !== undefined && {
+          reviewOwnerId: updates.reviewOwnerId
         })
       }
     })
@@ -294,6 +333,13 @@ export async function publishNewTemplateVersion(
         where: { id },
         data: {
           version: { increment: 1 },
+          // Publishing counts as a review: restart the 12-month clock
+          reviewDueAt: computeReviewDueAt(
+            new Date(),
+            existing.reviewPeriodMonths
+          ),
+          lastReviewedAt: new Date(),
+          lastReviewReminderAt: null,
           ...(params.title !== undefined && { title: params.title }),
           ...(params.description !== undefined && {
             description: params.description

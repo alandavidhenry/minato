@@ -1,7 +1,14 @@
 // src/app/admin/settings/page.tsx
 'use client'
 
-import { Archive, Loader2, Save, Shield, UserCog } from 'lucide-react'
+import {
+  Archive,
+  Loader2,
+  RefreshCw,
+  Save,
+  Shield,
+  UserCog
+} from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { PageHeader } from '@/components/page-header'
@@ -20,10 +27,20 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from '@/components/ui/use-toast'
 import {
+  DEFAULT_RENEWAL_LEAD_DAYS,
+  MAX_RENEWAL_LEAD_DAYS,
+  MIN_RENEWAL_LEAD_DAYS
+} from '@/lib/completion-validity'
+import {
   DEFAULT_COMPLETION_RETENTION_YEARS,
   MAX_COMPLETION_RETENTION_YEARS,
   MIN_COMPLETION_RETENTION_YEARS
 } from '@/lib/data-retention'
+import {
+  DEFAULT_REVIEW_MONTHS,
+  MAX_REVIEW_MONTHS,
+  MIN_REVIEW_MONTHS
+} from '@/lib/review-dates'
 import type { ProfilePermissions } from '@/lib/user-database'
 
 type GeneralSettingValue = string | boolean
@@ -135,6 +152,98 @@ export default function AdminSettingsPage() {
     }
   }
 
+  const [renewalLeadDays, setRenewalLeadDays] = useState(
+    DEFAULT_RENEWAL_LEAD_DAYS
+  )
+  const [isLoadingRenewal, setIsLoadingRenewal] = useState(true)
+  const [isSavingRenewal, setIsSavingRenewal] = useState(false)
+
+  const fetchRenewal = useCallback(async () => {
+    setIsLoadingRenewal(true)
+    try {
+      const res = await fetch('/api/admin/settings/renewal-lead')
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setRenewalLeadDays(data.renewalLeadDays)
+    } catch {
+      // keep default
+    } finally {
+      setIsLoadingRenewal(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchRenewal()
+  }, [fetchRenewal])
+
+  async function handleSaveRenewal(e: React.FormEvent) {
+    e.preventDefault()
+    setIsSavingRenewal(true)
+    try {
+      const res = await fetch('/api/admin/settings/renewal-lead', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ renewalLeadDays })
+      })
+      if (!res.ok) throw new Error()
+      toast({ title: 'Success', description: 'Renewal lead time saved.' })
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to save the renewal lead time.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsSavingRenewal(false)
+    }
+  }
+
+  const [reviewPeriodMonths, setReviewPeriodMonths] = useState(
+    DEFAULT_REVIEW_MONTHS
+  )
+  const [isLoadingReview, setIsLoadingReview] = useState(true)
+  const [isSavingReview, setIsSavingReview] = useState(false)
+
+  const fetchReviewPeriod = useCallback(async () => {
+    setIsLoadingReview(true)
+    try {
+      const res = await fetch('/api/admin/settings/review-period')
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setReviewPeriodMonths(data.reviewPeriodMonths)
+    } catch {
+      // keep default
+    } finally {
+      setIsLoadingReview(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchReviewPeriod()
+  }, [fetchReviewPeriod])
+
+  async function handleSaveReview(e: React.FormEvent) {
+    e.preventDefault()
+    setIsSavingReview(true)
+    try {
+      const res = await fetch('/api/admin/settings/review-period', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewPeriodMonths })
+      })
+      if (!res.ok) throw new Error()
+      toast({ title: 'Success', description: 'Default review period saved.' })
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to save the default review period.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsSavingReview(false)
+    }
+  }
+
   const [securitySettings, setSecuritySettings] = useState({
     passwordMinLength: 8,
     passwordExpireDays: 90,
@@ -191,6 +300,8 @@ export default function AdminSettingsPage() {
           <TabsTrigger value='security'>Security</TabsTrigger>
           <TabsTrigger value='profiles'>User Profiles</TabsTrigger>
           <TabsTrigger value='retention'>Data Retention</TabsTrigger>
+          <TabsTrigger value='renewals'>Renewals</TabsTrigger>
+          <TabsTrigger value='reviews'>Reviews</TabsTrigger>
         </TabsList>
 
         {/* General Settings */}
@@ -560,6 +671,136 @@ export default function AdminSettingsPage() {
                     <>
                       <Save className='mr-2 h-4 w-4' />
                       Save Policy
+                    </>
+                  )}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </TabsContent>
+
+        {/* Sign-off Renewals */}
+        <TabsContent value='renewals'>
+          <Card>
+            <form onSubmit={handleSaveRenewal}>
+              <CardHeader>
+                <CardTitle className='flex items-center gap-2'>
+                  <RefreshCw className='h-5 w-5' />
+                  Recurring Sign-off Renewals
+                </CardTitle>
+                <CardDescription>
+                  How many days before a recurring sign-off expires the next
+                  cycle is opened, the employee is notified, and the completion
+                  is flagged &quot;Expiring soon&quot;.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className='space-y-4'>
+                {isLoadingRenewal ? (
+                  <div className='flex items-center gap-2 text-muted-foreground text-sm'>
+                    <Loader2 className='h-4 w-4 animate-spin' />
+                    Loading…
+                  </div>
+                ) : (
+                  <div className='grid gap-2'>
+                    <Label htmlFor='renewalLeadDays'>Lead time (days)</Label>
+                    <Input
+                      id='renewalLeadDays'
+                      type='number'
+                      min={MIN_RENEWAL_LEAD_DAYS}
+                      max={MAX_RENEWAL_LEAD_DAYS}
+                      className='w-32'
+                      value={renewalLeadDays}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setRenewalLeadDays(Number.parseInt(e.target.value) || 0)
+                      }
+                      disabled={isSavingRenewal}
+                    />
+                  </div>
+                )}
+              </CardContent>
+
+              <CardFooter>
+                <Button
+                  type='submit'
+                  disabled={isSavingRenewal || isLoadingRenewal}
+                >
+                  {isSavingRenewal ? (
+                    <>
+                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <Save className='mr-2 h-4 w-4' />
+                      Save
+                    </>
+                  )}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </TabsContent>
+        {/* Template review period */}
+        <TabsContent value='reviews'>
+          <Card>
+            <form onSubmit={handleSaveReview}>
+              <CardHeader>
+                <CardTitle className='flex items-center gap-2'>
+                  <RefreshCw className='h-5 w-5' />
+                  Template Reviews
+                </CardTitle>
+                <CardDescription>
+                  How many months after a template is created, published or
+                  reviewed it is next due for review. This is the default for
+                  new templates; existing templates keep their own period, and
+                  any template can override it.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className='space-y-4'>
+                {isLoadingReview ? (
+                  <div className='flex items-center gap-2 text-muted-foreground text-sm'>
+                    <Loader2 className='h-4 w-4 animate-spin' />
+                    Loading…
+                  </div>
+                ) : (
+                  <div className='grid gap-2'>
+                    <Label htmlFor='reviewPeriodMonths'>
+                      Default review period (months)
+                    </Label>
+                    <Input
+                      id='reviewPeriodMonths'
+                      type='number'
+                      min={MIN_REVIEW_MONTHS}
+                      max={MAX_REVIEW_MONTHS}
+                      className='w-32'
+                      value={reviewPeriodMonths}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setReviewPeriodMonths(
+                          Number.parseInt(e.target.value) || 0
+                        )
+                      }
+                      disabled={isSavingReview}
+                    />
+                  </div>
+                )}
+              </CardContent>
+
+              <CardFooter>
+                <Button
+                  type='submit'
+                  disabled={isSavingReview || isLoadingReview}
+                >
+                  {isSavingReview ? (
+                    <>
+                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <Save className='mr-2 h-4 w-4' />
+                      Save
                     </>
                   )}
                 </Button>

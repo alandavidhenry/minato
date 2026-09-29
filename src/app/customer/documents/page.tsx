@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
+import type { ValidityStatus } from '@/lib/completion-validity'
 import type {
   DocumentTemplateSourceType,
   DocumentTemplateUploadMode
@@ -32,6 +33,7 @@ interface Assignment {
   templateId: string
   customerCompanyId: string
   createdAt: string
+  cycle: number
   template: Template
 }
 
@@ -40,6 +42,8 @@ interface Completion {
   assignmentId: string
   signedAt: string
   blobPath: string | null
+  validUntil: string | null
+  validityStatus: ValidityStatus | null
 }
 
 export default function CustomerDocumentsPage() {
@@ -134,12 +138,23 @@ export default function CustomerDocumentsPage() {
     }
   }
 
+  // A completion whose validity has lapsed no longer counts as complete
   function isCompleted(assignmentId: string) {
-    return completions.some((c) => c.assignmentId === assignmentId)
+    return completions.some(
+      (c) => c.assignmentId === assignmentId && c.validityStatus !== 'expired'
+    )
+  }
+
+  function hasExpiredCompletion(assignmentId: string) {
+    return completions.some(
+      (c) => c.assignmentId === assignmentId && c.validityStatus === 'expired'
+    )
   }
 
   function getCompletion(assignmentId: string): Completion | undefined {
-    return completions.find((c) => c.assignmentId === assignmentId)
+    return completions.find(
+      (c) => c.assignmentId === assignmentId && c.validityStatus !== 'expired'
+    )
   }
 
   function lastCompletedAt(assignmentId: string) {
@@ -173,6 +188,7 @@ export default function CustomerDocumentsPage() {
     const completed = isCompleted(assignment.id)
     const completedDate = lastCompletedAt(assignment.id)
     const completion = getCompletion(assignment.id)
+    const validity = completion?.validityStatus
     const hasForm =
       assignment.template.formSchema &&
       assignment.template.formSchema.length > 0
@@ -188,12 +204,16 @@ export default function CustomerDocumentsPage() {
               {completed ? (
                 <>
                   <CheckCircle2 className='mr-1 h-3 w-3' />
-                  Complete
+                  {validity === 'expiring-soon' ? 'Expiring soon' : 'Complete'}
                 </>
               ) : (
                 <>
                   <Clock className='mr-1 h-3 w-3' />
-                  Pending
+                  {hasExpiredCompletion(assignment.id)
+                    ? 'Expired'
+                    : assignment.cycle > 1
+                      ? 'Renewal due'
+                      : 'Pending'}
                 </>
               )}
             </Badge>
@@ -209,6 +229,8 @@ export default function CustomerDocumentsPage() {
           {completed && completedDate && (
             <p className='text-xs text-muted-foreground'>
               Last completed: {completedDate}
+              {completion?.validUntil &&
+                ` · Valid until ${new Date(completion.validUntil).toLocaleDateString()}`}
             </p>
           )}
 

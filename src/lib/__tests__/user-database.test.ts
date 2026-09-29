@@ -8,12 +8,20 @@ import {
   getAllUsers,
   getCompletionRetentionYears,
   getProfilePermissions,
+  getRenewalLeadDays,
+  getRenewalLeadDaysForCompany,
+  getCompanyReviewPeriodMonths,
+  getReviewPeriodMonths,
+  getReviewPeriodMonthsForCompany,
   getTenantProfilePermissions,
   getUserByEmail,
   getUserById,
   resolveEmailRecipients,
   updateCompletionRetentionYears,
   updateProfilePermissions,
+  updateRenewalLeadDays,
+  updateCompanyReviewPeriodMonths,
+  updateReviewPeriodMonths,
   updateUser,
   updateUserProfile,
   verifyPasswordById,
@@ -33,6 +41,10 @@ const { mockPrisma, mockBcrypt } = vi.hoisted(() => {
     tenant: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      update: vi.fn()
+    },
+    customerCompany: {
+      findUnique: vi.fn(),
       update: vi.fn()
     },
     passwordReset: {
@@ -793,5 +805,132 @@ describe('updateUserProfile', () => {
     })
     expect(result.success).toBe(false)
     expect(result.error).toBe('DB_ERROR')
+  })
+})
+
+describe('renewal lead time', () => {
+  it('getRenewalLeadDays returns the stored value, the default, and the default on error', async () => {
+    mockPrisma.tenant.findUnique.mockResolvedValue({ renewalLeadDays: 14 })
+    expect(await getRenewalLeadDays('tenant_1')).toBe(14)
+    mockPrisma.tenant.findUnique.mockResolvedValue(null)
+    expect(await getRenewalLeadDays('tenant_1')).toBe(30)
+    mockPrisma.tenant.findUnique.mockRejectedValue(new Error('db error'))
+    expect(await getRenewalLeadDays('tenant_1')).toBe(30)
+  })
+
+  it('updateRenewalLeadDays updates the tenant and reports failure', async () => {
+    mockPrisma.tenant.update.mockResolvedValue({})
+    expect(await updateRenewalLeadDays('tenant_1', 45)).toBe(true)
+    expect(mockPrisma.tenant.update).toHaveBeenCalledWith({
+      where: { id: 'tenant_1' },
+      data: { renewalLeadDays: 45 }
+    })
+    mockPrisma.tenant.update.mockRejectedValue(new Error('db error'))
+    expect(await updateRenewalLeadDays('tenant_1', 45)).toBe(false)
+  })
+
+  it("getRenewalLeadDaysForCompany uses the company's tenant", async () => {
+    mockPrisma.customerCompany.findUnique.mockResolvedValue({
+      tenant: { renewalLeadDays: 21 }
+    })
+    expect(await getRenewalLeadDaysForCompany('company_1')).toBe(21)
+  })
+
+  it('getRenewalLeadDaysForCompany falls back to the single tenant, then the default', async () => {
+    mockPrisma.customerCompany.findUnique.mockResolvedValue({ tenant: null })
+    mockPrisma.tenant.findFirst.mockResolvedValue({ renewalLeadDays: 60 })
+    expect(await getRenewalLeadDaysForCompany('company_1')).toBe(60)
+    expect(await getRenewalLeadDaysForCompany(null)).toBe(60)
+
+    mockPrisma.tenant.findFirst.mockResolvedValue(null)
+    expect(await getRenewalLeadDaysForCompany('company_1')).toBe(30)
+  })
+
+  it('getRenewalLeadDaysForCompany returns the default on error', async () => {
+    mockPrisma.customerCompany.findUnique.mockRejectedValue(new Error('x'))
+    expect(await getRenewalLeadDaysForCompany('company_1')).toBe(30)
+  })
+})
+
+describe('default template review period', () => {
+  it('getReviewPeriodMonths returns the stored value, the default, and the default on error', async () => {
+    mockPrisma.tenant.findUnique.mockResolvedValue({ reviewPeriodMonths: 6 })
+    expect(await getReviewPeriodMonths('tenant_1')).toBe(6)
+    mockPrisma.tenant.findUnique.mockResolvedValue(null)
+    expect(await getReviewPeriodMonths('tenant_1')).toBe(12)
+    mockPrisma.tenant.findUnique.mockRejectedValue(new Error('db error'))
+    expect(await getReviewPeriodMonths('tenant_1')).toBe(12)
+  })
+
+  it('updateReviewPeriodMonths updates the tenant and reports failure', async () => {
+    mockPrisma.tenant.update.mockResolvedValue({})
+    expect(await updateReviewPeriodMonths('tenant_1', 24)).toBe(true)
+    expect(mockPrisma.tenant.update).toHaveBeenCalledWith({
+      where: { id: 'tenant_1' },
+      data: { reviewPeriodMonths: 24 }
+    })
+    mockPrisma.tenant.update.mockRejectedValue(new Error('db error'))
+    expect(await updateReviewPeriodMonths('tenant_1', 24)).toBe(false)
+  })
+
+  it("getReviewPeriodMonthsForCompany uses the company's tenant, then the single tenant, then the default", async () => {
+    mockPrisma.customerCompany.findUnique.mockResolvedValue({
+      tenant: { reviewPeriodMonths: 36 }
+    })
+    expect(await getReviewPeriodMonthsForCompany('company_1')).toBe(36)
+
+    mockPrisma.customerCompany.findUnique.mockResolvedValue({ tenant: null })
+    mockPrisma.tenant.findFirst.mockResolvedValue({ reviewPeriodMonths: 6 })
+    expect(await getReviewPeriodMonthsForCompany('company_1')).toBe(6)
+    expect(await getReviewPeriodMonthsForCompany(null)).toBe(6)
+
+    mockPrisma.tenant.findFirst.mockResolvedValue(null)
+    expect(await getReviewPeriodMonthsForCompany('company_1')).toBe(12)
+  })
+
+  it('getReviewPeriodMonthsForCompany returns the default on error', async () => {
+    mockPrisma.customerCompany.findUnique.mockRejectedValue(new Error('x'))
+    expect(await getReviewPeriodMonthsForCompany('company_1')).toBe(12)
+  })
+})
+
+describe('company review period override', () => {
+  it("getReviewPeriodMonthsForCompany prefers the company's own override", async () => {
+    mockPrisma.customerCompany.findUnique.mockResolvedValue({
+      reviewPeriodMonths: 3,
+      tenant: { reviewPeriodMonths: 36 }
+    })
+    expect(await getReviewPeriodMonthsForCompany('company_1')).toBe(3)
+  })
+
+  it('getCompanyReviewPeriodMonths returns the override, null when unset or missing, and null on error', async () => {
+    mockPrisma.customerCompany.findUnique.mockResolvedValue({
+      reviewPeriodMonths: 18
+    })
+    expect(await getCompanyReviewPeriodMonths('company_1')).toBe(18)
+    mockPrisma.customerCompany.findUnique.mockResolvedValue({
+      reviewPeriodMonths: null
+    })
+    expect(await getCompanyReviewPeriodMonths('company_1')).toBeNull()
+    mockPrisma.customerCompany.findUnique.mockResolvedValue(null)
+    expect(await getCompanyReviewPeriodMonths('company_1')).toBeNull()
+    mockPrisma.customerCompany.findUnique.mockRejectedValue(new Error('x'))
+    expect(await getCompanyReviewPeriodMonths('company_1')).toBeNull()
+  })
+
+  it('updateCompanyReviewPeriodMonths sets or clears the override and reports failure', async () => {
+    mockPrisma.customerCompany.update.mockResolvedValue({})
+    expect(await updateCompanyReviewPeriodMonths('company_1', 6)).toBe(true)
+    expect(mockPrisma.customerCompany.update).toHaveBeenCalledWith({
+      where: { id: 'company_1' },
+      data: { reviewPeriodMonths: 6 }
+    })
+    expect(await updateCompanyReviewPeriodMonths('company_1', null)).toBe(true)
+    expect(mockPrisma.customerCompany.update).toHaveBeenLastCalledWith({
+      where: { id: 'company_1' },
+      data: { reviewPeriodMonths: null }
+    })
+    mockPrisma.customerCompany.update.mockRejectedValue(new Error('x'))
+    expect(await updateCompanyReviewPeriodMonths('company_1', 6)).toBe(false)
   })
 })

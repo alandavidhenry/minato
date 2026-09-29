@@ -36,8 +36,13 @@ All items from the original workflow plan (comprehension questions, individual/j
 | P20 | Dashboard drill-downs, settings cleanup, template categorisation |
 | P21 | Supabase-style UI redesign — see ADR-012 |
 | P22 | Data retention guard on completion deletion — see `data-management.md` |
+| P23 | Recurring sign-offs and completion expiry (roadmap 2.1) — `Assignment.recurrenceMonths`/`cycle`, `CompletionRecord.validUntil`, cron-opened renewal cycles, Expiring soon/Expired states, "Valid until" on the PDF |
+| P24 | Template review dates (roadmap 2.2) — `DocumentTemplate.reviewDueAt`/`reviewOwnerId`/`lastReviewedAt`, `TemplateReview` audit table, "Reviewed — no changes", 30/7/0-day owner emails via the daily cron, dashboard tile, review date on the signed PDF |
 
 ### Known gaps / deferred items carried forward from completed work
+
+- **P23 recurring sign-offs — deferred:** recurrence can only be set when an assignment is created (no edit-after-the-fact for existing assignments); the renewal lead time is per-tenant (Settings → Renewals), not per-assignment; the admin "Outstanding" page and dashboard KPIs still count per-assignment completions, so a user with a lapsed completion and no renewal assignment yet (cron missed) shows there only once the cron has created the next cycle; kiosk sign-off shows renewals like any other assignment (no expiry-specific wording); no "Expiring soon" filter/KPI on the dashboard yet.
+- **P24 template review dates — deferred:** changing a default review period (tenant or company) doesn't re-date existing templates (each keeps its own period); the period, owner and date are edited via Review settings on both `/admin/templates` and `/customer/admin/templates` (a company template's owner must be an admin of that company); Simon's dashboard tile counts tenant-library templates only (company admins get their own summary card, bell entry, badges and reminder emails).
 
 - **P8 sign-off hardening — one-time PIN (not built):** a one-time PIN sent to the line manager before kiosk sign-off proceeds is the one hardening measure from the original list not yet built — heaviest to build (needs the manager reachable in the moment) and most disruptive to the kiosk UX. Revisit if a customer asks for it specifically.
 - **P19 deferred, no target date:** structured data extraction from filled-in documents into a searchable store (Azure Document Intelligence is already provisioned for this — `infrastructure/modules/document_intelligence/` — but unused in application code; same underlying OCR gap noted under "Document Intelligence" below).
@@ -89,6 +94,6 @@ Current pipeline (lint → security scan → Playwright E2E → Docker build/pus
 See [`data-management.md`](./data-management.md) for the full design discussion (Azure Blob immutability, the GDPR erasure-vs-retention conflict, per-company/jurisdiction retention, container isolation) and P22 above for what's built.
 
 **Actions still needed:**
-- Add a privacy policy page
+- Keep the privacy policy page (`src/app/privacy/page.tsx`) in sync when new personal data or sub-processors are added; have it reviewed by someone qualified before onboarding external customers
 - Confirm with Simon whether any industry-specific H&S standards require certified e-signatures vs. the current simple audit trail (see ADR-004)
 - Design the GDPR right-to-erasure/anonymisation flow — `data-management.md` §4 covers the specific conflict with statutory retention (e.g. a client company closing down) and what an override would need. P22 only protects existing signed records from premature admin deletion; it doesn't yet handle a user asking to be forgotten while their documents must be retained.

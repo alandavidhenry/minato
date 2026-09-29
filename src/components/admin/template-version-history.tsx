@@ -15,6 +15,14 @@ import {
 import { diffTemplateSnapshots } from '@/lib/template-version-diff'
 import type { TemplateVersionHistoryEntry } from '@/types/template-version-history'
 
+interface TemplateReviewEntry {
+  id: string
+  version: number
+  reviewedAt: string
+  reviewedByName: string | null
+  note: string | null
+}
+
 interface TemplateVersionHistoryProps {
   readonly templateId: string
   readonly active: boolean
@@ -25,6 +33,7 @@ export function TemplateVersionHistory({
   active
 }: TemplateVersionHistoryProps) {
   const [entries, setEntries] = useState<TemplateVersionHistoryEntry[]>([])
+  const [reviews, setReviews] = useState<TemplateReviewEntry[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -45,6 +54,7 @@ export function TemplateVersionHistory({
         const data = await response.json()
         const fetchedEntries: TemplateVersionHistoryEntry[] = data.entries
         setEntries(fetchedEntries)
+        setReviews(data.reviews ?? [])
         if (fetchedEntries.length >= 2) {
           setCompareAfter(String(fetchedEntries[0].version))
           setCompareBefore(String(fetchedEntries[1].version))
@@ -141,6 +151,32 @@ export function TemplateVersionHistory({
           </div>
         ))}
       </div>
+
+      {reviews.length > 0 && (
+        <div className='space-y-2 border-t pt-4'>
+          <p className='text-sm font-medium'>Reviewed — no changes</p>
+          {reviews.map((review) => (
+            <div key={review.id} className='rounded-md border p-3 text-sm'>
+              <div className='flex flex-wrap items-center gap-2'>
+                <Badge variant='outline'>v{review.version}</Badge>
+                <span className='text-xs text-muted-foreground'>
+                  {new Date(review.reviewedAt).toLocaleDateString()}
+                </span>
+              </div>
+              <p className='mt-2'>
+                <span className='text-muted-foreground'>By: </span>
+                {review.reviewedByName ?? '—'}
+              </p>
+              {review.note && (
+                <p>
+                  <span className='text-muted-foreground'>Note: </span>
+                  {review.note}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {entries.length >= 2 && (
         <div className='space-y-3 border-t pt-4'>

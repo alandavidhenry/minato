@@ -6,6 +6,7 @@ import {
   createDocumentTemplate,
   getDocumentTemplatesByOwnerCompany
 } from '@/lib/document-templates'
+import { isValidReviewPeriod } from '@/lib/review-dates'
 import { UserRole } from '@/types/rbac'
 
 export async function GET() {
@@ -55,12 +56,23 @@ export async function POST(request: NextRequest) {
       uploadMode,
       sourceDocBlobPath,
       sourceDocOriginalBlobPath,
-      sourceDocFileName
+      sourceDocFileName,
+      reviewPeriodMonths
     } = await request.json()
 
     if (!title) {
       return NextResponse.json(
         { error: 'Missing required field: title' },
+        { status: 400 }
+      )
+    }
+
+    if (
+      reviewPeriodMonths !== undefined &&
+      !isValidReviewPeriod(reviewPeriodMonths)
+    ) {
+      return NextResponse.json(
+        { error: 'reviewPeriodMonths must be a whole number of months, 1-120' },
         { status: 400 }
       )
     }
@@ -74,7 +86,10 @@ export async function POST(request: NextRequest) {
       uploadMode,
       sourceDocBlobPath,
       sourceDocOriginalBlobPath,
-      sourceDocFileName
+      sourceDocFileName,
+      reviewPeriodMonths,
+      // The creating company admin owns the review by default
+      reviewOwnerId: session?.user?.id
     })
 
     if (!template) {

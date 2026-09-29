@@ -2,8 +2,10 @@ import bcrypt from 'bcryptjs'
 
 import { Prisma } from '@/generated/prisma/client'
 
+import { DEFAULT_RENEWAL_LEAD_DAYS } from './completion-validity'
 import { DEFAULT_COMPLETION_RETENTION_YEARS } from './data-retention'
 import prisma from './prisma'
+import { DEFAULT_REVIEW_MONTHS } from './review-dates'
 
 export interface ProfilePermissions {
   canEditDisplayName: boolean
@@ -366,6 +368,52 @@ export async function updateCompletionRetentionYears(
   }
 }
 
+export async function getRenewalLeadDays(tenantId: string): Promise<number> {
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } })
+    return tenant?.renewalLeadDays ?? DEFAULT_RENEWAL_LEAD_DAYS
+  } catch {
+    return DEFAULT_RENEWAL_LEAD_DAYS
+  }
+}
+
+export async function updateRenewalLeadDays(
+  tenantId: string,
+  days: number
+): Promise<boolean> {
+  try {
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { renewalLeadDays: days }
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Lead time for a customer company's tenant; falls back to the single tenant
+// row (this app is single-tenant today) and then the default.
+export async function getRenewalLeadDaysForCompany(
+  customerCompanyId: string | null
+): Promise<number> {
+  try {
+    const company = customerCompanyId
+      ? await prisma.customerCompany.findUnique({
+          where: { id: customerCompanyId },
+          select: { tenant: { select: { renewalLeadDays: true } } }
+        })
+      : null
+    if (company?.tenant) return company.tenant.renewalLeadDays
+    const tenant = await prisma.tenant.findFirst({
+      select: { renewalLeadDays: true }
+    })
+    return tenant?.renewalLeadDays ?? DEFAULT_RENEWAL_LEAD_DAYS
+  } catch {
+    return DEFAULT_RENEWAL_LEAD_DAYS
+  }
+}
+
 export async function updateUserProfile(
   userId: string,
   updates: {
@@ -451,4 +499,85 @@ export async function resolveEmailRecipients(
     seen.add(r.email)
     return true
   })
+}
+
+export async function getReviewPeriodMonths(tenantId: string): Promise<number> {
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } })
+    return tenant?.reviewPeriodMonths ?? DEFAULT_REVIEW_MONTHS
+  } catch {
+    return DEFAULT_REVIEW_MONTHS
+  }
+}
+
+export async function updateReviewPeriodMonths(
+  tenantId: string,
+  months: number
+): Promise<boolean> {
+  try {
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { reviewPeriodMonths: months }
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Default review period for a new template owned by a company (or the tenant
+// library when null): the company's own override, else its tenant's default,
+// else the single tenant row, else the built-in default.
+export async function getReviewPeriodMonthsForCompany(
+  customerCompanyId: string | null
+): Promise<number> {
+  try {
+    const company = customerCompanyId
+      ? await prisma.customerCompany.findUnique({
+          where: { id: customerCompanyId },
+          select: {
+            reviewPeriodMonths: true,
+            tenant: { select: { reviewPeriodMonths: true } }
+          }
+        })
+      : null
+    if (company?.reviewPeriodMonths) return company.reviewPeriodMonths
+    if (company?.tenant) return company.tenant.reviewPeriodMonths
+    const tenant = await prisma.tenant.findFirst({
+      select: { reviewPeriodMonths: true }
+    })
+    return tenant?.reviewPeriodMonths ?? DEFAULT_REVIEW_MONTHS
+  } catch {
+    return DEFAULT_REVIEW_MONTHS
+  }
+}
+
+// The company's own override only (null = inherits the tenant default)
+export async function getCompanyReviewPeriodMonths(
+  customerCompanyId: string
+): Promise<number | null> {
+  try {
+    const company = await prisma.customerCompany.findUnique({
+      where: { id: customerCompanyId },
+      select: { reviewPeriodMonths: true }
+    })
+    return company?.reviewPeriodMonths ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function updateCompanyReviewPeriodMonths(
+  customerCompanyId: string,
+  months: number | null
+): Promise<boolean> {
+  try {
+    await prisma.customerCompany.update({
+      where: { id: customerCompanyId },
+      data: { reviewPeriodMonths: months }
+    })
+    return true
+  } catch {
+    return false
+  }
 }

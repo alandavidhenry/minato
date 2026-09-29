@@ -7,12 +7,18 @@ import {
   createDocumentTemplate,
   getAllDocumentTemplates
 } from '@/lib/document-templates'
+import { isValidReviewPeriod } from '@/lib/review-dates'
 import { ADMIN_ROLES } from '@/types/rbac'
 
 async function checkAdminPermission() {
   const session = await getServerSession(authOptions)
   const roles = session?.user?.roles ?? []
   return roles.some((r) => ADMIN_ROLES.includes(r))
+}
+
+async function getSessionUserId() {
+  const session = await getServerSession(authOptions)
+  return session?.user?.id
 }
 
 export async function GET() {
@@ -54,12 +60,23 @@ export async function POST(request: NextRequest) {
       uploadMode,
       sourceDocBlobPath,
       sourceDocOriginalBlobPath,
-      sourceDocFileName
+      sourceDocFileName,
+      reviewPeriodMonths
     } = await request.json()
 
     if (!title) {
       return NextResponse.json(
         { error: 'Missing required field: title' },
+        { status: 400 }
+      )
+    }
+
+    if (
+      reviewPeriodMonths !== undefined &&
+      !isValidReviewPeriod(reviewPeriodMonths)
+    ) {
+      return NextResponse.json(
+        { error: 'reviewPeriodMonths must be a whole number of months, 1-120' },
         { status: 400 }
       )
     }
@@ -74,7 +91,10 @@ export async function POST(request: NextRequest) {
       uploadMode,
       sourceDocBlobPath,
       sourceDocOriginalBlobPath,
-      sourceDocFileName
+      sourceDocFileName,
+      reviewPeriodMonths,
+      // The creator owns the review by default
+      reviewOwnerId: await getSessionUserId()
     })
 
     if (!template) {

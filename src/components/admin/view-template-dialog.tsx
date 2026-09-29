@@ -36,6 +36,8 @@ interface Template {
   version: number
   sourceType?: DocumentTemplateSourceType
   sourceDocFileName?: string | null
+  reviewDueAt?: string | null
+  lastReviewedAt?: string | null
 }
 
 interface ViewTemplateDialogProps {
@@ -115,6 +117,14 @@ export function ViewTemplateDialog({
           {template.description && (
             <p className='text-sm text-muted-foreground'>
               {template.description}
+            </p>
+          )}
+          {template.reviewDueAt && (
+            <p className='text-xs text-muted-foreground'>
+              Review due{' '}
+              {new Date(template.reviewDueAt).toLocaleDateString('en-GB')}
+              {template.lastReviewedAt &&
+                ` · last reviewed ${new Date(template.lastReviewedAt).toLocaleDateString('en-GB')}`}
             </p>
           )}
         </DialogHeader>

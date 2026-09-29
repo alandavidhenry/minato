@@ -486,6 +486,35 @@ describe('POST /api/admin/companies/[id]/assignments (company-wide)', () => {
     )
   })
 
+  it('passes recurrenceMonths to createAssignment', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    mockCreate.mockResolvedValue({ ...BASE_ASSIGNMENT, recurrenceMonths: 12 })
+    const req = jsonRequest(
+      'http://localhost/api/admin/companies/company_123/assignments',
+      'POST',
+      { templateId: 'template_123', recurrenceMonths: 12 }
+    )
+    const res = await createAssignment(req, companyParams('company_123'))
+    expect(res.status).toBe(200)
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ recurrenceMonths: 12 })
+    )
+  })
+
+  it('rejects an invalid recurrenceMonths with 400', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    for (const bad of [0, -1, 1.5, 999, '12']) {
+      const req = jsonRequest(
+        'http://localhost/api/admin/companies/company_123/assignments',
+        'POST',
+        { templateId: 'template_123', recurrenceMonths: bad }
+      )
+      const res = await createAssignment(req, companyParams('company_123'))
+      expect(res.status).toBe(400)
+    }
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
   it('enrolls matching existing users when autoEnroll assignment is created', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
     const autoEnrollAssignment = { ...BASE_ASSIGNMENT, autoEnroll: true }

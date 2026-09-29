@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { sendReminderNotification } from '@/lib/email'
+import {
+  sendAssignmentNotification,
+  sendReminderNotification,
+  sendTemplateReviewReminder
+} from '@/lib/email'
 import prisma from '@/lib/prisma'
 import { getAssignmentsNeedingReminders } from '@/lib/reminders'
+import { renewExpiringCompletions } from '@/lib/renewals'
+import { getTemplatesNeedingReviewReminders } from '@/lib/template-reviews'
 
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET
@@ -13,6 +19,22 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Open the next cycle for recurring sign-offs nearing expiry first, so the
+    // fresh assignments are announced once and then follow the normal reminders
+    const renewals = await renewExpiringCompletions(new Date())
+    await Promise.all(
+      renewals
+        .filter((r) => r.recipients.length > 0)
+        .map((r) =>
+          sendAssignmentNotification(
+            r.recipients,
+            r.templateTitle,
+            r.dueDate,
+            process.env.NEXTAUTH_URL ?? ''
+          )
+        )
+    )
+
     const targets = await getAssignmentsNeedingReminders(new Date())
 
     await Promise.all(
@@ -34,8 +56,32 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    const reviewTargets = await getTemplatesNeedingReviewReminders(new Date())
+    await Promise.all(
+      reviewTargets.map((t) =>
+        sendTemplateReviewReminder(
+          t.recipients,
+          t.templateTitle,
+          t.reviewDueAt,
+          process.env.NEXTAUTH_URL ?? '',
+          t.isCompanyTemplate
+        )
+      )
+    )
+
+    if (reviewTargets.length > 0) {
+      await prisma.documentTemplate.updateMany({
+        where: { id: { in: reviewTargets.map((t) => t.templateId) } },
+        data: { lastReviewReminderAt: new Date() }
+      })
+    }
+
     const sent = targets.reduce((sum, t) => sum + t.recipients.length, 0)
-    return NextResponse.json({ sent })
+    return NextResponse.json({
+      sent,
+      renewed: renewals.length,
+      reviewReminders: reviewTargets.length
+    })
   } catch (error) {
     console.error('Reminder cron error:', error)
     return NextResponse.json(

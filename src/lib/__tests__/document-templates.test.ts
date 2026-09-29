@@ -22,6 +22,8 @@ const { mockPrisma } = vi.hoisted(() => ({
     templateVersionHistory: {
       create: vi.fn()
     },
+    tenant: { findFirst: vi.fn() },
+    customerCompany: { findUnique: vi.fn() },
     $transaction: vi.fn()
   }
 }))
@@ -68,6 +70,61 @@ describe('createDocumentTemplate', () => {
     expect(result?.createdAt).toBe('2024-01-01T00:00:00.000Z')
     expect(result?.sourceType).toBe('form')
     expect(result?.uploadMode).toBeNull()
+  })
+
+  it('defaults the review date to 12 months out and stores the owner', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-30T09:00:00Z'))
+    mockPrisma.documentTemplate.create.mockResolvedValue(BASE_TEMPLATE)
+
+    await createDocumentTemplate({ title: 'X', reviewOwnerId: 'user_1' })
+
+    const data = mockPrisma.documentTemplate.create.mock.calls[0][0].data
+    expect(data.reviewOwnerId).toBe('user_1')
+    expect(data.reviewDueAt.toISOString()).toBe('2027-09-30T09:00:00.000Z')
+    vi.useRealTimers()
+  })
+
+  it('uses an explicit review period at creation', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-30T09:00:00Z'))
+    mockPrisma.documentTemplate.create.mockResolvedValue(BASE_TEMPLATE)
+
+    await createDocumentTemplate({ title: 'X', reviewPeriodMonths: 6 })
+
+    const data = mockPrisma.documentTemplate.create.mock.calls[0][0].data
+    expect(data.reviewPeriodMonths).toBe(6)
+    expect(data.reviewDueAt.toISOString()).toBe('2027-03-30T09:00:00.000Z')
+    expect(mockPrisma.tenant.findFirst).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it("falls back to the tenant's default review period at creation", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-30T09:00:00Z'))
+    mockPrisma.documentTemplate.create.mockResolvedValue(BASE_TEMPLATE)
+    mockPrisma.tenant.findFirst.mockResolvedValue({ reviewPeriodMonths: 24 })
+
+    await createDocumentTemplate({ title: 'X' })
+
+    const data = mockPrisma.documentTemplate.create.mock.calls[0][0].data
+    expect(data.reviewPeriodMonths).toBe(24)
+    expect(data.reviewDueAt.toISOString()).toBe('2028-09-30T09:00:00.000Z')
+    vi.useRealTimers()
+  })
+
+  it("uses the owning company's tenant default for company templates", async () => {
+    mockPrisma.documentTemplate.create.mockResolvedValue(BASE_TEMPLATE)
+    mockPrisma.customerCompany.findUnique.mockResolvedValue({
+      tenant: { reviewPeriodMonths: 36 }
+    })
+
+    await createDocumentTemplate({ title: 'X', ownerCompanyId: 'co_1' })
+
+    expect(
+      mockPrisma.documentTemplate.create.mock.calls[0][0].data
+        .reviewPeriodMonths
+    ).toBe(36)
   })
 
   it('returns null on error', async () => {
@@ -316,6 +373,43 @@ describe('publishNewTemplateVersion', () => {
         data: expect.objectContaining({ version: { increment: 1 } })
       })
     )
+  })
+
+  it('resets the review date using the template review period', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-30T09:00:00Z'))
+    mockPrisma.documentTemplate.findUnique.mockResolvedValue({
+      ...BASE_TEMPLATE,
+      reviewPeriodMonths: 6
+    })
+    mockPrisma.templateVersionHistory.create.mockResolvedValue({})
+    mockPrisma.documentTemplate.update.mockResolvedValue({
+      ...BASE_TEMPLATE,
+      version: 2
+    })
+
+    await publishNewTemplateVersion('template_123', { changeReason: 'x' })
+
+    const data = mockPrisma.documentTemplate.update.mock.calls[0][0].data
+    expect(data.reviewDueAt.toISOString()).toBe('2027-03-30T09:00:00.000Z')
+    vi.useRealTimers()
+  })
+
+  it('resets the review date to 12 months after publishing', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-30T09:00:00Z'))
+    mockPrisma.templateVersionHistory.create.mockResolvedValue({})
+    mockPrisma.documentTemplate.update.mockResolvedValue({
+      ...BASE_TEMPLATE,
+      version: 2
+    })
+
+    await publishNewTemplateVersion('template_123', { changeReason: 'x' })
+
+    const data = mockPrisma.documentTemplate.update.mock.calls[0][0].data
+    expect(data.reviewDueAt.toISOString()).toBe('2027-09-30T09:00:00.000Z')
+    expect(data.lastReviewedAt.toISOString()).toBe('2026-09-30T09:00:00.000Z')
+    vi.useRealTimers()
   })
 
   it('records a history entry snapshotting the pre-existing content', async () => {

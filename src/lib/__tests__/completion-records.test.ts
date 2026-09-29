@@ -8,6 +8,7 @@ import {
   getCompletionsForAssignmentForAdmin,
   getCompletionsForUser,
   getTemplateCompletionSummaryForCompany,
+  summariseUserValidity,
   updateCompletionSubmission
 } from '../completion-records'
 
@@ -19,7 +20,8 @@ const { mockPrisma } = vi.hoisted(() => ({
       update: vi.fn()
     },
     customerCompany: {
-      findMany: vi.fn()
+      findMany: vi.fn(),
+      findUnique: vi.fn()
     },
     assignment: {
       findMany: vi.fn(),
@@ -75,6 +77,7 @@ beforeEach(() => {
   mockPrisma.user.findMany.mockResolvedValue([])
   mockPrisma.user.findUnique.mockResolvedValue(null)
   mockPrisma.assignment.findUnique.mockResolvedValue(null)
+  mockPrisma.customerCompany.findUnique.mockResolvedValue(null)
 })
 
 describe('createCompletionRecord', () => {
@@ -245,7 +248,18 @@ describe('getCompletionGroupsByCompany', () => {
         templateVersion: 1,
         template: { id: 'template_123', title: 'Farmyard Safety Checklist' },
         _count: { completions: 2 },
-        completions: [{ signedAt: new Date('2024-06-01T00:00:00.000Z') }]
+        completions: [
+          {
+            signedAt: new Date('2024-06-01T00:00:00.000Z'),
+            signedById: 'user_1',
+            validUntil: null
+          },
+          {
+            signedAt: new Date('2024-05-01T00:00:00.000Z'),
+            signedById: 'user_2',
+            validUntil: null
+          }
+        ]
       }
     ])
     mockPrisma.user.count.mockResolvedValue(3)
@@ -302,7 +316,13 @@ describe('getCompletionGroupsByCompany', () => {
         templateVersion: 2,
         template: { id: 'template_123', title: 'Accident & Incident Report' },
         _count: { completions: 1 },
-        completions: [{ signedAt: new Date('2024-06-01T00:00:00.000Z') }]
+        completions: [
+          {
+            signedAt: new Date('2024-06-01T00:00:00.000Z'),
+            signedById: 'user_1',
+            validUntil: null
+          }
+        ]
       }
     ])
     mockPrisma.user.count.mockResolvedValue(5)
@@ -601,5 +621,186 @@ describe('getAssignmentStatusSummary', () => {
   it('returns null on error', async () => {
     mockPrisma.assignment.findUnique.mockRejectedValue(new Error('db error'))
     expect(await getAssignmentStatusSummary('assignment_123')).toBeNull()
+  })
+})
+
+describe('recurring sign-offs (validUntil)', () => {
+  it('createCompletionRecord sets validUntil from the assignment recurrenceMonths', async () => {
+    mockPrisma.assignment.findUnique.mockResolvedValue({ recurrenceMonths: 12 })
+    mockPrisma.completionRecord.create.mockResolvedValue({
+      ...BASE_RECORD,
+      validUntil: new Date('2027-01-01T00:00:00.000Z')
+    })
+
+    const result = await createCompletionRecord({
+      assignmentId: 'assignment_123',
+      signedById: 'user_123'
+    })
+
+    const data = mockPrisma.completionRecord.create.mock.calls[0][0].data
+    expect(data.signedAt).toBeInstanceOf(Date)
+    expect(data.validUntil.getUTCFullYear()).toBe(
+      data.signedAt.getUTCFullYear() + 1
+    )
+    expect(result?.validUntil).toBe('2027-01-01T00:00:00.000Z')
+  })
+
+  it('createCompletionRecord leaves validUntil null for non-recurring assignments', async () => {
+    mockPrisma.assignment.findUnique.mockResolvedValue({
+      recurrenceMonths: null
+    })
+    mockPrisma.completionRecord.create.mockResolvedValue(BASE_RECORD)
+
+    const result = await createCompletionRecord({
+      assignmentId: 'assignment_123',
+      signedById: 'user_123'
+    })
+
+    expect(
+      mockPrisma.completionRecord.create.mock.calls[0][0].data.validUntil
+    ).toBeNull()
+    expect(result?.validUntil).toBeNull()
+  })
+
+  describe('summariseUserValidity', () => {
+    const now = new Date('2026-06-01T00:00:00.000Z')
+
+    it('treats null validUntil as never expiring', () => {
+      const s = summariseUserValidity(
+        [{ signedById: 'a', validUntil: null }],
+        now
+      )
+      expect([...s.validUserIds]).toEqual(['a'])
+      expect(s.expiringSoonUserIds.size).toBe(0)
+      expect(s.expiredUserIds.size).toBe(0)
+    })
+
+    it('flags expiring soon and expired users', () => {
+      const s = summariseUserValidity(
+        [
+          { signedById: 'soon', validUntil: new Date('2026-06-10') },
+          { signedById: 'later', validUntil: new Date('2027-01-01') },
+          { signedById: 'lapsed', validUntil: new Date('2026-05-01') }
+        ],
+        now
+      )
+      expect([...s.expiringSoonUserIds]).toEqual(['soon'])
+      expect([...s.validUserIds].sort()).toEqual(['later', 'soon'])
+      expect([...s.expiredUserIds]).toEqual(['lapsed'])
+      expect(s.expiredAt).toEqual([new Date('2026-05-01')])
+    })
+
+    it('honours a custom lead time for expiring soon', () => {
+      const records = [{ signedById: 'a', validUntil: new Date('2026-06-21') }]
+      expect(
+        summariseUserValidity(records, now, 14).expiringSoonUserIds.size
+      ).toBe(0)
+      expect(
+        summariseUserValidity(records, now, 21).expiringSoonUserIds.size
+      ).toBe(1)
+    })
+
+    it('uses the best completion per user, so a re-sign clears expiry', () => {
+      const s = summariseUserValidity(
+        [
+          { signedById: 'a', validUntil: new Date('2026-05-01') },
+          { signedById: 'a', validUntil: new Date('2027-05-01') }
+        ],
+        now
+      )
+      expect([...s.validUserIds]).toEqual(['a'])
+      expect(s.expiredUserIds.size).toBe(0)
+    })
+  })
+
+  it('getCompletionGroupsByCompany counts lapsed users as outstanding and reports expiry counts', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([
+      {
+        id: 'assignment_123',
+        userId: null,
+        dueDate: null,
+        templateVersion: 1,
+        template: { id: 'template_123', title: 'Fire Safety' },
+        _count: { completions: 3 },
+        completions: [
+          {
+            signedAt: new Date('2026-05-01'),
+            signedById: 'ok',
+            validUntil: new Date('2099-01-01')
+          },
+          {
+            signedAt: new Date('2026-05-01'),
+            signedById: 'soon',
+            validUntil: new Date(Date.now() + 5 * 86_400_000)
+          },
+          {
+            signedAt: new Date('2025-01-01'),
+            signedById: 'lapsed',
+            validUntil: new Date('2026-01-01')
+          }
+        ]
+      }
+    ])
+    mockPrisma.user.count.mockResolvedValue(4)
+
+    const [group] = await getCompletionGroupsByCompany('company_123')
+
+    expect(group.completionCount).toBe(3)
+    expect(group.outstandingCount).toBe(2) // 4 users - 2 still valid
+    expect(group.expiredCount).toBe(1)
+    expect(group.expiringSoonCount).toBe(1)
+    expect(group.isOverdue).toBe(true) // lapsed completion counts as due at expiry
+    expect(group.dueDate).toBe('2026-01-01T00:00:00.000Z')
+  })
+
+  it('getTemplateCompletionSummaryForCompany treats lapsed completions as outstanding and exposes validUntil', async () => {
+    mockPrisma.assignment.findMany.mockResolvedValue([
+      {
+        id: 'assignment_123',
+        userId: null,
+        dueDate: null,
+        templateVersion: 1,
+        template: { title: 'Fire Safety' }
+      }
+    ])
+    mockPrisma.completionRecord.findMany.mockResolvedValue([
+      {
+        ...BASE_RECORD_WITH_SIGNER,
+        validUntil: new Date('2026-01-01T00:00:00.000Z')
+      }
+    ])
+    mockPrisma.user.findMany.mockResolvedValue([
+      { id: 'user_123', displayName: 'Jane Smith', email: 'jane@example.com' }
+    ])
+
+    const summary = await getTemplateCompletionSummaryForCompany(
+      'company_123',
+      'template_123'
+    )
+
+    expect(summary?.outstandingUsers.map((u) => u.id)).toEqual(['user_123'])
+    expect(summary?.completedRecords[0].validUntil).toBe(
+      '2026-01-01T00:00:00.000Z'
+    )
+    expect(summary?.isOverdue).toBe(true)
+  })
+
+  it('exposes a server-computed validityStatus using the lead time of the record company', async () => {
+    mockPrisma.customerCompany.findUnique.mockResolvedValue({
+      tenant: { renewalLeadDays: 60 }
+    })
+    mockPrisma.completionRecord.findMany.mockResolvedValue([
+      {
+        ...BASE_RECORD_WITH_SIGNER,
+        validUntil: new Date(Date.now() + 45 * 86_400_000)
+      }
+    ])
+    mockPrisma.assignment.findUnique.mockResolvedValue({
+      customerCompanyId: 'company_123'
+    })
+
+    const [record] = await getCompletionsForAssignmentForAdmin('assignment_123')
+
+    expect(record.validityStatus).toBe('expiring-soon') // 45d out, 60d lead
   })
 })

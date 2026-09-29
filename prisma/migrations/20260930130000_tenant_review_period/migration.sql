@@ -1,0 +1,1 @@
+ALTER TABLE "Tenant" ADD COLUMN "reviewPeriodMonths" INTEGER NOT NULL DEFAULT 12;

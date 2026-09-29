@@ -29,7 +29,7 @@ The core loop is complete and solid:
 
 These are gaps inside the existing purpose. They're ranked by how likely a real customer is to hit them in the first month.
 
-### 2.1 Recurring sign-offs and completion expiry ⭐ highest value
+### 2.1 Recurring sign-offs and completion expiry ⭐ highest value — ✅ built (P23; see `future-considerations.md` for what's deferred)
 **Gap:** A completion is valid forever. A new cycle only starts when a new template *version* is published. Much of H&S doesn't work that way. The fire safety briefing, manual handling refresher and annual policy acknowledgement all need re-signing every 12 months even when the document hasn't changed.
 
 **Proposal:**
@@ -40,7 +40,7 @@ These are gaps inside the existing purpose. They're ranked by how likely a real 
 
 **Why it matters for subscriptions:** this is the feature that makes the platform *recurring* by nature. Customers who rely on annual re-sign-off never have a reason to cancel.
 
-### 2.2 Template review dates
+### 2.2 Template review dates — ✅ built (P24; see `future-considerations.md` for what's deferred)
 **Gap:** There's nothing to remind Simon that a policy is due its annual review. Regulators and auditors expect documents to show a review date.
 
 **Proposal:** add `DocumentTemplate.reviewDueAt` and `reviewOwnerId`, with a default of 12 months after publish. Show a "Templates due for review" tile on the dashboard, send an email to the owner at 30/7/0 days, and print the review date on the document and signed PDF. Publishing a new version, or clicking "Reviewed — no changes", resets the date. "Reviewed — no changes" logs a history entry without bumping the version or triggering re-signing.
@@ -104,7 +104,7 @@ This is a genuine differentiator, and it helps with "reasonable steps to ensure 
 - Admins can't download files uploaded via `file` form fields (P16b note).
 - The Customer Admin completions view may show duplicate template rows (P2 note).
 - `/customer/admin/templates` lacks the category grouping and search that `/admin/templates` has (P20 note).
-- There is no privacy policy page and no GDPR erasure/anonymisation flow (Compliance section).
+- A privacy policy page exists (`/privacy`, linked from the footer) but there is no GDPR erasure/anonymisation flow (Compliance section).
 - Reminder schedule is hard-coded (-3, -1, 0, then weekly) and should be tenant-configurable.
 - Upload/fill-and-return flows have no E2E coverage.
 

@@ -5,6 +5,8 @@ import {
   BookOpen,
   ChevronDown,
   ChevronRight,
+  CalendarClock,
+  CheckCheck,
   Eye,
   Pencil,
   Plus,
@@ -17,6 +19,7 @@ import { useEffect, useState } from 'react'
 import { CreateTemplateDialog } from '@/components/admin/create-template-dialog'
 import { EditTemplateDialog } from '@/components/admin/edit-template-dialog'
 import { PublishVersionDialog } from '@/components/admin/publish-version-dialog'
+import { ReviewSettingsDialog } from '@/components/admin/review-settings-dialog'
 import { ViewTemplateDialog } from '@/components/admin/view-template-dialog'
 import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
@@ -28,6 +31,7 @@ import type { dataTableFeatures } from '@/components/ui/data-table/table-feature
 import { Input } from '@/components/ui/input'
 import { Table, TableBody } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
+import { getReviewStatus } from '@/lib/review-dates'
 import type { ComprehensionQuestion } from '@/types/comprehension-question'
 import {
   DOCUMENT_TEMPLATE_CATEGORIES,
@@ -51,6 +55,10 @@ interface Template {
   sourceType: DocumentTemplateSourceType
   uploadMode: DocumentTemplateUploadMode | null
   sourceDocFileName: string | null
+  reviewDueAt: string | null
+  reviewOwnerId: string | null
+  reviewPeriodMonths: number
+  lastReviewedAt: string | null
 }
 
 interface TemplateGroup {
@@ -82,6 +90,9 @@ export default function TemplatesPage() {
     null
   )
   const [isPublishing, setIsPublishing] = useState(false)
+  const [reviewSettingsTemplate, setReviewSettingsTemplate] =
+    useState<Template | null>(null)
+  const [isSavingReview, setIsSavingReview] = useState(false)
 
   useEffect(() => {
     fetchTemplates()
@@ -102,6 +113,68 @@ export default function TemplatesPage() {
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  async function saveReviewSettings(values: {
+    reviewOwnerId: string | null
+    reviewDueAt: string
+    reviewPeriodMonths: number
+  }) {
+    if (!reviewSettingsTemplate) return
+    const { id } = reviewSettingsTemplate
+    setIsSavingReview(true)
+    try {
+      const response = await fetch(`/api/admin/templates/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values)
+      })
+      if (!response.ok) throw new Error('Failed to save review settings')
+      setTemplates((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, ...values } : t))
+      )
+      setReviewSettingsTemplate(null)
+      toast({ title: 'Review settings saved' })
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to save review settings.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsSavingReview(false)
+    }
+  }
+
+  async function markReviewed(id: string, title: string) {
+    try {
+      const response = await fetch(`/api/admin/templates/${id}/review`, {
+        method: 'POST'
+      })
+      if (!response.ok) throw new Error('Failed to record review')
+      const { template } = await response.json()
+      setTemplates((prev) =>
+        prev.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                reviewDueAt: template.reviewDueAt,
+                lastReviewedAt: template.lastReviewedAt
+              }
+            : t
+        )
+      )
+      toast({
+        title: 'Marked as reviewed',
+        description: `"${title}" — no changes; next review date set.`
+      })
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to record the review.',
+        variant: 'destructive'
+      })
     }
   }
 
@@ -236,6 +309,32 @@ export default function TemplatesPage() {
       )
     },
     {
+      id: 'review',
+      header: 'Review due',
+      accessorFn: (t) => t.reviewDueAt ?? '',
+      cell: ({ row }) => {
+        const { reviewDueAt } = row.original
+        if (!reviewDueAt)
+          return <span className='text-muted-foreground'>—</span>
+        const status = getReviewStatus(reviewDueAt)
+        return (
+          <div className='flex items-center gap-2 whitespace-nowrap'>
+            {new Date(reviewDueAt).toLocaleDateString('en-GB')}
+            {status === 'overdue' && (
+              <Badge variant='destructive' className='text-xs'>
+                Overdue
+              </Badge>
+            )}
+            {status === 'due-soon' && (
+              <Badge variant='secondary' className='text-xs'>
+                Due soon
+              </Badge>
+            )}
+          </div>
+        )
+      }
+    },
+    {
       id: 'actions',
       header: 'Actions',
       enableSorting: false,
@@ -257,6 +356,22 @@ export default function TemplatesPage() {
               onClick={() => setEditingTemplate(template)}
             >
               <Pencil className='h-4 w-4' />
+            </Button>
+            <Button
+              variant='ghost'
+              size='sm'
+              title='Review settings'
+              onClick={() => setReviewSettingsTemplate(template)}
+            >
+              <CalendarClock className='h-4 w-4' />
+            </Button>
+            <Button
+              variant='ghost'
+              size='sm'
+              title='Reviewed — no changes'
+              onClick={() => markReviewed(template.id, template.title)}
+            >
+              <CheckCheck className='h-4 w-4' />
             </Button>
             <Button
               variant='ghost'
@@ -390,6 +505,20 @@ export default function TemplatesPage() {
         }}
         template={editingTemplate}
         onTemplateSaved={handleTemplateSaved}
+      />
+
+      <ReviewSettingsDialog
+        open={reviewSettingsTemplate !== null}
+        onOpenChange={(open) => {
+          if (!open) setReviewSettingsTemplate(null)
+        }}
+        templateTitle={reviewSettingsTemplate?.title ?? ''}
+        reviewOwnerId={reviewSettingsTemplate?.reviewOwnerId ?? null}
+        reviewDueAt={reviewSettingsTemplate?.reviewDueAt ?? null}
+        reviewPeriodMonths={reviewSettingsTemplate?.reviewPeriodMonths ?? 12}
+        lastReviewedAt={reviewSettingsTemplate?.lastReviewedAt ?? null}
+        isSubmitting={isSavingReview}
+        onSave={saveReviewSettings}
       />
 
       <PublishVersionDialog

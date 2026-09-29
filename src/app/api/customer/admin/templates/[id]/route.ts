@@ -7,6 +7,8 @@ import {
   getDocumentTemplateById,
   updateDocumentTemplate
 } from '@/lib/document-templates'
+import { isValidReviewPeriod } from '@/lib/review-dates'
+import { getUserById } from '@/lib/user-database'
 import { UserRole } from '@/types/rbac'
 
 async function getOwnedTemplateOrResponse(id: string, companyId: string) {
@@ -79,6 +81,41 @@ export async function PATCH(
     if (response) return response
 
     const updates = await request.json()
+
+    if (
+      updates.reviewPeriodMonths !== undefined &&
+      !isValidReviewPeriod(updates.reviewPeriodMonths)
+    ) {
+      return NextResponse.json(
+        { error: 'reviewPeriodMonths must be a whole number of months, 1-120' },
+        { status: 400 }
+      )
+    }
+    if (
+      updates.reviewDueAt !== undefined &&
+      Number.isNaN(new Date(updates.reviewDueAt).getTime())
+    ) {
+      return NextResponse.json(
+        { error: 'reviewDueAt must be a valid date' },
+        { status: 400 }
+      )
+    }
+    // The review owner receives the reminder emails, so it must be one of this
+    // company's own admins (or null for no owner)
+    if (updates.reviewOwnerId) {
+      const owner = await getUserById(String(updates.reviewOwnerId))
+      if (
+        !owner ||
+        owner.customerCompanyId !== companyId ||
+        owner.role !== UserRole.CUSTOMER_ADMIN
+      ) {
+        return NextResponse.json(
+          { error: 'Review owner must be an admin of your company' },
+          { status: 400 }
+        )
+      }
+    }
+
     const success = await updateDocumentTemplate(id, updates)
 
     if (!success) {
