@@ -204,6 +204,33 @@ describe('POST /api/customer/admin/templates', () => {
     expect(res.status).toBe(400)
   })
 
+  it('returns 400 for an invalid reviewPeriodMonths', async () => {
+    mockGetServerSession.mockResolvedValue(COMPANY_ADMIN_SESSION)
+    const req = jsonRequest(
+      'http://localhost/api/customer/admin/templates',
+      'POST',
+      { title: 'Checklist', reviewPeriodMonths: 200 }
+    )
+    const res = await createTemplate(req)
+    expect(res.status).toBe(400)
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('passes a valid reviewPeriodMonths through to creation', async () => {
+    mockGetServerSession.mockResolvedValue(COMPANY_ADMIN_SESSION)
+    mockCreate.mockResolvedValue(BASE_TEMPLATE)
+    const req = jsonRequest(
+      'http://localhost/api/customer/admin/templates',
+      'POST',
+      { title: 'Checklist', reviewPeriodMonths: 24 }
+    )
+    const res = await createTemplate(req)
+    expect(res.status).toBe(200)
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ reviewPeriodMonths: 24 })
+    )
+  })
+
   it('creates the template scoped to the session company', async () => {
     mockGetServerSession.mockResolvedValue(COMPANY_ADMIN_SESSION)
     const req = jsonRequest(
@@ -312,6 +339,68 @@ describe('PATCH /api/customer/admin/templates/[id]', () => {
     const res = await updateTemplate(req, params('template_123'))
     expect(res.status).toBe(404)
     expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  describe('review settings', () => {
+    function patch(body: Record<string, unknown>) {
+      return updateTemplate(
+        jsonRequest(
+          'http://localhost/api/customer/admin/templates/template_123',
+          'PATCH',
+          body
+        ),
+        params('template_123')
+      )
+    }
+
+    beforeEach(() => {
+      mockGetServerSession.mockResolvedValue(COMPANY_ADMIN_SESSION)
+      mockGetById.mockResolvedValue(BASE_TEMPLATE)
+    })
+
+    it('returns 400 for an invalid review period or date', async () => {
+      expect((await patch({ reviewPeriodMonths: 0 })).status).toBe(400)
+      expect((await patch({ reviewDueAt: 'not-a-date' })).status).toBe(400)
+      expect(mockUpdate).not.toHaveBeenCalled()
+    })
+
+    it('rejects an owner from another company or who is not an admin', async () => {
+      mockGetUserByIdTemplates.mockResolvedValueOnce({
+        id: 'u2',
+        role: 'Customer Admin',
+        customerCompanyId: 'company_456'
+      })
+      expect((await patch({ reviewOwnerId: 'u2' })).status).toBe(400)
+      mockGetUserByIdTemplates.mockResolvedValueOnce({
+        id: 'u3',
+        role: 'Customer User',
+        customerCompanyId: 'company_123'
+      })
+      expect((await patch({ reviewOwnerId: 'u3' })).status).toBe(400)
+      mockGetUserByIdTemplates.mockResolvedValueOnce(null)
+      expect((await patch({ reviewOwnerId: 'gone' })).status).toBe(400)
+      expect(mockUpdate).not.toHaveBeenCalled()
+    })
+
+    it('saves owner, period and date for an own-company admin owner', async () => {
+      mockGetUserByIdTemplates.mockResolvedValueOnce({
+        id: 'u1',
+        role: 'Customer Admin',
+        customerCompanyId: 'company_123'
+      })
+      const body = {
+        reviewOwnerId: 'u1',
+        reviewPeriodMonths: 6,
+        reviewDueAt: '2027-03-30T00:00:00.000Z'
+      }
+      expect((await patch(body)).status).toBe(200)
+      expect(mockUpdate).toHaveBeenCalledWith('template_123', body)
+    })
+
+    it('allows clearing the owner', async () => {
+      expect((await patch({ reviewOwnerId: null })).status).toBe(200)
+      expect(mockGetUserByIdTemplates).not.toHaveBeenCalled()
+    })
   })
 
   it('returns 200 on success', async () => {

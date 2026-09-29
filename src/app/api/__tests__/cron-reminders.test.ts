@@ -21,6 +21,17 @@ vi.mock('@/lib/renewals', () => ({
   renewExpiringCompletions: mockRenewExpiringCompletions
 }))
 
+const { mockGetReviewReminders } = vi.hoisted(() => ({
+  mockGetReviewReminders: vi.fn()
+}))
+vi.mock('@/lib/template-reviews', () => ({
+  getTemplatesNeedingReviewReminders: mockGetReviewReminders
+}))
+
+const { mockSendReviewReminder } = vi.hoisted(() => ({
+  mockSendReviewReminder: vi.fn()
+}))
+
 const { mockSendAssignmentNotification } = vi.hoisted(() => ({
   mockSendAssignmentNotification: vi.fn()
 }))
@@ -30,12 +41,14 @@ const { mockSendReminderNotification } = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/email', () => ({
   sendReminderNotification: mockSendReminderNotification,
+  sendTemplateReviewReminder: mockSendReviewReminder,
   sendAssignmentNotification: mockSendAssignmentNotification
 }))
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
-    assignment: { updateMany: vi.fn() }
+    assignment: { updateMany: vi.fn() },
+    documentTemplate: { updateMany: vi.fn() }
   }
 }))
 vi.mock('@/lib/prisma', () => ({ default: mockPrisma }))
@@ -66,9 +79,12 @@ beforeEach(() => {
   process.env.NEXTAUTH_URL = 'https://portal.example.com'
   mockGetAssignmentsNeedingReminders.mockResolvedValue([])
   mockRenewExpiringCompletions.mockResolvedValue([])
+  mockGetReviewReminders.mockResolvedValue([])
+  mockSendReviewReminder.mockResolvedValue(undefined)
   mockSendAssignmentNotification.mockResolvedValue(undefined)
   mockSendReminderNotification.mockResolvedValue(undefined)
   mockPrisma.assignment.updateMany.mockResolvedValue({ count: 0 })
+  mockPrisma.documentTemplate.updateMany.mockResolvedValue({ count: 0 })
 })
 
 // ---------------------------------------------------------------------------
@@ -76,6 +92,32 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('GET /api/cron/reminders', () => {
+  it('emails template review reminders and reports the count', async () => {
+    mockGetReviewReminders.mockResolvedValue([
+      {
+        templateId: 't1',
+        templateTitle: 'Fire Policy',
+        reviewDueAt: '2026-10-29T00:00:00.000Z',
+        isCompanyTemplate: false,
+        recipients: [{ email: 'simon@h.com', name: 'Simon' }]
+      }
+    ])
+    const res = await cronReminders(getRequest('Bearer test-secret'))
+    expect(res.status).toBe(200)
+    expect((await res.json()).reviewReminders).toBe(1)
+    expect(mockPrisma.documentTemplate.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['t1'] } },
+      data: { lastReviewReminderAt: expect.any(Date) }
+    })
+    expect(mockSendReviewReminder).toHaveBeenCalledWith(
+      [{ email: 'simon@h.com', name: 'Simon' }],
+      'Fire Policy',
+      '2026-10-29T00:00:00.000Z',
+      'https://portal.example.com',
+      false
+    )
+  })
+
   it('returns 401 when Authorization header is missing', async () => {
     const res = await cronReminders(getRequest())
     expect(res.status).toBe(401)

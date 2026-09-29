@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import {
   sendAssignmentNotification,
-  sendReminderNotification
+  sendReminderNotification,
+  sendTemplateReviewReminder
 } from '@/lib/email'
 import prisma from '@/lib/prisma'
 import { getAssignmentsNeedingReminders } from '@/lib/reminders'
 import { renewExpiringCompletions } from '@/lib/renewals'
+import { getTemplatesNeedingReviewReminders } from '@/lib/template-reviews'
 
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET
@@ -54,8 +56,32 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    const reviewTargets = await getTemplatesNeedingReviewReminders(new Date())
+    await Promise.all(
+      reviewTargets.map((t) =>
+        sendTemplateReviewReminder(
+          t.recipients,
+          t.templateTitle,
+          t.reviewDueAt,
+          process.env.NEXTAUTH_URL ?? '',
+          t.isCompanyTemplate
+        )
+      )
+    )
+
+    if (reviewTargets.length > 0) {
+      await prisma.documentTemplate.updateMany({
+        where: { id: { in: reviewTargets.map((t) => t.templateId) } },
+        data: { lastReviewReminderAt: new Date() }
+      })
+    }
+
     const sent = targets.reduce((sum, t) => sum + t.recipients.length, 0)
-    return NextResponse.json({ sent, renewed: renewals.length })
+    return NextResponse.json({
+      sent,
+      renewed: renewals.length,
+      reviewReminders: reviewTargets.length
+    })
   } catch (error) {
     console.error('Reminder cron error:', error)
     return NextResponse.json(

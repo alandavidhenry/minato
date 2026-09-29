@@ -35,6 +35,7 @@ export interface AssignmentWithTemplate extends AssignmentData {
     uploadMode: DocumentTemplateUploadMode | null
     sourceDocBlobPath: string | null
     sourceDocFileName: string | null
+    reviewDueAt: string | null
   }
 }
 
@@ -64,6 +65,7 @@ type PrismaAssignmentWithTemplate = PrismaAssignment & {
     uploadMode: string | null
     sourceDocBlobPath: string | null
     sourceDocFileName: string | null
+    reviewDueAt: Date | null
   }
 }
 
@@ -88,7 +90,8 @@ const TEMPLATE_SELECT = {
   sourceType: true,
   uploadMode: true,
   sourceDocBlobPath: true,
-  sourceDocFileName: true
+  sourceDocFileName: true,
+  reviewDueAt: true
 } as const
 
 function toAssignmentData(a: PrismaAssignment): AssignmentData {
@@ -131,7 +134,8 @@ function toAssignmentWithTemplate(
       formSchema: (a.template.formSchema as FormSchema | null) ?? null,
       questions,
       sourceType: a.template.sourceType as DocumentTemplateSourceType,
-      uploadMode: a.template.uploadMode as DocumentTemplateUploadMode | null
+      uploadMode: a.template.uploadMode as DocumentTemplateUploadMode | null,
+      reviewDueAt: a.template.reviewDueAt?.toISOString() ?? null
     }
   }
 }

@@ -40,7 +40,7 @@ These are gaps inside the existing purpose. They're ranked by how likely a real 
 
 **Why it matters for subscriptions:** this is the feature that makes the platform *recurring* by nature. Customers who rely on annual re-sign-off never have a reason to cancel.
 
-### 2.2 Template review dates
+### 2.2 Template review dates — ✅ built (P24; see `future-considerations.md` for what's deferred)
 **Gap:** There's nothing to remind Simon that a policy is due its annual review. Regulators and auditors expect documents to show a review date.
 
 **Proposal:** add `DocumentTemplate.reviewDueAt` and `reviewOwnerId`, with a default of 12 months after publish. Show a "Templates due for review" tile on the dashboard, send an email to the owner at 30/7/0 days, and print the review date on the document and signed PDF. Publishing a new version, or clicking "Reviewed — no changes", resets the date. "Reviewed — no changes" logs a history entry without bumping the version or triggering re-signing.

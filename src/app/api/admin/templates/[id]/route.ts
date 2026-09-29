@@ -8,6 +8,7 @@ import {
   getDocumentTemplateById,
   updateDocumentTemplate
 } from '@/lib/document-templates'
+import { isValidReviewPeriod } from '@/lib/review-dates'
 import { ADMIN_ROLES } from '@/types/rbac'
 
 async function checkAdminPermission() {
@@ -59,6 +60,16 @@ export async function PATCH(
   try {
     const { id } = await params
     const updates = await request.json()
+
+    if (
+      updates.reviewPeriodMonths !== undefined &&
+      !isValidReviewPeriod(updates.reviewPeriodMonths)
+    ) {
+      return NextResponse.json(
+        { error: 'reviewPeriodMonths must be a whole number of months, 1-120' },
+        { status: 400 }
+      )
+    }
 
     const success = await updateDocumentTemplate(id, updates)
 

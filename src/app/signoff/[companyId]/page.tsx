@@ -27,6 +27,7 @@ interface Assignment {
     id: string
     title: string
     description: string | null
+    reviewDueAt: string | null
   }
 }
 
@@ -165,6 +166,14 @@ export default function KioskPage() {
                         {a.template.description && (
                           <p className='text-sm text-muted-foreground'>
                             {a.template.description}
+                          </p>
+                        )}
+                        {a.template.reviewDueAt && (
+                          <p className='text-xs text-muted-foreground'>
+                            Review date:{' '}
+                            {new Date(
+                              a.template.reviewDueAt
+                            ).toLocaleDateString('en-GB')}
                           </p>
                         )}
                         {a.dueDate && (

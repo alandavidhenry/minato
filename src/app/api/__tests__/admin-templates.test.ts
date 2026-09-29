@@ -175,6 +175,30 @@ describe('POST /api/admin/templates', () => {
     expect((await res.json()).error).toMatch(/title/i)
   })
 
+  it('returns 400 for an invalid reviewPeriodMonths', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest('http://localhost/api/admin/templates', 'POST', {
+      title: 'Checklist',
+      reviewPeriodMonths: 0
+    })
+    const res = await createTemplate(req)
+    expect(res.status).toBe(400)
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('passes a valid reviewPeriodMonths through to creation', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest('http://localhost/api/admin/templates', 'POST', {
+      title: 'Checklist',
+      reviewPeriodMonths: 6
+    })
+    const res = await createTemplate(req)
+    expect(res.status).toBe(200)
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ reviewPeriodMonths: 6 })
+    )
+  })
+
   it('returns 200 with new template', async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
     const req = jsonRequest('http://localhost/api/admin/templates', 'POST', {
@@ -260,6 +284,30 @@ describe('PATCH /api/admin/templates/[id]', () => {
     )
     const res = await updateTemplate(req, params('template_123'))
     expect(res.status).toBe(403)
+  })
+
+  it('returns 400 for an invalid reviewPeriodMonths', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    for (const reviewPeriodMonths of [0, 121, 1.5, '12']) {
+      const req = jsonRequest(
+        'http://localhost/api/admin/templates/template_123',
+        'PATCH',
+        { reviewPeriodMonths }
+      )
+      const res = await updateTemplate(req, params('template_123'))
+      expect(res.status).toBe(400)
+    }
+  })
+
+  it('accepts a valid reviewPeriodMonths', async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION)
+    const req = jsonRequest(
+      'http://localhost/api/admin/templates/template_123',
+      'PATCH',
+      { reviewPeriodMonths: 6 }
+    )
+    const res = await updateTemplate(req, params('template_123'))
+    expect(res.status).toBe(200)
   })
 
   it('returns 200 on success', async () => {

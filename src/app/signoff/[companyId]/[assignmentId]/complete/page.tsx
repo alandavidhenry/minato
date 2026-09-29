@@ -26,6 +26,7 @@ interface AssignmentTemplate {
   description: string | null
   formSchema: FormSchema | null
   questions: ComprehensionQuestionForClient[] | null
+  reviewDueAt: string | null
 }
 
 interface KioskAssignment {
@@ -287,6 +288,14 @@ export default function KioskCompletePage() {
         {assignment.template.description && (
           <p className='mt-1 text-muted-foreground'>
             {assignment.template.description}
+          </p>
+        )}
+        {assignment.template.reviewDueAt && (
+          <p className='mt-1 text-sm text-muted-foreground'>
+            Document review date:{' '}
+            {new Date(assignment.template.reviewDueAt).toLocaleDateString(
+              'en-GB'
+            )}
           </p>
         )}
       </div>

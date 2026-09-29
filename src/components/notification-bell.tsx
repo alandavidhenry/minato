@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertTriangle, Bell } from 'lucide-react'
+import { AlertTriangle, Bell, ClipboardCheck } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
@@ -29,6 +29,7 @@ export function NotificationBell() {
   const { isAdmin, hasRole } = useRBAC()
   const isCustomerAdmin = hasRole(UserRole.CUSTOMER_ADMIN)
   const [overdueCount, setOverdueCount] = useState(0)
+  const [reviewCount, setReviewCount] = useState(0)
 
   useEffect(() => {
     if (!isAdmin && !isCustomerAdmin) return
@@ -41,13 +42,24 @@ export function NotificationBell() {
           const res = await fetch('/api/admin/dashboard/stats')
           if (!res.ok) return
           const data = await res.json()
-          if (!cancelled) setOverdueCount(data.overdue ?? 0)
-        } else {
-          const res = await fetch('/api/customer/admin/completions')
-          if (!res.ok) return
-          const data: { groups: CompletionGroup[] } = await res.json()
           if (!cancelled) {
-            setOverdueCount(data.groups.filter((g) => g.isOverdue).length)
+            setOverdueCount(data.overdue ?? 0)
+            setReviewCount(data.templatesDueForReview ?? 0)
+          }
+        } else {
+          const [res, reviewRes] = await Promise.all([
+            fetch('/api/customer/admin/completions'),
+            fetch('/api/customer/admin/templates/review-due')
+          ])
+          if (res.ok) {
+            const data: { groups: CompletionGroup[] } = await res.json()
+            if (!cancelled) {
+              setOverdueCount(data.groups.filter((g) => g.isOverdue).length)
+            }
+          }
+          if (reviewRes.ok) {
+            const data: { count: number } = await reviewRes.json()
+            if (!cancelled) setReviewCount(data.count)
           }
         }
       } catch {
@@ -69,6 +81,8 @@ export function NotificationBell() {
   const href = isAdmin
     ? '/admin/completions/outstanding?overdueOnly=true'
     : '/customer/admin/completions'
+  const reviewHref = isAdmin ? '/admin/templates' : '/customer/admin/templates'
+  const totalCount = overdueCount + reviewCount
 
   return (
     <DropdownMenu>
@@ -77,18 +91,18 @@ export function NotificationBell() {
           variant='ghost'
           size='icon'
           className='relative'
-          aria-label='Overdue completions'
+          aria-label='Notifications'
         >
           <Bell className='h-5 w-5' />
-          {overdueCount > 0 && (
+          {totalCount > 0 && (
             <span className='absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground'>
-              {overdueCount > 99 ? '99+' : overdueCount}
+              {totalCount > 99 ? '99+' : totalCount}
             </span>
           )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' className='w-64'>
-        <DropdownMenuLabel>Overdue completions</DropdownMenuLabel>
+        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href={href} className='flex items-center gap-2'>
@@ -96,6 +110,14 @@ export function NotificationBell() {
             {overdueCount > 0
               ? `${overdueCount} assignment${overdueCount === 1 ? '' : 's'} overdue`
               : 'No overdue completions'}
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={reviewHref} className='flex items-center gap-2'>
+            <ClipboardCheck className='h-4 w-4 text-warning' />
+            {reviewCount > 0
+              ? `${reviewCount} template${reviewCount === 1 ? '' : 's'} due for review`
+              : 'No templates due for review'}
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>

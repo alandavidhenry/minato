@@ -36,6 +36,11 @@ import {
   MAX_COMPLETION_RETENTION_YEARS,
   MIN_COMPLETION_RETENTION_YEARS
 } from '@/lib/data-retention'
+import {
+  DEFAULT_REVIEW_MONTHS,
+  MAX_REVIEW_MONTHS,
+  MIN_REVIEW_MONTHS
+} from '@/lib/review-dates'
 import type { ProfilePermissions } from '@/lib/user-database'
 
 type GeneralSettingValue = string | boolean
@@ -193,6 +198,52 @@ export default function AdminSettingsPage() {
     }
   }
 
+  const [reviewPeriodMonths, setReviewPeriodMonths] = useState(
+    DEFAULT_REVIEW_MONTHS
+  )
+  const [isLoadingReview, setIsLoadingReview] = useState(true)
+  const [isSavingReview, setIsSavingReview] = useState(false)
+
+  const fetchReviewPeriod = useCallback(async () => {
+    setIsLoadingReview(true)
+    try {
+      const res = await fetch('/api/admin/settings/review-period')
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setReviewPeriodMonths(data.reviewPeriodMonths)
+    } catch {
+      // keep default
+    } finally {
+      setIsLoadingReview(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchReviewPeriod()
+  }, [fetchReviewPeriod])
+
+  async function handleSaveReview(e: React.FormEvent) {
+    e.preventDefault()
+    setIsSavingReview(true)
+    try {
+      const res = await fetch('/api/admin/settings/review-period', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewPeriodMonths })
+      })
+      if (!res.ok) throw new Error()
+      toast({ title: 'Success', description: 'Default review period saved.' })
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to save the default review period.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsSavingReview(false)
+    }
+  }
+
   const [securitySettings, setSecuritySettings] = useState({
     passwordMinLength: 8,
     passwordExpireDays: 90,
@@ -250,6 +301,7 @@ export default function AdminSettingsPage() {
           <TabsTrigger value='profiles'>User Profiles</TabsTrigger>
           <TabsTrigger value='retention'>Data Retention</TabsTrigger>
           <TabsTrigger value='renewals'>Renewals</TabsTrigger>
+          <TabsTrigger value='reviews'>Reviews</TabsTrigger>
         </TabsList>
 
         {/* General Settings */}
@@ -674,6 +726,73 @@ export default function AdminSettingsPage() {
                   disabled={isSavingRenewal || isLoadingRenewal}
                 >
                   {isSavingRenewal ? (
+                    <>
+                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <Save className='mr-2 h-4 w-4' />
+                      Save
+                    </>
+                  )}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </TabsContent>
+        {/* Template review period */}
+        <TabsContent value='reviews'>
+          <Card>
+            <form onSubmit={handleSaveReview}>
+              <CardHeader>
+                <CardTitle className='flex items-center gap-2'>
+                  <RefreshCw className='h-5 w-5' />
+                  Template Reviews
+                </CardTitle>
+                <CardDescription>
+                  How many months after a template is created, published or
+                  reviewed it is next due for review. This is the default for
+                  new templates; existing templates keep their own period, and
+                  any template can override it.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className='space-y-4'>
+                {isLoadingReview ? (
+                  <div className='flex items-center gap-2 text-muted-foreground text-sm'>
+                    <Loader2 className='h-4 w-4 animate-spin' />
+                    Loading…
+                  </div>
+                ) : (
+                  <div className='grid gap-2'>
+                    <Label htmlFor='reviewPeriodMonths'>
+                      Default review period (months)
+                    </Label>
+                    <Input
+                      id='reviewPeriodMonths'
+                      type='number'
+                      min={MIN_REVIEW_MONTHS}
+                      max={MAX_REVIEW_MONTHS}
+                      className='w-32'
+                      value={reviewPeriodMonths}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setReviewPeriodMonths(
+                          Number.parseInt(e.target.value) || 0
+                        )
+                      }
+                      disabled={isSavingReview}
+                    />
+                  </div>
+                )}
+              </CardContent>
+
+              <CardFooter>
+                <Button
+                  type='submit'
+                  disabled={isSavingReview || isLoadingReview}
+                >
+                  {isSavingReview ? (
                     <>
                       <Loader2 className='mr-2 h-4 w-4 animate-spin' />
                       Saving…

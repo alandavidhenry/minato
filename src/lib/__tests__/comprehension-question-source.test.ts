@@ -36,6 +36,10 @@ function baseTemplate(
     sourceDocBlobPath: null,
     sourceDocOriginalBlobPath: null,
     sourceDocFileName: null,
+    reviewDueAt: null,
+    reviewPeriodMonths: 12,
+    reviewOwnerId: null,
+    lastReviewedAt: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides

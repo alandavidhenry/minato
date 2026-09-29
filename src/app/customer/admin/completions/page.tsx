@@ -4,6 +4,7 @@ import { Download, FileCheck, Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { CustomerAdminPageGuard } from '@/components/auth/permission-guard'
+import { ReviewDueCard } from '@/components/customer/review-due-card'
 import { WelcomeHeader } from '@/components/customer/welcome-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -353,6 +354,8 @@ function TeamCompletionsContent() {
           Export CSV
         </Button>
       </div>
+
+      <ReviewDueCard />
 
       <div className='flex flex-wrap items-center gap-4'>
         <Input

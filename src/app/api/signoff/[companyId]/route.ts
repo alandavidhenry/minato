@@ -57,7 +57,8 @@ export async function GET(
               description: a.template.description,
               blobPath: a.template.blobPath,
               formSchema: a.template.formSchema,
-              questions: a.template.questions
+              questions: a.template.questions,
+              reviewDueAt: a.template.reviewDueAt
             }
           }))
         }

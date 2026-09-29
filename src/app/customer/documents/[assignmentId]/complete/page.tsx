@@ -53,6 +53,7 @@ interface AssignmentTemplate {
   sourceType: DocumentTemplateSourceType
   uploadMode: DocumentTemplateUploadMode | null
   sourceDocFileName: string | null
+  reviewDueAt: string | null
 }
 
 interface Assignment {
@@ -335,7 +336,13 @@ export default function CompleteDocumentPage() {
     <div className='max-w-2xl mx-auto space-y-6 p-6'>
       <PageHeader
         title={assignment.template.title}
-        description={assignment.template.description}
+        description={[
+          assignment.template.description,
+          assignment.template.reviewDueAt &&
+            `Document review date: ${new Date(assignment.template.reviewDueAt).toLocaleDateString('en-GB')}`
+        ]
+          .filter(Boolean)
+          .join(' · ')}
         backHref='/customer/documents'
         backLabel='Back to Documents'
       />

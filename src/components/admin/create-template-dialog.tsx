@@ -3,6 +3,7 @@
 import { Loader2, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 
+import { ReviewPeriodSelect } from '@/components/review-period-select'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -56,6 +57,9 @@ export function CreateTemplateDialog({
     description: '',
     category: 'General' as DocumentTemplateCategory
   })
+  const [reviewPeriodMonths, setReviewPeriodMonths] = useState<number | null>(
+    null
+  )
   const [sourceType, setSourceType] =
     useState<DocumentTemplateSourceType>('form')
   const [uploadMode, setUploadMode] =
@@ -75,6 +79,7 @@ export function CreateTemplateDialog({
 
   function resetState() {
     setFormData({ title: '', description: '', category: 'General' })
+    setReviewPeriodMonths(null)
     setSourceType('form')
     setUploadMode('read-only')
     setUploadedDocument(null)
@@ -143,6 +148,7 @@ export function CreateTemplateDialog({
           title: formData.title.trim(),
           description: formData.description.trim() || undefined,
           category: formData.category,
+          ...(reviewPeriodMonths !== null && { reviewPeriodMonths }),
           sourceType,
           ...(sourceType === 'upload' &&
             uploadedDocument && {
@@ -230,6 +236,13 @@ export function CreateTemplateDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            <ReviewPeriodSelect
+              id='review-period'
+              value={reviewPeriodMonths}
+              onChange={setReviewPeriodMonths}
+              disabled={isLoading}
+            />
 
             <Separator />
 

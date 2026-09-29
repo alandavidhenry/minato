@@ -123,6 +123,7 @@ export interface CompletionPDFProps {
   signerEmail: string
   signedAt: Date
   validUntil?: Date | null
+  templateReviewDueAt?: Date | null
   companyName: string
   formSchema: FormSchema
   formData: Record<string, unknown>
@@ -169,6 +170,7 @@ export function CompletionDocument({
   signerEmail,
   signedAt,
   validUntil,
+  templateReviewDueAt,
   companyName,
   formSchema,
   formData,
@@ -201,6 +203,14 @@ export function CompletionDocument({
             <Text style={styles.metaLabel}>Completed at</Text>
             <Text style={styles.metaValue}>{formatDate(signedAt)}</Text>
           </View>
+          {templateReviewDueAt && (
+            <View style={styles.metaItem}>
+              <Text style={styles.metaLabel}>Document review date</Text>
+              <Text style={styles.metaValue}>
+                {formatValidUntil(templateReviewDueAt)}
+              </Text>
+            </View>
+          )}
           {validUntil && (
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>Valid until</Text>

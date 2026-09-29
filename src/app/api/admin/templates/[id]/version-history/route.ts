@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
 import { getDocumentTemplateById } from '@/lib/document-templates'
+import { getTemplateReviews } from '@/lib/template-reviews'
 import { getTemplateVersionHistory } from '@/lib/template-version-history'
 import { getUserById } from '@/lib/user-database'
 import { ADMIN_ROLES } from '@/types/rbac'
@@ -34,10 +35,14 @@ export async function GET(
     }
 
     const history = await getTemplateVersionHistory(id)
+    const reviewRows = await getTemplateReviews(id)
 
     const authorIds = [
       ...new Set(
-        history.map((h) => h.publishedBy).filter((v): v is string => v !== null)
+        [
+          ...history.map((h) => h.publishedBy),
+          ...reviewRows.map((r) => r.reviewedBy)
+        ].filter((v): v is string => v !== null)
       )
     ]
     const authors = await Promise.all(
@@ -84,7 +89,14 @@ export async function GET(
       (a, b) => b.version - a.version
     )
 
-    return NextResponse.json({ entries })
+    const reviews = reviewRows.map((r) => ({
+      ...r,
+      reviewedByName: r.reviewedBy
+        ? (authorNames.get(r.reviewedBy) ?? null)
+        : null
+    }))
+
+    return NextResponse.json({ entries, reviews })
   } catch (error) {
     console.error('Error getting template version history:', error)
     return NextResponse.json(

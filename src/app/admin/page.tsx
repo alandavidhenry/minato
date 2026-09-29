@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Building2,
   CheckCircle2,
+  ClipboardCheck,
   ClipboardList,
   FileText,
   Shield,
@@ -26,6 +27,7 @@ interface KPIs {
   completedThisWeek: number
   outstanding: number
   overdue: number
+  templatesDueForReview: number
 }
 
 interface SecondaryStats {
@@ -68,7 +70,8 @@ export default function AdminDashboardPage() {
     completedThisMonth: 0,
     completedThisWeek: 0,
     outstanding: 0,
-    overdue: 0
+    overdue: 0,
+    templatesDueForReview: 0
   })
   const [stats, setStats] = useState<SecondaryStats>({
     totalUsers: 0,
@@ -144,7 +147,7 @@ export default function AdminDashboardPage() {
       />
 
       {/* Compliance KPI tiles */}
-      <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-5'>
+      <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6'>
         <Link href='/admin/assignments'>
           <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
             <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
@@ -241,6 +244,26 @@ export default function AdminDashboardPage() {
               ) : (
                 <div className='text-2xl font-bold text-destructive'>
                   {kpis.overdue}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href='/admin/templates'>
+          <Card className='cursor-pointer transition-colors hover:bg-muted/50'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <CardTitle className='font-mono text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+                Templates Due for Review
+              </CardTitle>
+              <ClipboardCheck className='h-4 w-4 text-warning' />
+            </CardHeader>
+            <CardContent>
+              {kpisLoading ? (
+                <div className='h-8 w-16 animate-pulse rounded bg-muted' />
+              ) : (
+                <div className='text-2xl font-bold text-warning'>
+                  {kpis.templatesDueForReview}
                 </div>
               )}
             </CardContent>

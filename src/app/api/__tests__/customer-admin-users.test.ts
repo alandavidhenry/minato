@@ -57,7 +57,12 @@ describe('GET /api/customer/admin/users', () => {
     expect(mockGetUsersByCompany).toHaveBeenCalledWith('company_123')
     const body = await res.json()
     expect(body.users).toEqual([
-      { id: 'user_123', displayName: 'Test User', jobRole: 'Site Manager' }
+      {
+        id: 'user_123',
+        displayName: 'Test User',
+        role: 'Customer User',
+        jobRole: 'Site Manager'
+      }
     ])
   })
 })

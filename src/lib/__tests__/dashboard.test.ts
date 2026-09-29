@@ -10,7 +10,8 @@ const { mockPrisma } = vi.hoisted(() => {
   const mockPrisma = {
     assignment: { count: vi.fn(), findMany: vi.fn() },
     completionRecord: { count: vi.fn() },
-    user: { groupBy: vi.fn() }
+    user: { groupBy: vi.fn() },
+    documentTemplate: { count: vi.fn() }
   }
   return { mockPrisma }
 })
@@ -22,6 +23,7 @@ beforeEach(() => {
   mockPrisma.completionRecord.count.mockResolvedValue(0)
   mockPrisma.assignment.findMany.mockResolvedValue([])
   mockPrisma.user.groupBy.mockResolvedValue([])
+  mockPrisma.documentTemplate.count.mockResolvedValue(0)
 })
 
 afterEach(() => {
@@ -36,7 +38,21 @@ describe('getDashboardKPIs', () => {
       completedThisMonth: 0,
       completedThisWeek: 0,
       outstanding: 0,
-      overdue: 0
+      overdue: 0,
+      templatesDueForReview: 0
+    })
+  })
+
+  it('counts tenant-library templates overdue or due for review within 30 days', async () => {
+    vi.setSystemTime(new Date('2026-09-30T12:00:00.000Z'))
+    mockPrisma.documentTemplate.count.mockResolvedValue(4)
+    const result = await getDashboardKPIs()
+    expect(result.templatesDueForReview).toBe(4)
+    expect(mockPrisma.documentTemplate.count).toHaveBeenCalledWith({
+      where: {
+        ownerCompanyId: null,
+        reviewDueAt: { lte: new Date('2026-10-30T12:00:00.000Z') }
+      }
     })
   })
 

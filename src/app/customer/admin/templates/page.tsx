@@ -1,24 +1,36 @@
 'use client'
 
-import { Pencil, Plus, Send, Trash2, Users } from 'lucide-react'
+import {
+  CalendarClock,
+  CheckCheck,
+  Pencil,
+  Plus,
+  Send,
+  Trash2,
+  Users
+} from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { CreateTemplateDialog } from '@/components/admin/create-template-dialog'
 import { EditTemplateDialog } from '@/components/admin/edit-template-dialog'
+import { ReviewSettingsDialog } from '@/components/admin/review-settings-dialog'
 import { AssignCompanyTemplateDialog } from '@/components/customer/assign-company-template-dialog'
+import { CompanyReviewPeriodDialog } from '@/components/customer/company-review-period-dialog'
 import { PageHeader } from '@/components/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table/data-table'
 import type { dataTableFeatures } from '@/components/ui/data-table/table-features'
 import { toast } from '@/components/ui/use-toast'
+import { getReviewStatus } from '@/lib/review-dates'
 import type { ComprehensionQuestion } from '@/types/comprehension-question'
 import type {
   DocumentTemplateSourceType,
   DocumentTemplateUploadMode
 } from '@/types/document-template'
 import type { FormField } from '@/types/form-schema'
+import { UserRole } from '@/types/rbac'
 
 import type { ColumnDef } from '@tanstack/react-table'
 
@@ -35,9 +47,14 @@ interface Template {
   sourceType: DocumentTemplateSourceType
   uploadMode: DocumentTemplateUploadMode | null
   sourceDocFileName: string | null
+  reviewDueAt: string | null
+  reviewOwnerId: string | null
+  reviewPeriodMonths: number
+  lastReviewedAt: string | null
 }
 
 const API_BASE = '/api/customer/admin/templates'
+const REVIEW_OWNER_ROLES = [UserRole.CUSTOMER_ADMIN]
 
 export default function CompanyTemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([])
@@ -48,6 +65,10 @@ export default function CompanyTemplatesPage() {
   const [assigningTemplate, setAssigningTemplate] = useState<Template | null>(
     null
   )
+  const [reviewSettingsTemplate, setReviewSettingsTemplate] =
+    useState<Template | null>(null)
+  const [isSavingReview, setIsSavingReview] = useState(false)
+  const [showReviewDefault, setShowReviewDefault] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -118,6 +139,68 @@ export default function CompanyTemplatesPage() {
     toast({ title: 'Success', description: 'Template saved.' })
   }
 
+  async function saveReviewSettings(values: {
+    reviewOwnerId: string | null
+    reviewDueAt: string
+    reviewPeriodMonths: number
+  }) {
+    if (!reviewSettingsTemplate) return
+    const { id } = reviewSettingsTemplate
+    setIsSavingReview(true)
+    try {
+      const response = await fetch(`${API_BASE}/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values)
+      })
+      if (!response.ok) throw new Error('Failed to save review settings')
+      setTemplates((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, ...values } : t))
+      )
+      setReviewSettingsTemplate(null)
+      toast({ title: 'Review settings saved' })
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to save review settings.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsSavingReview(false)
+    }
+  }
+
+  async function markReviewed(id: string, title: string) {
+    try {
+      const response = await fetch(`${API_BASE}/${id}/review`, {
+        method: 'POST'
+      })
+      if (!response.ok) throw new Error('Failed to record review')
+      const { template } = await response.json()
+      setTemplates((prev) =>
+        prev.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                reviewDueAt: template.reviewDueAt,
+                lastReviewedAt: template.lastReviewedAt
+              }
+            : t
+        )
+      )
+      toast({
+        title: 'Marked as reviewed',
+        description: `"${title}" — no changes; next review date set.`
+      })
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to record the review.',
+        variant: 'destructive'
+      })
+    }
+  }
+
   function handleAssigned() {
     fetchData()
     setAssigningTemplate(null)
@@ -162,6 +245,32 @@ export default function CompanyTemplatesPage() {
       )
     },
     {
+      id: 'review',
+      header: 'Review due',
+      accessorFn: (t) => t.reviewDueAt ?? '',
+      cell: ({ row }) => {
+        const { reviewDueAt } = row.original
+        if (!reviewDueAt)
+          return <span className='text-muted-foreground'>—</span>
+        const status = getReviewStatus(reviewDueAt)
+        return (
+          <div className='flex items-center gap-2 whitespace-nowrap'>
+            {new Date(reviewDueAt).toLocaleDateString('en-GB')}
+            {status === 'overdue' && (
+              <Badge variant='destructive' className='text-xs'>
+                Overdue
+              </Badge>
+            )}
+            {status === 'due-soon' && (
+              <Badge variant='secondary' className='text-xs'>
+                Due soon
+              </Badge>
+            )}
+          </div>
+        )
+      }
+    },
+    {
       id: 'actions',
       header: 'Actions',
       enableSorting: false,
@@ -179,6 +288,22 @@ export default function CompanyTemplatesPage() {
               onClick={() => setAssigningTemplate(template)}
             >
               <Send className='h-4 w-4' />
+            </Button>
+            <Button
+              variant='ghost'
+              size='sm'
+              title='Review settings'
+              onClick={() => setReviewSettingsTemplate(template)}
+            >
+              <CalendarClock className='h-4 w-4' />
+            </Button>
+            <Button
+              variant='ghost'
+              size='sm'
+              title='Reviewed — no changes'
+              onClick={() => markReviewed(template.id, template.title)}
+            >
+              <CheckCheck className='h-4 w-4' />
             </Button>
             <Button
               variant='ghost'
@@ -213,6 +338,13 @@ export default function CompanyTemplatesPage() {
                 Team Compliance
               </Link>
             </Button>
+            <Button
+              variant='outline'
+              onClick={() => setShowReviewDefault(true)}
+            >
+              <CalendarClock className='mr-2 h-4 w-4' />
+              Review period
+            </Button>
             <Button onClick={() => setShowCreateDialog(true)}>
               <Plus className='mr-2 h-4 w-4' />
               New Template
@@ -244,6 +376,29 @@ export default function CompanyTemplatesPage() {
         template={editingTemplate}
         onTemplateSaved={handleTemplateSaved}
         apiBasePath={API_BASE}
+      />
+
+      <ReviewSettingsDialog
+        open={reviewSettingsTemplate !== null}
+        onOpenChange={(open) => {
+          if (!open) setReviewSettingsTemplate(null)
+        }}
+        templateTitle={reviewSettingsTemplate?.title ?? ''}
+        reviewOwnerId={reviewSettingsTemplate?.reviewOwnerId ?? null}
+        reviewDueAt={reviewSettingsTemplate?.reviewDueAt ?? null}
+        reviewPeriodMonths={reviewSettingsTemplate?.reviewPeriodMonths ?? 12}
+        lastReviewedAt={reviewSettingsTemplate?.lastReviewedAt ?? null}
+        isSubmitting={isSavingReview}
+        usersEndpoint='/api/customer/admin/users'
+        ownerRoles={REVIEW_OWNER_ROLES}
+        noOwnerLabel='No owner (no reminders)'
+        noOwnerHint='With no owner, nobody is emailed a reminder.'
+        onSave={saveReviewSettings}
+      />
+
+      <CompanyReviewPeriodDialog
+        open={showReviewDefault}
+        onOpenChange={setShowReviewDefault}
       />
 
       <AssignCompanyTemplateDialog

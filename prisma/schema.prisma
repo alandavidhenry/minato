@@ -24,6 +24,7 @@ model Tenant {
   createdAt                 DateTime @default(now())
   profilePermissions        Json? // ProfilePermissions: which fields customer users may self-edit
   renewalLeadDays           Int      @default(30) // recurring sign-offs: how many days before expiry the next cycle opens and "Expiring soon" is flagged
+  reviewPeriodMonths        Int      @default(12) // default months between template reviews for newly created templates
   completionRetentionYears  Int      @default(5) // years a signed CompletionRecord must be retained before an admin may delete it (UK H&S guidance: 3-5 years)
 
   users             User[]
@@ -87,6 +88,7 @@ model CustomerCompany {
   name       String
   tenantId   String?
   folderPath String? // blob storage folder path; auto-set on creation
+  reviewPeriodMonths Int? // company's own default review period for its self-serve templates; null = inherit the tenant default
   createdAt  DateTime @default(now())
 
   tenant         Tenant?            @relation(fields: [tenantId], references: [id])
@@ -126,6 +128,11 @@ model DocumentTemplate {
   sourceDocBlobPath         String? // converted, served PDF; upload templates only
   sourceDocOriginalBlobPath String? // retained Word original, for renewal edits; upload templates only
   sourceDocFileName         String? // original filename, for display; upload templates only
+  reviewDueAt               DateTime? // next scheduled review (default 12 months after publish); reset by publishing a version or "Reviewed - no changes"
+  reviewPeriodMonths        Int      @default(12) // months between reviews; used to set reviewDueAt on create/publish/review
+  reviewOwnerId             String? // userId of the admin responsible for the review; receives the 30/7/0-day reminder emails
+  lastReviewedAt            DateTime? // when the template was last reviewed or re-published
+  lastReviewReminderAt      DateTime? // when the owner was last emailed about this review; cleared whenever the review date is reset
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
@@ -133,6 +140,20 @@ model DocumentTemplate {
   ownerCompany   CustomerCompany?         @relation(fields: [ownerCompanyId], references: [id])
   assignments    Assignment[]
   versionHistory TemplateVersionHistory[]
+  reviews        TemplateReview[]
+}
+
+// Audit entry for a "Reviewed - no changes" sign-off on a template. Does not
+// bump DocumentTemplate.version or trigger re-signing (unlike publishing).
+model TemplateReview {
+  id         String   @id @default(cuid())
+  templateId String
+  version    Int // template version that was reviewed
+  reviewedAt DateTime @default(now())
+  reviewedBy String? // userId
+  note       String?
+
+  template DocumentTemplate @relation(fields: [templateId], references: [id])
 }
 
 // Records the content of a DocumentTemplate as it was at a superseded version.

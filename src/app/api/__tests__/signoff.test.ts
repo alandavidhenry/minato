@@ -114,7 +114,8 @@ const ASSIGNMENT = {
     description: null,
     blobPath: null,
     formSchema: null,
-    questions: null
+    questions: null,
+    reviewDueAt: '2027-01-01T00:00:00.000Z'
   }
 }
 
@@ -182,6 +183,9 @@ describe('GET /api/signoff/[companyId]', () => {
     expect(body.workers[0].displayName).toBe('Bob')
     expect(body.workers[0].assignments).toHaveLength(1)
     expect(body.workers[0].assignments[0].template.title).toBe('Safety Doc')
+    expect(body.workers[0].assignments[0].template.reviewDueAt).toBe(
+      '2027-01-01T00:00:00.000Z'
+    )
   })
 
   it('returns 404 when company not found', async () => {

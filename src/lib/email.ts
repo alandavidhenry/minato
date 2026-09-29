@@ -90,3 +90,30 @@ export async function sendReminderNotification(
           `
   )
 }
+
+export async function sendTemplateReviewReminder(
+  recipients: AssignmentRecipient[],
+  templateTitle: string,
+  reviewDueAt: string,
+  baseUrl: string,
+  isCompanyTemplate = false
+): Promise<void> {
+  const formattedDate = new Date(reviewDueAt).toLocaleDateString('en-GB')
+  const isDue = new Date(reviewDueAt).getTime() <= Date.now()
+  const subject = isDue
+    ? `Review due today: ${templateTitle}`
+    : `Review due ${formattedDate}: ${templateTitle}`
+
+  const link = `${baseUrl}${isCompanyTemplate ? '/customer/admin/templates' : '/admin/templates'}`
+
+  await sendEmails(
+    recipients,
+    subject,
+    (name) => `
+            <p>Hi ${name},</p>
+            <p>The template <strong>${templateTitle}</strong> is due for review on ${formattedDate}.</p>
+            <p>Publish a new version if it needs changes, or mark it "Reviewed - no changes" to restart the review date.</p>
+            <p><a href="${link}">Open templates</a></p>
+          `
+  )
+}
