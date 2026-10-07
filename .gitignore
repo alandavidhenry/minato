@@ -66,7 +66,8 @@ AzuriteConfig/
 __azurite_db_*.json
 
 # Claude Code
-.claude/
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # Others
 github_pat.txt
